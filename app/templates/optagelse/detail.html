@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ app.full_name }} — Ansøgning{% endblock %}
+{% block content %}
+  <h1>{{ app.full_name }}</h1>
+  <p class="muted">{{ app.get_type_display }} · {{ app.submitted_at|date:"Y-m-d H:i" }}</p>
+  <div class="card">
+    <p><strong>E-mail:</strong> {{ app.email }}</p>
+    <p><strong>Køn:</strong> {{ app.get_gender_display }}</p>
+    <p><strong>Alder:</strong> {{ app.age }}</p>
+    {% if app.type == "rundvisning" %}
+      <p><strong>Universitet:</strong> {{ app.university }} · <strong>Studieretning:</strong> {{ app.field_of_study }}</p>
+      <p><strong>Studieår:</strong> {{ app.study_year }} studeret, {{ app.year_left }} tilbage</p>
+    {% else %}
+      <p><strong>Beskæftigelse:</strong> {{ app.occupation }}</p>
+    {% endif %}
+    <p><strong>Hørt om os:</strong> {{ app.heard_about_us }}</p>
+    <p><strong>Motivation:</strong><br>{{ app.motivation|linebreaksbr }}</p>
+  </div>
+  {% if app.received_by %}
+    <p class="muted">Modtaget af {{ app.received_by.full_name }} {{ app.received_at|date:"Y-m-d H:i" }}.</p>
+  {% else %}
+    <form method="post" action="{% url 'admissions:setasreceived' app.pk %}">
+      {% csrf_token %}<button type="submit">Markér som modtaget</button>
+    </form>
+  {% endif %}
+  <p style="margin-top:1rem"><a href="{% url 'admissions:list' %}">‹ Alle ansøgninger</a></p>
+{% endblock %}

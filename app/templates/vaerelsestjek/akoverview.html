@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}AK — værelsesoversigt{% endblock %}
+{% block content %}
+  <h1>Værelsesoversigt (AK)</h1>
+  <table class="w-full border-collapse">
+    <thead><tr class="border-b border-gray-200"><th class="p-2">Værelse</th><th class="p-2">Seneste tjek</th><th class="p-2">Af</th></tr></thead>
+    <tbody>
+    {% for c in conditions %}
+      <tr class="border-b border-gray-100">
+        <td class="p-2"><a href="{% url 'vaerelsestjek:room' c.room.number %}">{{ c.room.number|stringformat:"03d" }}</a></td>
+        <td class="p-2">{{ c.recorded_at|date:"Y-m-d" }}</td>
+        <td class="p-2">{{ c.recorded_by_name }}</td>
+      </tr>
+    {% empty %}<tr><td colspan="3" class="muted p-2">Ingen tilstandsrapporter.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

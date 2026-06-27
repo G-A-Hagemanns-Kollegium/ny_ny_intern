@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+/* Scan the Django templates for class names (path is relative to THIS css file: frontend/src/). */
+@source "../../app/templates";
+
+/* Element defaults so existing templates (bare <button>/<input>/<table>) look right without rewrites. */
+@layer base {
+  body { font-family: "Ubuntu", system-ui, "Segoe UI", Roboto, sans-serif; }
+  h1 { @apply text-2xl font-bold my-3; }
+  h2 { @apply text-lg font-semibold my-2; }
+  label { @apply block font-semibold mt-3 mb-1; }
+  input[type=text], input[type=email], input[type=password], input[type=search],
+  input[type=number], textarea, select {
+    @apply w-full border border-gray-300 rounded-md p-2 bg-white;
+  }
+  th { @apply text-left; }
+}
+
+/* Semantic component classes used across templates (kept distinct from daisyUI's). */
+@layer components {
+  .card { @apply border border-gray-200 rounded-lg p-5 my-4 bg-white; }
+  .btn { @apply inline-block bg-emerald-600 text-white rounded-md px-4 py-2 cursor-pointer no-underline hover:bg-emerald-700; }
+  .muted { @apply text-gray-500; }
+  .errorlist { @apply text-red-600; }
+  .font-display { font-family: "Julius Sans One", sans-serif; }
+
+  /* Readable rendering for migrated CMS body HTML. */
+  .prose-gahk { @apply leading-relaxed text-gray-800; }
+  .prose-gahk p { @apply my-3; }
+  .prose-gahk h2 { @apply text-xl font-semibold mt-6 mb-2; }
+  .prose-gahk h3 { @apply text-lg font-semibold mt-4 mb-1; }
+  .prose-gahk ul { @apply list-disc ml-6 my-3; }
+  .prose-gahk ol { @apply list-decimal ml-6 my-3; }
+  .prose-gahk a { @apply text-emerald-700 underline; }
+  .prose-gahk img { @apply max-w-full h-auto rounded my-3; }
+}

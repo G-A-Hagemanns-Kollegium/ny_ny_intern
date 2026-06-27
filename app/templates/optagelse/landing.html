@@ -1,0 +1,10 @@
+{% extends "public_base.html" %}
+{% block title %}Optagelse — GAHK{% endblock %}
+{% block content %}
+  <h1>Optagelse</h1>
+  <p>Vil du bo på G. A. Hagemanns Kollegium? Anmod om en rundvisning, eller ansøg om fremleje.</p>
+  <p>
+    <a href="{% url 'admissions:ansoeg' %}"><button>Anmod om rundvisning</button></a>
+    <a href="{% url 'admissions:fremlej' %}" style="margin-left:.5rem"><button>Ansøg om fremleje</button></a>
+  </p>
+{% endblock %}

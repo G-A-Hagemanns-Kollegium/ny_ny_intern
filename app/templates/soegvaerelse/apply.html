@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Søg værelse — GAHK Intern{% endblock %}
+{% block content %}
+  <h1>Søg værelse</h1>
+  {% if not offered_rooms %}
+    <p class="muted">Der er ingen værelser i udbud lige nu.</p>
+  {% else %}
+  <form method="post" class="card max-w-xl">
+    {% csrf_token %}
+    <label>Ønsket måned (år / måned)</label>
+    <div class="flex gap-2">
+      <input type="number" name="target_year" placeholder="2026" required>
+      <input type="number" name="target_month" placeholder="8" min="1" max="12" required>
+    </div>
+    <label>Færdig med studie (år / måned)</label>
+    <div class="flex gap-2">
+      <input type="number" name="done_year" placeholder="2028" required>
+      <input type="number" name="done_month" placeholder="6" min="1" max="12" required>
+    </div>
+    <label>Orlov (antal måneder, valgfrit)</label>
+    <input type="number" name="orlov_months" value="0" min="0">
+    <label>Prioriteter</label>
+    {% for n in "12345" %}
+      <select name="priority">
+        <option value="">— Prioritet {{ forloop.counter }} —</option>
+        {% for room in offered_rooms %}<option value="{{ room.id }}">{{ room.number|stringformat:"03d" }} ({{ room.floor }})</option>{% endfor %}
+      </select>
+    {% endfor %}
+    <p class="mt-4"><button type="submit">Send ansøgning</button></p>
+  </form>
+  {% endif %}
+{% endblock %}

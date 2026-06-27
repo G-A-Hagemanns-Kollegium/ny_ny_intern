@@ -1,0 +1,19 @@
+{% extends "public_base.html" %}
+{% block title %}{{ title }} — GAHK{% endblock %}
+{% block content %}
+  <h1>{{ title }}</h1>
+  <div class="card" style="max-width:560px">
+    <form method="post" action="{% url post_url %}">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      {% for field in form.visible_fields %}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}<div class="errorlist">{{ field.errors }}</div>{% endif %}
+      {% endfor %}
+      {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+      <p style="margin-top:1rem"><button type="submit">Send</button></p>
+    </form>
+  </div>
+  {# TODO(prod): add Cloudflare Turnstile / reCAPTCHA v2 widget here (keys in env) — scope §4 #}
+{% endblock %}

@@ -1,0 +1,139 @@
+"""Django settings for the GAHK rewrite (config project).
+
+Schema/decisions: see ../02-schema-etl.md. Target DB is PostgreSQL (via DATABASE_URL);
+falls back to SQLite for local dev/validation when DATABASE_URL is unset.
+"""
+from pathlib import Path
+import os
+
+import dj_database_url
+from dotenv import load_dotenv
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
+
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-insecure-change-me")
+DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    # GAHK domains
+    "core",
+    "residents",
+    "admissions",
+    "cms",
+    "ak",
+    "rooms",
+    "oelkaelder",
+    "stats",
+]
+
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+
+ROOT_URLCONF = "config.urls"
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "templates"],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+                "core.context_processors.navigation",
+            ],
+        },
+    },
+]
+
+WSGI_APPLICATION = "config.wsgi.application"
+
+DATABASES = {
+    "default": dj_database_url.config(
+        default=os.environ.get("DATABASE_URL", f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
+        conn_max_age=600,
+    )
+}
+
+# --- Auth (01-infrastructure.md A4/A5; 02-schema-etl.md §1.6) ---
+AUTH_USER_MODEL = "residents.Resident"
+
+# First hasher = default for new/upgraded passwords. The legacy hasher (last) only verifies the old
+# unsalted sha256 hashes, then Django re-hashes on next login (upgrade-on-login, scope §5).
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+    "django.contrib.auth.hashers.ScryptPasswordHasher",
+    "core.hashers.GahkLegacySHA256PasswordHasher",
+]
+
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+
+# Password-reset links expire after 2 hours (F-014 decision, 2026-06).
+PASSWORD_RESET_TIMEOUT = 7200
+
+LANGUAGE_CODE = "da"
+TIME_ZONE = "Europe/Copenhagen"
+USE_I18N = True
+USE_TZ = True
+
+STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [BASE_DIR / "static"]  # holds the Vite-built bundle (static/dist/)
+
+# WhiteNoise hashed/compressed static in prod; plain storage in dev so {% static %} needs no manifest.
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {
+        "BACKEND": (
+            "django.contrib.staticfiles.storage.StaticFilesStorage" if DEBUG
+            else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+        )
+    },
+}
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+# Secrets (WiFi/calendar/SMTP) come from the environment (.env / vault), never source. (F-013)
+LOGIN_URL = "/nyintern/admin/login"
+LOGIN_REDIRECT_URL = "/nyintern/"
+LOGOUT_REDIRECT_URL = "/nyintern/admin/login"
+
+# Email — defaults to the console backend in dev (prints instead of sending). SMTP from env in prod.
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+EMAIL_HOST = os.environ.get("SMTP_HOST", "")
+EMAIL_HOST_USER = os.environ.get("SMTP_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+EMAIL_PORT = int(os.environ.get("SMTP_PORT", "587"))
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "autosvar@gahk.dk")
+INDSTILLING_EMAIL = os.environ.get("INDSTILLING_EMAIL", "indstillingen@gahk.dk")
+
+# Ølkælder till is an open kiosk on the GAHK LAN (F-003): purchases allowed without per-user login,
+# but only from these source IPs (as seen by the server). In DEBUG the gate is open for testing.
+OELKAELDER_KIOSK_IPS = [ip for ip in os.environ.get("OELKAELDER_KIOSK_IPS", "").split(",") if ip]

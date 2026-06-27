@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Intern — GAHK{% endblock %}
+{% block content %}
+  <h1>Velkommen, {{ user.first_name }}</h1>
+  <p class="muted">Aktiv periode: {{ period }}</p>
+
+  <div class="card">
+    <h2>Genveje</h2>
+    <p>
+      <a href="/nyintern/alumneliste/">Alumneliste</a> ·
+      <a href="/nyintern/ak/">Mine AK-krydser</a> ·
+      <a href="/nyintern/oelkaelder/min-saldo">Min ølkælder-saldo</a> ·
+      <a href="/nyintern/statistik/">Statistik</a>
+      {% if "ak" in roles %} · <a href="/nyintern/ak/admin">AK-admin</a>{% endif %}
+      {% if "oelkaelder" in roles %} · <a href="/nyintern/oelkaelder/admin">Ølkælder-admin</a>{% endif %}
+      {% if "indstilling" in roles %} · <a href="/optagelse/listansoegninger">Ansøgninger</a>{% endif %}
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>Dine embedsgrupper denne måned</h2>
+    {% if roles %}
+      <ul>{% for r in roles %}<li>{{ r }}</li>{% endfor %}</ul>
+    {% else %}
+      <p class="muted">Ingen særlige roller denne måned.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Praktisk</h2>
+    <p><strong>WiFi-kodeord:</strong> {{ wifi_password|default:"(sæt WIFI_PASSWORD i .env)" }}</p>
+    <p><strong>Fælleskalender (Google):</strong> {{ calendar_user|default:"(sæt GOOGLE_CALENDAR_USER i .env)" }}</p>
+    <p class="muted">Vist til indloggede beboere (ikke længere IP-baseret); værdier kommer fra miljøet, ikke kildekoden.</p>
+  </div>
+
+  <form method="post" action="/nyintern/admin/logout">
+    {% csrf_token %}
+    <button type="submit">Log ud</button>
+    <a href="/nyintern/admin/password-change" style="margin-left:1rem">Skift kodeord</a>
+  </form>
+{% endblock %}

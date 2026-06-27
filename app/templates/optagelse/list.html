@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Ansøgninger — GAHK Intern{% endblock %}
+{% block content %}
+  <h1>Ansøgninger</h1>
+  <table border="0" cellpadding="6" style="width:100%; border-collapse:collapse">
+    <thead><tr style="text-align:left; border-bottom:1px solid #e6e8ec">
+      <th>Dato</th><th>Type</th><th>Navn</th><th>E-mail</th><th>Modtaget</th></tr></thead>
+    <tbody>
+    {% for a in page_obj %}
+      <tr style="border-bottom:1px solid #f0f1f4">
+        <td>{{ a.submitted_at|date:"Y-m-d" }}</td>
+        <td>{{ a.get_type_display }}</td>
+        <td><a href="{% url 'admissions:show' a.pk %}">{{ a.full_name }}</a></td>
+        <td>{{ a.email }}</td>
+        <td>{% if a.received_by %}✓{% else %}—{% endif %}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="5" class="muted">Ingen ansøgninger.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted">
+    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">‹ forrige</a>{% endif %}
+    Side {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">næste ›</a>{% endif %}
+  </p>
+{% endblock %}

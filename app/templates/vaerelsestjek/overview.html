@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Værelsestjek — GAHK Intern{% endblock %}
+{% block content %}
+  <h1>Værelsestjek</h1>
+  <p class="muted mb-4">Oversigt over værelser og deres seneste tilstandsrapport.</p>
+  <table class="w-full border-collapse">
+    <thead><tr class="border-b border-gray-200"><th class="p-2">Værelse</th><th class="p-2">Etage</th><th class="p-2">Seneste tjek</th><th class="p-2"></th></tr></thead>
+    <tbody>
+    {% for room, cond in rows %}
+      <tr class="border-b border-gray-100">
+        <td class="p-2">{{ room.number|stringformat:"03d" }}</td>
+        <td class="p-2">{{ room.floor }} · {{ room.side }}</td>
+        <td class="p-2">{% if cond %}{{ cond.recorded_at|date:"Y-m-d" }} ({{ cond.recorded_by_name }}){% else %}<span class="muted">—</span>{% endif %}</td>
+        <td class="p-2">
+          {% if cond %}<a href="{% url 'vaerelsestjek:room' room.number %}">Se</a> · {% endif %}
+          <a href="{% url 'vaerelsestjek:besvar' room.number %}">Tjek</a>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

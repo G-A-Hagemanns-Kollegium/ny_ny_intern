@@ -1,0 +1,14 @@
+legacy_site/*
+gahk_dk.sql
+
+# Python / Django
+.venv/
+__pycache__/
+*.pyc
+app/.env
+app/db.sqlite3
+app/staticfiles/
+app/static/dist/
+frontend/node_modules/
+
+*.sql

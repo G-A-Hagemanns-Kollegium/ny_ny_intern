@@ -1,0 +1,61 @@
+{% load static %}
+<!doctype html>
+<html lang="da">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}G. A. Hagemanns Kollegium{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'dist/app.css' %}">
+  <script src="{% static 'dist/app.js' %}" defer></script>
+</head>
+<body class="min-h-screen bg-gray-50 text-gray-900" x-data="{ sidebar: false }">
+  <header class="sticky top-0 z-20 bg-emerald-800 text-white shadow">
+    <div class="flex items-center gap-3 px-4 h-14">
+      <button @click="sidebar = !sidebar" aria-label="Menu"
+              class="sm:hidden bg-emerald-700! hover:bg-emerald-900! px-2.5 py-1 text-lg leading-none">☰</button>
+      <img src="{% static 'legacy/image/elements/logo.png' %}" alt="GAHK" width="28" height="28"
+           class="h-7 w-7 object-contain shrink-0 bg-white rounded p-0.5">
+      <a href="/" class="font-semibold tracking-wide text-white no-underline hover:text-white">G. A. Hagemanns Kollegium</a>
+      <span class="flex-1"></span>
+      {% if user.is_authenticated %}
+        <span class="text-emerald-100 text-sm hidden sm:inline">{{ user.first_name }}</span>
+        <form method="post" action="/nyintern/admin/logout" class="inline">
+          {% csrf_token %}<button type="submit" class="bg-emerald-700! hover:bg-emerald-900! text-sm">Log ud</button>
+        </form>
+      {% else %}
+        <a href="/nyintern/admin/login" class="text-white no-underline text-sm hover:text-emerald-100">Log ind</a>
+      {% endif %}
+    </div>
+  </header>
+
+  <div class="flex">
+    <aside class="w-56 shrink-0 border-r border-gray-200 bg-white p-4 sm:block"
+           :class="sidebar ? 'block' : 'hidden'">
+      <nav class="flex flex-col gap-0.5 text-sm">
+        <span class="uppercase text-[11px] tracking-wide text-gray-400 mt-1 mb-1">Kollegiet</span>
+        {% for url, label in nav_public %}
+          <a href="{{ url }}" class="px-2 py-1.5 rounded text-gray-700 no-underline hover:bg-gray-100">{{ label }}</a>
+        {% endfor %}
+        {% if user.is_authenticated %}
+          <span class="uppercase text-[11px] tracking-wide text-gray-400 mt-3 mb-1">Intern</span>
+          {% for url, label in nav_intern %}
+            <a href="{{ url }}" class="px-2 py-1.5 rounded text-gray-700 no-underline hover:bg-gray-100">{{ label }}</a>
+          {% endfor %}
+        {% endif %}
+      </nav>
+    </aside>
+
+    <main class="flex-1 min-w-0">
+      {% block hero %}{% endblock %}
+      <div class="max-w-3xl mx-auto px-6 py-8">
+        {% if messages %}
+          {% for m in messages %}
+            <p class="card {% if m.tags == 'error' %}border-red-400{% else %}border-emerald-400{% endif %}">{{ m }}</p>
+          {% endfor %}
+        {% endif %}
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+</body>
+</html>

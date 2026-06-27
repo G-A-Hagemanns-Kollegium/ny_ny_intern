@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Mine ansøgninger — GAHK Intern{% endblock %}
+{% block content %}
+  <h1>Mine værelsesansøgninger</h1>
+  {% for app in apps %}
+    <div class="card">
+      <p><strong>K = {{ app.k }}</strong> · sendt {{ app.apply_datetime|date:"Y-m-d" }} · måned {{ app.move_month }}</p>
+      <p class="muted">Prioriteter:
+        {% for p in app.priorities.all %}{{ p.priority }}: {{ p.room.number|stringformat:"03d" }}{% if not forloop.last %} · {% endif %}{% endfor %}
+      </p>
+      <a href="{% url 'soegvaerelse:detail' app.id %}">Detaljer</a>
+    </div>
+  {% empty %}
+    <p class="muted">Du har ingen ansøgninger. <a href="{% url 'soegvaerelse:soeg' %}">Søg værelse</a></p>
+  {% endfor %}
+{% endblock %}

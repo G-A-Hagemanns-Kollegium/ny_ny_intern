@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Roller — GAHK Admin{% endblock %}
+{% block content %}
+  <h1>Roller / embedsgrupper</h1>
+  <p class="muted mb-4">Aktiv periode {{ period }}. Roller gælder kun for denne måned.</p>
+  <table class="w-full border-collapse">
+    <thead><tr class="border-b border-gray-200"><th class="p-2">Beboer</th><th class="p-2">Roller</th><th class="p-2">Tildel</th></tr></thead>
+    <tbody>
+    {% for resident, roles in rows %}
+      <tr class="border-b border-gray-100 align-top">
+        <td class="p-2">{{ resident.full_name }}</td>
+        <td class="p-2">
+          {% for r in roles %}
+            <form method="post" class="inline">{% csrf_token %}
+              <input type="hidden" name="resident" value="{{ resident.id }}">
+              <input type="hidden" name="role" value="{{ r }}">
+              <input type="hidden" name="action" value="remove">
+              <button type="submit" class="text-xs bg-gray-200! text-gray-800! mr-1">{{ r }} ✕</button>
+            </form>
+          {% empty %}<span class="muted">—</span>{% endfor %}
+        </td>
+        <td class="p-2">
+          <form method="post" class="flex gap-1">{% csrf_token %}
+            <input type="hidden" name="resident" value="{{ resident.id }}">
+            <input type="hidden" name="action" value="add">
+            <select name="role" class="w-40">{% for val, label in all_roles %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select>
+            <button type="submit" class="text-sm">+</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Alumneliste — GAHK Intern{% endblock %}
+{% block content %}
+  <h1>Alumneliste</h1>
+  <input type="search" name="q" placeholder="Søg navn, studie, e-mail…"
+         hx-get="{% url 'directory_rows' %}" hx-target="#dir-rows" hx-trigger="keyup changed delay:250ms, search"
+         style="width:100%; padding:.5rem; margin-bottom:1rem">
+  <table cellpadding="6" style="width:100%; border-collapse:collapse">
+    <thead><tr style="text-align:left; border-bottom:1px solid #e6e8ec">
+      <th>Værelse</th><th>Navn</th><th>Studie</th><th>Telefon</th><th>E-mail</th><th>Embedsgruppe</th></tr></thead>
+    <tbody id="dir-rows">
+      {% include "alumneliste/_rows.html" %}
+    </tbody>
+  </table>
+{% endblock %}
