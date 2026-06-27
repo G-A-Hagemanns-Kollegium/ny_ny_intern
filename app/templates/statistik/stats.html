@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Statistik — GAHK Intern{% endblock %}
+{% block content %}
+  <h1>Statistik</h1>
+  <div class="card">
+    <h2>Ansøgninger i alt</h2>
+    <p>Rundvisninger: <strong>{{ tours }}</strong> · Fremleje: <strong>{{ sublets }}</strong></p>
+  </div>
+  <div class="card">
+    <h2>Hvor hørte de om os? ({{ year }})</h2>
+    <table cellpadding="4" style="width:100%">
+      {% for h in heard %}<tr><td>{{ h.heard_about_us }}</td><td style="text-align:right">{{ h.c }}</td></tr>
+      {% empty %}<tr><td class="muted">Ingen data for {{ year }}.</td></tr>{% endfor %}
+    </table>
+  </div>
+  <div class="card">
+    <h2>Rundvisninger pr. universitet ({{ year }})</h2>
+    <table cellpadding="4" style="width:100%">
+      {% for u in universities %}<tr><td>{{ u.university }}</td><td style="text-align:right">{{ u.c }}</td></tr>
+      {% empty %}<tr><td class="muted">Ingen data.</td></tr>{% endfor %}
+    </table>
+  </div>
+  <div class="card">
+    <h2>Besøg pr. dag (seneste 30)</h2>
+    <table cellpadding="4" style="width:100%">
+      {% for v in visits %}<tr><td>{{ v.date|date:"Y-m-d" }}</td><td style="text-align:right">{{ v.count }}</td></tr>{% endfor %}
+    </table>
+  </div>
+{% endblock %}

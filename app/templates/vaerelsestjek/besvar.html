@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Tjek værelse {{ room.number }}{% endblock %}
+{% block content %}
+  <h1>Tjek værelse {{ room.number|stringformat:"03d" }}</h1>
+  <form method="post" action="{% url 'vaerelsestjek:besvar' room.number %}">
+    {% csrf_token %}
+    <table class="w-full border-collapse">
+      <thead><tr class="border-b border-gray-200"><th class="p-2">Kriterie</th><th class="p-2">Score</th><th class="p-2">Kommentar</th></tr></thead>
+      <tbody>
+      {% for crit, existing in rows %}
+        <tr class="border-b border-gray-100">
+          <td class="p-2">{{ crit.name }}</td>
+          <td class="p-2"><input type="number" name="score_{{ crit.code }}" min="0" max="{{ crit.options }}"
+                 value="{{ existing.score|default_if_none:'' }}" class="w-20"></td>
+          <td class="p-2"><input type="text" name="comment_{{ crit.code }}" value="{{ existing.comment|default:'' }}"></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p class="mt-4"><button type="submit">Gem tilstandsrapport</button></p>
+  </form>
+{% endblock %}

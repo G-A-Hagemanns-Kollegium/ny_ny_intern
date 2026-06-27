@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load oel_extras %}
+{% block title %}Ølkælder — Tillen{% endblock %}
+{% block content %}
+  <h1>Ølkælderen</h1>
+  <form method="post" action="{% url 'oelkaelder:purchase' %}">
+    {% csrf_token %}
+    <div class="card">
+      <h2>Hvem køber? (deles ligeligt)</h2>
+      {% for s in shoppers %}
+        <label style="font-weight:400"><input type="checkbox" name="shopper" value="{{ s.id }}"> {{ s.resident.full_name }}</label>
+      {% empty %}<p class="muted">Ingen aktive shoppere.</p>{% endfor %}
+    </div>
+    <div class="card">
+      <h2>Varer</h2>
+      <table cellpadding="6" style="width:100%; border-collapse:collapse">
+        {% for p in products %}
+          <tr style="border-bottom:1px solid #f0f1f4">
+            <td>{{ p.name }}</td><td>{{ p.price_ore|kr }}</td>
+            <td><input type="number" name="qty_{{ p.id }}" value="0" min="0" style="width:5rem"></td>
+          </tr>
+        {% endfor %}
+      </table>
+    </div>
+    <button type="submit">Registrér køb</button>
+  </form>
+{% endblock %}

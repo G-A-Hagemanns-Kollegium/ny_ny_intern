@@ -1,0 +1,13 @@
+from django.urls import path
+
+from . import views
+
+app_name = "ak"
+
+urlpatterns = [
+    path("", views.my_ak, name="index"),
+    path("admin", views.overview, name="overview"),
+    path("log/<int:pk>", views.resident_log, name="log"),
+    path("log/<int:pk>/add", views.add_entry, name="add"),
+    path("log/<int:pk>/delete/<int:entry_id>", views.delete_entry, name="delete"),
+]

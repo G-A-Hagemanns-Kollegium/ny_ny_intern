@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}AK-oversigt — GAHK Intern{% endblock %}
+{% block content %}
+  <h1>AK-oversigt</h1>
+  <p class="muted">Aktiv periode {{ period }} · sorteret efter laveste saldo</p>
+  <table cellpadding="6" style="width:100%; border-collapse:collapse">
+    <thead><tr style="text-align:left; border-bottom:1px solid #e6e8ec"><th>Beboer</th><th>Saldo</th></tr></thead>
+    <tbody>
+    {% for resident, balance in rows %}
+      <tr style="border-bottom:1px solid #f0f1f4">
+        <td><a href="{% url 'ak:log' resident.id %}">{{ resident.full_name }}</a></td>
+        <td style="color:{% if balance < 0 %}#c00{% else %}#0a5{% endif %}">{{ balance }}</td>
+      </tr>
+    {% empty %}<tr><td colspan="2" class="muted">Ingen beboere i den aktive periode.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

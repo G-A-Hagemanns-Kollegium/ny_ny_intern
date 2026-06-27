@@ -1,0 +1,15 @@
+from django.urls import path
+
+from . import views_soegvaerelse as views
+
+app_name = "soegvaerelse"
+
+urlpatterns = [
+    path("", views.soeg, name="soeg"),
+    path("mine", views.my, name="my"),
+    path("ansoegning/<int:pk>", views.detail, name="detail"),
+    path("admin", views.admin, name="admin"),
+    path("admin/opret-tilbud", views.create_offer, name="create_offer"),
+    path("admin/tilbud/<int:offer_id>/ansoegere", views.applicants, name="applicants"),
+    path("admin/tilbud/<int:offer_id>/luk", views.close_offer, name="close_offer"),
+]

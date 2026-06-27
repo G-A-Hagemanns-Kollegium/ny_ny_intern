@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% load oel_extras %}
+{% block title %}Min ølkælder-saldo{% endblock %}
+{% block content %}
+  <h1>Min ølkælder-saldo</h1>
+  {% for account, balance in accounts %}
+    <p>Saldo: <strong style="color:{% if balance < 0 %}#c00{% else %}#0a5{% endif %}">{{ balance|kr }}</strong></p>
+  {% empty %}
+    <p class="muted">Du er ikke registreret som shopper i ølkælderen.</p>
+  {% endfor %}
+{% endblock %}

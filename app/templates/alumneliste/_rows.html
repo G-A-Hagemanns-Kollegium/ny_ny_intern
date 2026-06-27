@@ -1,0 +1,12 @@
+{% for r in rows %}
+  <tr style="border-bottom:1px solid #f0f1f4">
+    <td>{{ r.room.number|stringformat:"03d" }}</td>
+    <td>{{ r.resident.full_name }}</td>
+    <td>{{ r.resident.study }}</td>
+    <td>{{ r.resident.phone }}</td>
+    <td><a href="mailto:{{ r.resident.email }}">{{ r.resident.email }}</a></td>
+    <td>{{ r.workgroup.name|default:"" }}</td>
+  </tr>
+{% empty %}
+  <tr><td colspan="6" class="muted">Ingen beboere matcher.</td></tr>
+{% endfor %}

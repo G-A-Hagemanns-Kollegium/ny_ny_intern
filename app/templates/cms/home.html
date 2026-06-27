@@ -1,0 +1,19 @@
+{% extends "public_base.html" %}
+{% load cms_extras %}
+{% block title %}G. A. Hagemanns Kollegium{% endblock %}
+
+{% block hero %}
+  <section class="relative h-80 bg-gray-800">
+    <img src="{{ bg_image|legacy_img }}" alt="" class="absolute inset-0 w-full h-full object-cover">
+    <div class="absolute inset-0 bg-gradient-to-t from-black/75 to-black/20"></div>
+    <div class="relative max-w-3xl mx-auto h-full w-full flex flex-col justify-end px-6 pb-8 text-white">
+      <h1 class="font-display text-4xl drop-shadow mb-2">Velkommen til GAHK</h1>
+      <p class="max-w-xl text-white/90 mb-4">Studenterkollegium på Kristianiagade på Østerbro — 61 værelser, fællesskab og selvstyre.</p>
+      <div><a href="/optagelse/" class="btn">Søg optagelse</a></div>
+    </div>
+  </section>
+{% endblock %}
+
+{% block content %}
+  {% if page and page.body %}<div class="prose-gahk">{{ page.body|safe }}</div>{% endif %}
+{% endblock %}

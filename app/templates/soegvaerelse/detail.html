@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Ansøgning — GAHK Intern{% endblock %}
+{% block content %}
+  <h1>Ansøgning fra {{ app.resident.full_name }}</h1>
+  <div class="card">
+    <p><strong>K:</strong> {{ app.k }}</p>
+    <p><strong>Ønsket måned:</strong> {{ app.move_month }} · <strong>Indflyttet (mdr-indeks):</strong> {{ app.move_in_month }} · <strong>Færdig:</strong> {{ app.done_studying_month }}</p>
+    <p><strong>Prioriteter:</strong>
+      {% for p in app.priorities.all %}{{ p.priority }}: {{ p.room.number|stringformat:"03d" }}{% if not forloop.last %} · {% endif %}{% endfor %}</p>
+    {% with orlov=app.orlov_periods.all %}{% if orlov %}<p><strong>Orlov:</strong> {% for o in orlov %}{{ o.start_month }}–{{ o.end_month }}{% endfor %}</p>{% endif %}{% endwith %}
+  </div>
+{% endblock %}

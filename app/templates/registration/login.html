@@ -1,0 +1,18 @@
+{% extends "public_base.html" %}
+{% block title %}Log ind — GAHK Intern{% endblock %}
+{% block content %}
+  <h1>Log ind</h1>
+  <div class="card" style="max-width:420px">
+    {% if form.errors %}<p class="errorlist">Forkert e-mail eller kodeord.</p>{% endif %}
+    <form method="post" action="">
+      {% csrf_token %}
+      <label for="id_username">E-mail</label>
+      {{ form.username }}
+      <label for="id_password">Kodeord</label>
+      {{ form.password }}
+      <p style="margin-top:1rem"><button type="submit">Log ind</button></p>
+      <input type="hidden" name="next" value="{{ next }}">
+    </form>
+    <p class="muted" style="margin-top:.8rem"><a href="{% url 'password_reset' %}">Glemt kodeord?</a></p>
+  </div>
+{% endblock %}

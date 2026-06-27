@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Værelse {{ room.number }} — Værelsestjek{% endblock %}
+{% block content %}
+  <h1>Værelse {{ room.number|stringformat:"03d" }}</h1>
+  {% if cond %}
+    <p class="muted">Tjekket {{ cond.recorded_at|date:"Y-m-d H:i" }} af {{ cond.recorded_by_name }}.</p>
+    <table class="w-full border-collapse">
+      <thead><tr class="border-b border-gray-200"><th class="p-2">Kriterie</th><th class="p-2">Score</th><th class="p-2">Kommentar</th></tr></thead>
+      <tbody>
+      {% for s in scores %}
+        <tr class="border-b border-gray-100">
+          <td class="p-2">{{ s.criterion.name }}</td>
+          <td class="p-2">{{ s.score|default_if_none:"—" }}</td>
+          <td class="p-2">{{ s.comment }}{% if s.image %}<span class="muted"> · billede: {{ s.image }}</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">Ingen tilstandsrapport endnu.</p>
+  {% endif %}
+  <p class="mt-4"><a href="{% url 'vaerelsestjek:besvar' room.number %}">Nyt tjek</a> · <a href="{% url 'vaerelsestjek:overview' %}">‹ Oversigt</a></p>
+{% endblock %}
