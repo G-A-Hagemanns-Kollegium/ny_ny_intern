@@ -29,16 +29,28 @@ def stats(request):
         .annotate(c=Count("id"))
         .order_by("-c")[:15]
     )
-    visits = DailyVisitCount.objects.order_by("-date")[:30]
+    visits = list(DailyVisitCount.objects.order_by("-date")[:30])[::-1]  # chronological for the graph
+    tours = by_type.get(Application.Type.TOUR, 0)
+    sublets = by_type.get(Application.Type.SUBLET, 0)
+    charts = {
+        "applications": {"labels": ["Rundvisninger", "Fremleje"], "data": [tours, sublets]},
+        "heard": {
+            "labels": [h["heard_about_us"] for h in heard_this_year],
+            "data": [h["c"] for h in heard_this_year],
+        },
+        "visits": {
+            "labels": [v.date.isoformat() for v in visits],
+            "data": [v.count for v in visits],
+        },
+    }
     return render(
         request,
         "statistik/stats.html",
         {
             "year": now.year,
-            "tours": by_type.get(Application.Type.TOUR, 0),
-            "sublets": by_type.get(Application.Type.SUBLET, 0),
-            "heard": heard_this_year,
+            "tours": tours,
+            "sublets": sublets,
             "universities": by_university,
-            "visits": visits,
+            "charts": charts,
         },
     )

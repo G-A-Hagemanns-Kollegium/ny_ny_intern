@@ -1,18 +1,30 @@
 {% extends "base.html" %}
 {% block title %}Statistik — GAHK Intern{% endblock %}
+{% block content_width %}max-w-5xl{% endblock %}
 {% block content %}
   <h1>Statistik</h1>
-  <div class="card">
-    <h2>Ansøgninger i alt</h2>
-    <p>Rundvisninger: <strong>{{ tours }}</strong> · Fremleje: <strong>{{ sublets }}</strong></p>
+  {{ charts|json_script:"stats-data" }}
+
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div class="card">
+      <h2>Ansøgninger fordelt på type</h2>
+      {% if tours or sublets %}
+        <div style="position:relative; height:280px"><canvas id="chart-applications"></canvas></div>
+      {% else %}
+        <p class="muted">Ingen ansøgninger endnu.</p>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h2>Hvor hørte de om os? ({{ year }})</h2>
+      {% if charts.heard.data %}
+        <div style="position:relative; height:280px"><canvas id="chart-heard"></canvas></div>
+      {% else %}
+        <p class="muted">Ingen data for {{ year }}.</p>
+      {% endif %}
+    </div>
   </div>
-  <div class="card">
-    <h2>Hvor hørte de om os? ({{ year }})</h2>
-    <table cellpadding="4" style="width:100%">
-      {% for h in heard %}<tr><td>{{ h.heard_about_us }}</td><td style="text-align:right">{{ h.c }}</td></tr>
-      {% empty %}<tr><td class="muted">Ingen data for {{ year }}.</td></tr>{% endfor %}
-    </table>
-  </div>
+
   <div class="card">
     <h2>Rundvisninger pr. universitet ({{ year }})</h2>
     <table cellpadding="4" style="width:100%">
@@ -20,10 +32,13 @@
       {% empty %}<tr><td class="muted">Ingen data.</td></tr>{% endfor %}
     </table>
   </div>
+
   <div class="card">
     <h2>Besøg pr. dag (seneste 30)</h2>
-    <table cellpadding="4" style="width:100%">
-      {% for v in visits %}<tr><td>{{ v.date|date:"Y-m-d" }}</td><td style="text-align:right">{{ v.count }}</td></tr>{% endfor %}
-    </table>
+    {% if charts.visits.data %}
+      <div style="position:relative; height:300px"><canvas id="chart-visits"></canvas></div>
+    {% else %}
+      <p class="muted">Ingen besøgsdata endnu.</p>
+    {% endif %}
   </div>
 {% endblock %}

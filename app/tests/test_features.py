@@ -246,6 +246,26 @@ def test_events_news_page_and_forside_teaser():
     assert "/begivenheder/" in home  # link to the full page + nav
 
 
+@pytest.mark.django_db
+def test_statistik_renders_charts(make_resident):
+    from datetime import date
+
+    from stats.models import DailyVisitCount
+
+    Application.objects.create(
+        type=Application.Type.TOUR, full_name="A", email="a@x.dk", submitted_at=timezone.now(),
+        university="DTU", heard_about_us="plakat",
+    )
+    DailyVisitCount.objects.create(date=date.today(), count=5)
+    c = Client()
+    c.force_login(make_resident(email="m@gahk.dk"))
+    h = c.get("/nyintern/statistik/").content.decode()
+    assert 'id="stats-data"' in h  # chart data embedded via json_script
+    for cid in ("chart-applications", "chart-heard", "chart-visits"):
+        assert f'id="{cid}"' in h  # the three chart canvases
+    assert "Rundvisninger" in h and "plakat" in h  # labels present in the JSON payload
+
+
 # ---------------------------------------------------------------- public/auth separation
 @pytest.mark.django_db
 def test_public_window_has_no_internal_tools():
