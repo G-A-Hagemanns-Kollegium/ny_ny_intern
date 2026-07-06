@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('rooms', '0002_alter_roomconditionscore_image'),
+        ("rooms", "0002_alter_roomconditionscore_image"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='roomconditionscore',
-            name='image',
+            model_name="roomconditionscore",
+            name="image",
             field=models.TextField(blank=True),
         ),
     ]

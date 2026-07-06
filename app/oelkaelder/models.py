@@ -6,6 +6,7 @@ ledger** (deposits - purchase shares of valid transactions), eliminating the non
 split is stored per shopper with **largest-remainder** rounding so shares sum exactly to the price; the
 purchase write (transaction + items + shares) is wrapped in `transaction.atomic` at the view layer.
 """
+
 from django.db import models
 from django.db.models import Sum
 from django.utils import timezone
@@ -13,9 +14,11 @@ from django.utils import timezone
 
 class Product(models.Model):  # intern_oelkaelder_product
     name = models.CharField(max_length=255)
-    price_ore = models.PositiveIntegerField()                  # legacy current_price (normalized to øre)
+    price_ore = models.PositiveIntegerField()  # legacy current_price (normalized to øre)
     weight_price_ore = models.PositiveIntegerField(null=True, blank=True)
-    price_steps = models.JSONField(null=True, blank=True)      # legacy price_steps text (no weight-only product today)
+    price_steps = models.JSONField(
+        null=True, blank=True
+    )  # legacy price_steps text (no weight-only product today)
     image = models.FileField(upload_to="oel/", max_length=500, blank=True)  # legacy imageurl (can be long)
     active = models.BooleanField(default=True)
     highlighted = models.BooleanField(default=False)
@@ -38,8 +41,7 @@ class Shopper(models.Model):  # intern_shopper (+ intern_oelkaelder_saldo.active
         """Derived balance = valid deposits − this shopper's share of valid transactions."""
         deposits = self.deposits.filter(is_valid=True).aggregate(s=Sum("amount_ore"))["s"] or 0
         spent = (
-            self.purchase_shares.filter(transaction__is_valid=True)
-            .aggregate(s=Sum("share_ore"))["s"] or 0
+            self.purchase_shares.filter(transaction__is_valid=True).aggregate(s=Sum("share_ore"))["s"] or 0
         )
         return deposits - spent
 
@@ -72,14 +74,12 @@ class PurchaseShare(models.Model):  # intern_oelkaelder_purchase (+ the per-shop
     share_ore = models.PositiveIntegerField()  # largest-remainder split; shares sum to the transaction total
 
     class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=["transaction", "shopper"], name="uniq_txn_shopper")
-        ]
+        constraints = [models.UniqueConstraint(fields=["transaction", "shopper"], name="uniq_txn_shopper")]
 
 
 class Warning(models.Model):  # intern_oelkaelder_warnings (debt-threshold warning emails)
     message = models.TextField(blank=True)
-    threshold_ore = models.IntegerField()   # legacy amount; e.g. 10000 (=100 kr), 20000 (=200 kr)
+    threshold_ore = models.IntegerField()  # legacy amount; e.g. 10000 (=100 kr), 20000 (=200 kr)
     active = models.BooleanField(default=True)
 
 

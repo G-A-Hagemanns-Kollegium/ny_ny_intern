@@ -1,6 +1,0 @@
-Django>=5.2,<5.3
-dj-database-url>=2.1
-python-dotenv>=1.0
-# Postgres driver — required for staging/production. Local dev/validation uses SQLite, so this is
-# only needed once DATABASE_URL points at Postgres:
-psycopg[binary]>=3.1

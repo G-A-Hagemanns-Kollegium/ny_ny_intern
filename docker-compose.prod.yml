@@ -1,0 +1,34 @@
+# Production-ish stack for a single Hetzner box (Coolify can consume this compose; Kamal uses the
+# Dockerfile directly). TLS/reverse-proxy is provided by Coolify/Traefik in front of `web`.
+# MediaWiki runs as its own service against MariaDB (see DEPLOY.md) — not shown here.
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: [app/.env.prod]        # DJANGO_DEBUG=0, SECRET_KEY, ALLOWED_HOSTS, DATABASE_URL, secrets…
+    command: >-
+      sh -c "python manage.py migrate --noinput &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 60"
+    volumes:
+      - media:/app/media             # uploaded files (room-inspection photos etc.)
+    depends_on:
+      postgres: { condition: service_healthy }
+    ports: ["8000:8000"]
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gahk
+      POSTGRES_USER: gahk
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in env}
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gahk"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  pgdata:
+  media:

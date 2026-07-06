@@ -5,32 +5,40 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='DailyVisitCount',
+            name="DailyVisitCount",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('date', models.DateField(unique=True)),
-                ('count', models.PositiveIntegerField(default=0)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("date", models.DateField(unique=True)),
+                ("count", models.PositiveIntegerField(default=0)),
             ],
             options={
-                'ordering': ['-date'],
+                "ordering": ["-date"],
             },
         ),
         migrations.CreateModel(
-            name='VisitTally',
+            name="VisitTally",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('ip_hash', models.CharField(max_length=64, unique=True)),
-                ('count', models.PositiveIntegerField(default=0)),
-                ('first_seen', models.DateTimeField(default=django.utils.timezone.now)),
-                ('last_seen', models.DateTimeField(default=django.utils.timezone.now)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("ip_hash", models.CharField(max_length=64, unique=True)),
+                ("count", models.PositiveIntegerField(default=0)),
+                ("first_seen", models.DateTimeField(default=django.utils.timezone.now)),
+                ("last_seen", models.DateTimeField(default=django.utils.timezone.now)),
             ],
         ),
     ]

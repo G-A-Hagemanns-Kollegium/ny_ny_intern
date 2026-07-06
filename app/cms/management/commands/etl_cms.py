@@ -4,6 +4,7 @@ Pages get a `slug` seeded from the legacy routes.php named-route map (public URL
 News/pylon dates rebuilt from their day/month/year (+ epoch). Content is imported as-is — it is GAHK's
 own copy and there is no runtime editing (F-006), so it stays code/fixture-managed afterwards.
 """
+
 import datetime
 
 from django.core.management.base import BaseCommand
@@ -14,10 +15,21 @@ from core.etl import epoch_to_dt, fetch_all
 
 # legacy routes.php: page id -> public slug (kept verbatim for SEO)
 SLUG_BY_PAGE_ID = {
-    1: "velkommen", 2: "faciliteter", 3: "kollegielivet", 4: "legater", 21: "kontakt", 22: "vision",
-    10: "faciliteter/vaerelse", 11: "faciliteter/faellesomraade", 12: "faciliteter/kokken",
-    18: "legater/modtagne", 14: "kollegielivet/historie", 15: "kollegielivet/aaretsgang",
-    20: "kollegielivet/alumnerne", 16: "kollegielivet/selvstyre", 17: "kollegielivet/bestyrelse",
+    1: "velkommen",
+    2: "faciliteter",
+    3: "kollegielivet",
+    4: "legater",
+    21: "kontakt",
+    22: "vision",
+    10: "faciliteter/vaerelse",
+    11: "faciliteter/faellesomraade",
+    12: "faciliteter/kokken",
+    18: "legater/modtagne",
+    14: "kollegielivet/historie",
+    15: "kollegielivet/aaretsgang",
+    20: "kollegielivet/alumnerne",
+    16: "kollegielivet/selvstyre",
+    17: "kollegielivet/bestyrelse",
 }
 
 
@@ -53,7 +65,12 @@ class Command(BaseCommand):
             if published is None:
                 d = _date_from_ymd(n)
                 from django.utils import timezone
-                published = timezone.make_aware(datetime.datetime.combine(d, datetime.time())) if d else timezone.now()
+
+                published = (
+                    timezone.make_aware(datetime.datetime.combine(d, datetime.time()))
+                    if d
+                    else timezone.now()
+                )
             NewsItem.objects.update_or_create(
                 id=n["id"],
                 defaults=dict(title=(n["title"] or "").strip(), body=n["text"] or "", published_at=published),
@@ -68,10 +85,14 @@ class Command(BaseCommand):
                 continue
             PylonEvent.objects.update_or_create(
                 id=e["id"],
-                defaults=dict(title=(e["name"] or "").strip(), description=e["description"] or "", starts_on=d),
+                defaults=dict(
+                    title=(e["name"] or "").strip(), description=e["description"] or "", starts_on=d
+                ),
             )
 
-        self.stdout.write(self.style.SUCCESS(
-            f"CMS: {len(pages)} pages ({sum(1 for p in pages if p['id'] in SLUG_BY_PAGE_ID)} slugged), "
-            f"{len(news)} news, {len(pylon) - pylon_skipped} pylon events (skipped {pylon_skipped} undated)."
-        ))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"CMS: {len(pages)} pages ({sum(1 for p in pages if p['id'] in SLUG_BY_PAGE_ID)} slugged), "
+                f"{len(news)} news, {len(pylon) - pylon_skipped} pylon events (skipped {pylon_skipped} undated)."
+            )
+        )

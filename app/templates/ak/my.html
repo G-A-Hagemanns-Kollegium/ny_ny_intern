@@ -1,8 +1,12 @@
 {% extends "base.html" %}
+{% load ui_extras %}
 {% block title %}AK — GAHK Intern{% endblock %}
 {% block content %}
   <h1>Dine aktivitetskrydser</h1>
-  <p>Saldo: <strong style="color:{% if balance < 0 %}#c00{% else %}#0a5{% endif %}">{{ balance }}</strong>
+  {% if "ak" in effective_roles %}
+    <p><a class="btn" href="{% url 'ak:overview' %}">Se alle beboeres krydser (AK-oversigt)</a></p>
+  {% endif %}
+  <p>Saldo: <strong class="{{ balance|sign_class }}">{{ balance }}</strong>
      <span class="muted">(målet er at holde sig på 0 eller derover)</span></p>
   <table cellpadding="6" style="width:100%; border-collapse:collapse">
     <thead><tr style="text-align:left; border-bottom:1px solid #e6e8ec"><th>Dato</th><th>Ændring</th><th>Type</th><th>Note</th></tr></thead>
@@ -10,7 +14,7 @@
     {% for e in entries %}
       <tr style="border-bottom:1px solid #f0f1f4">
         <td>{{ e.created_at|date:"Y-m-d" }}</td>
-        <td style="color:{% if e.delta < 0 %}#c00{% else %}#0a5{% endif %}">{{ e.delta }}</td>
+        <td class="{{ e.delta|sign_class }}">{{ e.delta }}</td>
         <td>{{ e.get_kind_display }}</td><td>{{ e.reason }}</td>
       </tr>
     {% empty %}<tr><td colspan="4" class="muted">Ingen krydser endnu.</td></tr>{% endfor %}

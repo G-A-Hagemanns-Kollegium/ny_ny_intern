@@ -5,6 +5,7 @@ can diverge from the sum of the log rows (the old buggy bulk ops), we add a per-
 equal to (legacy total − sum of that resident's log deltas) so the new derived balance matches the
 balance residents currently see. Idempotent (rebuilds the ledger).
 """
+
 from collections import defaultdict
 
 from django.core.management.base import BaseCommand
@@ -21,6 +22,7 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *args, **opts):
         from residents.models import Resident
+
         remap = resident_id_remap()
         resident_ids = set(Resident.objects.values_list("id", flat=True))
 
@@ -36,13 +38,15 @@ class Command(BaseCommand):
                 continue
             delta = int(row["krydser"] or 0)
             log_sum[rid] += delta
-            entries.append(AkEntry(
-                resident_id=rid,
-                delta=delta,
-                kind=AkEntry.Kind.LABOUR if delta > 0 else AkEntry.Kind.ADJUSTMENT,
-                reason=(row["comment"] or "").strip(),
-                created_at=epoch_to_dt(row["timestamp"]) or timezone.now(),
-            ))
+            entries.append(
+                AkEntry(
+                    resident_id=rid,
+                    delta=delta,
+                    kind=AkEntry.Kind.LABOUR if delta > 0 else AkEntry.Kind.ADJUSTMENT,
+                    reason=(row["comment"] or "").strip(),
+                    created_at=epoch_to_dt(row["timestamp"]) or timezone.now(),
+                )
+            )
         AkEntry.objects.bulk_create(entries)
 
         opening = 0
@@ -53,12 +57,17 @@ class Command(BaseCommand):
             delta = int(row["totalkrydser"] or 0) - log_sum.get(rid, 0)
             if delta:
                 AkEntry.objects.create(
-                    resident_id=rid, delta=delta, kind=AkEntry.Kind.OPENING,
-                    reason="Migreret startsaldo", created_at=timezone.now(),
+                    resident_id=rid,
+                    delta=delta,
+                    kind=AkEntry.Kind.OPENING,
+                    reason="Migreret startsaldo",
+                    created_at=timezone.now(),
                 )
                 opening += 1
 
-        self.stdout.write(self.style.SUCCESS(
-            f"AK: {len(entries)} log entries (skipped {skipped} for unknown residents), "
-            f"{opening} opening-balance adjustments. Total ledger rows: {AkEntry.objects.count()}."
-        ))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"AK: {len(entries)} log entries (skipped {skipped} for unknown residents), "
+                f"{opening} opening-balance adjustments. Total ledger rows: {AkEntry.objects.count()}."
+            )
+        )

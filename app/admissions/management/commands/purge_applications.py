@@ -4,6 +4,7 @@ Deletes applications older than 1 year. Run on a schedule (cron / scheduled task
 so the migrated history (and the stats charts) stay intact until you choose to enforce retention.
 Use --dry-run to preview.
 """
+
 from datetime import timedelta
 
 from django.core.management.base import BaseCommand

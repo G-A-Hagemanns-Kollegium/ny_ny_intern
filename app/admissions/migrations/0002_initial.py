@@ -6,26 +6,31 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('admissions', '0001_initial'),
+        ("admissions", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='application',
-            name='received_by',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='applications_received', to=settings.AUTH_USER_MODEL),
+            model_name="application",
+            name="received_by",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="applications_received",
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
         migrations.AddIndex(
-            model_name='application',
-            index=models.Index(fields=['type', 'submitted_at'], name='admissions__type_e967ff_idx'),
+            model_name="application",
+            index=models.Index(fields=["type", "submitted_at"], name="admissions__type_e967ff_idx"),
         ),
         migrations.AddIndex(
-            model_name='application',
-            index=models.Index(fields=['received_by'], name='admissions__receive_4d84a2_idx'),
+            model_name="application",
+            index=models.Index(fields=["received_by"], name="admissions__receive_4d84a2_idx"),
         ),
     ]

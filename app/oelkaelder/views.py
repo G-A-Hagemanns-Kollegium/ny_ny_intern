@@ -1,16 +1,16 @@
 """Ølkælder views (F-003). Kiosk (LAN-IP gated, no login) for the till; member balance view;
 ølkælder-admin screens for deposits/balances."""
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.db.models import Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from residents.permissions import role_required
 
-from .models import Product, Shopper
+from .models import Deposit, Product, PurchaseShare, Shopper
 from .services import record_deposit, record_purchase
 
 
@@ -21,10 +21,14 @@ def _is_kiosk(request):
 def shop(request):
     if not _is_kiosk(request):
         raise PermissionDenied("Tillen er kun tilgængelig fra kollegiets netværk.")
-    return render(request, "oelkaelder/shop.html", {
-        "products": Product.objects.filter(active=True).order_by("name"),
-        "shoppers": Shopper.objects.filter(active=True).select_related("resident"),
-    })
+    return render(
+        request,
+        "oelkaelder/shop.html",
+        {
+            "products": Product.objects.filter(active=True).order_by("name"),
+            "shoppers": Shopper.objects.filter(active=True).select_related("resident"),
+        },
+    )
 
 
 @require_POST
@@ -47,10 +51,34 @@ def purchase(request):
 
 @login_required
 def my_balance(request):
-    accounts = request.user.shopper_accounts.all()
-    return render(request, "oelkaelder/my.html", {
-        "accounts": [(a, a.balance_ore) for a in accounts],
-    })
+    """Balance + a combined account statement (deposits as credits, purchase shares as debits)."""
+    accounts = list(request.user.shopper_accounts.all())
+    shares = (
+        PurchaseShare.objects.filter(shopper__in=accounts, transaction__is_valid=True)
+        .select_related("transaction")
+        .prefetch_related("transaction__items__product")
+    )
+    deposits = Deposit.objects.filter(shopper__in=accounts, is_valid=True)
+    entries = [
+        {
+            "created_at": s.transaction.created_at,
+            "text": ", ".join(f"{i.quantity}× {i.product.name}" for i in s.transaction.items.all()) or "Køb",
+            "amount_ore": -s.share_ore,  # debit
+        }
+        for s in shares
+    ] + [
+        {"created_at": d.created_at, "text": "Indbetaling", "amount_ore": d.amount_ore}  # credit
+        for d in deposits
+    ]
+    entries.sort(key=lambda e: e["created_at"], reverse=True)
+    return render(
+        request,
+        "oelkaelder/my.html",
+        {
+            "accounts": [(a, a.balance_ore) for a in accounts],
+            "entries": entries[:100],
+        },
+    )
 
 
 @role_required("oelkaelder")

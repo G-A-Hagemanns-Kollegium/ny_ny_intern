@@ -5,6 +5,7 @@ broken `!$username && !empty($ak)` guard), CSRF, and the unflag-old + create-new
 Only the current condition is kept. (Per-criterion image *upload* is a later refinement — see model note;
 legacy image path references are shown read-only.)
 """
+
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -25,10 +26,7 @@ def overview(request):
 
 @role_required("ak")
 def akoverview(request):
-    conditions = (
-        RoomCondition.objects.filter(is_current=True)
-        .select_related("room").order_by("room__number")
-    )
+    conditions = RoomCondition.objects.filter(is_current=True).select_related("room").order_by("room__number")
     return render(request, "vaerelsestjek/akoverview.html", {"conditions": conditions})
 
 
@@ -49,17 +47,23 @@ def besvar(request, room_id):
         with transaction.atomic():
             RoomCondition.objects.filter(room=rm, is_current=True).update(is_current=False)
             cond = RoomCondition.objects.create(
-                room=rm, resident=request.user, recorded_by_name=request.user.full_name,
-                recorded_at=timezone.now(), is_current=True,
+                room=rm,
+                resident=request.user,
+                recorded_by_name=request.user.full_name,
+                recorded_at=timezone.now(),
+                is_current=True,
             )
             for crit in criteria:
                 raw = request.POST.get(f"score_{crit.code}", "").strip()
                 comment = request.POST.get(f"comment_{crit.code}", "").strip()
-                if raw or comment:
+                photo = request.FILES.get(f"image_{crit.code}")
+                if raw or comment or photo:
                     RoomConditionScore.objects.create(
-                        condition=cond, criterion=crit,
+                        condition=cond,
+                        criterion=crit,
                         score=int(raw) if raw.lstrip("-").isdigit() else None,
                         comment=comment,
+                        photo=photo or "",
                     )
         return redirect("vaerelsestjek:room", room_id=rm.number)
 

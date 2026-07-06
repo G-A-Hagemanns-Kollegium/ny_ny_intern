@@ -15,10 +15,10 @@
 </head>
 <body class="min-h-screen flex flex-col bg-gray-50 text-gray-900">
   <header class="bg-emerald-800 text-white shadow">
-    <div class="max-w-5xl mx-auto w-full px-4 h-14 flex items-center gap-3">
-      <a href="/" class="flex items-center gap-2 no-underline">
-        <img src="{% static 'legacy/image/elements/lamassu.svg' %}" alt="" width="28" height="28"
-             class="h-7 w-7 object-contain shrink-0">
+    <div class="max-w-5xl mx-auto w-full px-4 h-20 flex items-center gap-3">
+      <a href="/" class="flex items-center gap-3 no-underline">
+        <img src="{% static 'legacy/image/elements/lamassu.svg' %}" alt="" width="64" height="64"
+             class="h-14 w-14 sm:h-16 sm:w-16 object-contain shrink-0">
         <span class="font-display text-lg sm:text-xl text-white">G. A. Hagemanns Kollegium</span>
       </a>
       <span class="flex-1"></span>
@@ -44,6 +44,7 @@
     </section>
   {% endblock %}
 
+  {% block body_main %}
   <main class="flex-1 w-full max-w-3xl mx-auto px-6 py-8">
     {% if messages %}
       {% for m in messages %}
@@ -52,6 +53,7 @@
     {% endif %}
     {% block content %}{% endblock %}
   </main>
+  {% endblock %}
 
   <footer class="bg-gray-100 text-gray-500 text-xs text-center py-5">
     G. A. Hagemanns Kollegium · Kristianiagade 10 · 2100 København Ø

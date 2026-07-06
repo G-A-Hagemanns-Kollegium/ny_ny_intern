@@ -10,6 +10,7 @@ Applies the decided transforms (02-schema-etl.md §5, 99-index.md F-010):
 
 Idempotent (keyed on preserved PKs). Run `seed_rooms` first.
 """
+
 import datetime
 
 from django.core.management.base import BaseCommand
@@ -53,7 +54,7 @@ class Command(BaseCommand):
                 continue
             by_email.setdefault(key, []).append(r)
 
-        id_remap = {}   # every legacy ID -> the kept resident's ID (duplicates merge into the newest)
+        id_remap = {}  # every legacy ID -> the kept resident's ID (duplicates merge into the newest)
         kept = []
         for group in by_email.values():
             group.sort(key=lambda r: r["ID"])
@@ -107,27 +108,29 @@ class Command(BaseCommand):
         rooms_by_number = {room.number: room for room in Room.objects.all()}
         wg_cache, cl_cache = {}, {}
         orphan_resident = orphan_room = residencies = 0
-        for l in fetch_all("SELECT * FROM intern_alumne_liste"):
-            rid = id_remap.get(l["alumne_ID"])
+        for row in fetch_all("SELECT * FROM intern_alumne_liste"):
+            rid = id_remap.get(row["alumne_ID"])
             if not rid:
                 orphan_resident += 1
                 continue
-            room = rooms_by_number.get(l["room"])
+            room = rooms_by_number.get(row["room"])
             if room is None:
                 orphan_room += 1
                 continue
-            year, month = decode_month_number(l["monthNumber"])
+            year, month = decode_month_number(row["monthNumber"])
             wg = cl = None
-            wgname = (l["workgroup"] or "").strip()
+            wgname = (row["workgroup"] or "").strip()
             if wgname:
                 wg = wg_cache.get(wgname) or Workgroup.objects.get_or_create(name=wgname)[0]
                 wg_cache[wgname] = wg
-            clname = (l["cleaning"] or "").strip()
+            clname = (row["cleaning"] or "").strip()
             if clname:
                 cl = cl_cache.get(clname) or Cleaning.objects.get_or_create(name=clname)[0]
                 cl_cache[clname] = cl
             Residency.objects.update_or_create(
-                resident_id=rid, year=year, month=month,
+                resident_id=rid,
+                year=year,
+                month=month,
                 defaults=dict(room=room, workgroup=wg, cleaning=cl),
             )
             residencies += 1
@@ -146,10 +149,12 @@ class Command(BaseCommand):
             elif len(matches) > 1:
                 sponsor_ambiguous += 1
 
-        self.stdout.write(self.style.SUCCESS(
-            f"Residents: {len(kept)} kept (merged {merged} dup, dropped {dropped_empty} empty-email). "
-            f"Active period {active_year}-{active_month:02d}: {RoleAssignment.objects.count()} role "
-            f"assignments across {len(role_residents)} residents. Residencies: {residencies} "
-            f"(orphan-resident {orphan_resident}, unmapped-room {orphan_room}). "
-            f"Sponsors set {sponsor_set} (ambiguous {sponsor_ambiguous})."
-        ))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Residents: {len(kept)} kept (merged {merged} dup, dropped {dropped_empty} empty-email). "
+                f"Active period {active_year}-{active_month:02d}: {RoleAssignment.objects.count()} role "
+                f"assignments across {len(role_residents)} residents. Residencies: {residencies} "
+                f"(orphan-resident {orphan_resident}, unmapped-room {orphan_room}). "
+                f"Sponsors set {sponsor_set} (ambiguous {sponsor_ambiguous})."
+            )
+        )

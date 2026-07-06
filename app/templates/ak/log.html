@@ -1,8 +1,9 @@
 {% extends "base.html" %}
+{% load ui_extras %}
 {% block title %}{{ resident.full_name }} — AK{% endblock %}
 {% block content %}
   <h1>{{ resident.full_name }}</h1>
-  <p>Saldo: <strong style="color:{% if balance < 0 %}#c00{% else %}#0a5{% endif %}">{{ balance }}</strong></p>
+  <p>Saldo: <strong class="{{ balance|sign_class }}">{{ balance }}</strong></p>
 
   <div class="card" style="max-width:480px">
     <h2>Tilføj krydser</h2>
@@ -22,7 +23,7 @@
     {% for e in entries %}
       <tr style="border-bottom:1px solid #f0f1f4">
         <td>{{ e.created_at|date:"Y-m-d" }}</td>
-        <td style="color:{% if e.delta < 0 %}#c00{% else %}#0a5{% endif %}">{{ e.delta }}</td>
+        <td class="{{ e.delta|sign_class }}">{{ e.delta }}</td>
         <td>{{ e.get_kind_display }}</td><td>{{ e.reason }}</td>
         <td><form method="post" action="{% url 'ak:delete' resident.id e.id %}">{% csrf_token %}<button type="submit" style="background:#c00">Slet</button></form></td>
       </tr>

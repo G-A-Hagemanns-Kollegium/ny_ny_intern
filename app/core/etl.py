@@ -4,6 +4,7 @@ Reads the legacy data straight from the MariaDB staging container (the loaded `g
 PyMySQL. Connecting with charset utf8mb4 lets MariaDB transcode each column from its declared charset
 (latin1 / utf8mb3) to proper Unicode on read.
 """
+
 import contextlib
 import datetime
 import os

@@ -436,3 +436,31 @@ integrity (F-008); slug↔id coupling → DB-driven slugs (F-006). The **unauthe
   ships live or archive-only.
 - The **fix-vs-preserve business-logic calls** in `99-index.md` §4-C (fremleje email, kvotient K-formula &
   cross-month cascade delete, AK month/negative-insert) — shape Batches 3/4/6; need committee sign-off.
+
+---
+
+## 10. Findings confirmed while running the ETL/build (2026-06/07)
+
+- **Sequences must be reset after the preserved-PK load.** `bulk_create`/explicit-id inserts do NOT advance
+  Postgres sequences, so the first ORM `create()` collides at `id=1`. Added `manage.py reset_sequences`
+  (resets all 8 apps' models) as the **final step of the ETL** (`task etl`).
+- **Duplicate emails: 5** (121 residents → 116 distinct). Merged into the highest-`ID` row; their
+  residencies/roles re-point to the kept resident (`resident_id_remap`).
+- **Residency orphans (accepted, option A).** `intern_alumne_liste` references **434 distinct people across
+  193 months**, but `intern_alumne` retains only 121; ~313 former residents survive only as an ID with **no
+  recoverable personal data**. Their historical residencies (8 858 rows) are **not migrated** — nothing to
+  attach them to. Same root cause caps F-011 (stamtree) "moved-out" completeness.
+- **Kvotient data is corrupt at source.** `intern_kvotient_offer_nyintern` is **empty (0 rows)** and **all
+  1 393 priorities are orphaned** (reference application ids that don't exist — fallout from the legacy
+  `closeOffer` cross-month cascade-delete bug). Migrated: 15 applications, **0 priorities, 0 offers**. F-004
+  is therefore a **fresh-start** feature (apply form + offer admin), not a data port.
+- **Room-condition dates** are already proper `datetime` in the dump (not the feared `YmdHis` strings) — trivial ETL.
+- **Ølkælder log** is large (**104 525 rows**) — the ETL bulk-creates it. Money verified: shares sum exactly
+  to item totals across 37 400 transactions (largest-remainder split).
+- **Media relocation is best-effort.** `manage.py relocate_media` copies referenced legacy image files into
+  `MEDIA_ROOT`. Most **product** `imageurl`s were absolute URLs (skipped, ~200) and many room-image paths
+  don't resolve to files in the dump (~254 missing); the ones present are copied. New inspection uploads go
+  to `MEDIA_ROOT/roomimages/`.
+- **Visit counter:** `gahk_counter` (per-IP) is **not** migrated; a front-page-only middleware
+  (`stats.middleware`) records visits with **HMAC-hashed** IPs going forward, and `gahk_counterdato`
+  history is migrated to `stats.DailyVisitCount`.

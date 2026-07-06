@@ -1,12 +1,31 @@
 [project]
 name = "ny-ny-intern"
 version = "0.1.0"
-description = "Add your description here"
+description = "GAHK.dk rewrite — Django site for G. A. Hagemanns Kollegium"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 dependencies = [
-    "dj-database-url>=3.1.2",
-    "django==5.2",
-    "psycopg[binary]>=3.3.4",
-    "python-dotenv>=1.2.2",
+    "django>=5.2,<5.3",
+    "dj-database-url>=2.1",
+    "python-dotenv>=1.0",
+    "psycopg[binary]>=3.1",
+    "whitenoise>=6.6",
+    "gunicorn>=22.0",
+    "pymysql>=1.1",           # ETL source reader (legacy MariaDB); harmless in prod
+    "openpyxl>=3.1",          # alumneliste Excel (.xlsx) export
+    "nh3>=0.2",               # HTML sanitization of admin-edited CMS content
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-django>=4.8",
+    "ruff>=0.6",
+    "bandit>=1.7",
+    "pip-audit>=2.7",
+]
+
+# This is an application, not a distributable package: uv manages the venv + deps but does not build/
+# install the project itself (no build backend needed). The Django code lives in ./app.
+[tool.uv]
+package = false

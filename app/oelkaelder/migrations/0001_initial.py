@@ -7,7 +7,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -16,87 +15,169 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='LogEntry',
+            name="LogEntry",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(default=django.utils.timezone.now)),
-                ('message', models.TextField()),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("created_at", models.DateTimeField(default=django.utils.timezone.now)),
+                ("message", models.TextField()),
             ],
             options={
-                'ordering': ['-created_at'],
+                "ordering": ["-created_at"],
             },
         ),
         migrations.CreateModel(
-            name='Product',
+            name="Product",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=255)),
-                ('price_ore', models.PositiveIntegerField()),
-                ('weight_price_ore', models.PositiveIntegerField(blank=True, null=True)),
-                ('price_steps', models.JSONField(blank=True, null=True)),
-                ('image', models.FileField(blank=True, upload_to='oel/')),
-                ('active', models.BooleanField(default=True)),
-                ('highlighted', models.BooleanField(default=False)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("name", models.CharField(max_length=255)),
+                ("price_ore", models.PositiveIntegerField()),
+                ("weight_price_ore", models.PositiveIntegerField(blank=True, null=True)),
+                ("price_steps", models.JSONField(blank=True, null=True)),
+                ("image", models.FileField(blank=True, upload_to="oel/")),
+                ("active", models.BooleanField(default=True)),
+                ("highlighted", models.BooleanField(default=False)),
             ],
         ),
         migrations.CreateModel(
-            name='Transaction',
+            name="Transaction",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(default=django.utils.timezone.now)),
-                ('is_valid', models.BooleanField(default=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("created_at", models.DateTimeField(default=django.utils.timezone.now)),
+                ("is_valid", models.BooleanField(default=True)),
             ],
             options={
-                'ordering': ['-created_at'],
+                "ordering": ["-created_at"],
             },
         ),
         migrations.CreateModel(
-            name='Warning',
+            name="Warning",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('message', models.TextField(blank=True)),
-                ('threshold_ore', models.IntegerField()),
-                ('active', models.BooleanField(default=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("message", models.TextField(blank=True)),
+                ("threshold_ore", models.IntegerField()),
+                ("active", models.BooleanField(default=True)),
             ],
         ),
         migrations.CreateModel(
-            name='Shopper',
+            name="Shopper",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('active', models.BooleanField(default=True)),
-                ('resident', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='shopper_accounts', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("active", models.BooleanField(default=True)),
+                (
+                    "resident",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="shopper_accounts",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='Deposit',
+            name="Deposit",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('amount_ore', models.PositiveIntegerField()),
-                ('created_at', models.DateTimeField(default=django.utils.timezone.now)),
-                ('is_valid', models.BooleanField(default=True)),
-                ('shopper', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='deposits', to='oelkaelder.shopper')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("amount_ore", models.PositiveIntegerField()),
+                ("created_at", models.DateTimeField(default=django.utils.timezone.now)),
+                ("is_valid", models.BooleanField(default=True)),
+                (
+                    "shopper",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="deposits",
+                        to="oelkaelder.shopper",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='TransactionItem',
+            name="TransactionItem",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('quantity', models.PositiveIntegerField(default=1)),
-                ('price_ore', models.PositiveIntegerField()),
-                ('product', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='+', to='oelkaelder.product')),
-                ('transaction', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='items', to='oelkaelder.transaction')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("quantity", models.PositiveIntegerField(default=1)),
+                ("price_ore", models.PositiveIntegerField()),
+                (
+                    "product",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT, related_name="+", to="oelkaelder.product"
+                    ),
+                ),
+                (
+                    "transaction",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="items",
+                        to="oelkaelder.transaction",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='PurchaseShare',
+            name="PurchaseShare",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('share_ore', models.PositiveIntegerField()),
-                ('shopper', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='purchase_shares', to='oelkaelder.shopper')),
-                ('transaction', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='shares', to='oelkaelder.transaction')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("share_ore", models.PositiveIntegerField()),
+                (
+                    "shopper",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="purchase_shares",
+                        to="oelkaelder.shopper",
+                    ),
+                ),
+                (
+                    "transaction",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="shares",
+                        to="oelkaelder.transaction",
+                    ),
+                ),
             ],
             options={
-                'constraints': [models.UniqueConstraint(fields=('transaction', 'shopper'), name='uniq_txn_shopper')],
+                "constraints": [
+                    models.UniqueConstraint(fields=("transaction", "shopper"), name="uniq_txn_shopper")
+                ],
             },
         ),
     ]

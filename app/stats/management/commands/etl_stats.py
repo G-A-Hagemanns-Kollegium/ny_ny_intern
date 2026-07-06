@@ -4,6 +4,7 @@ Only the per-date aggregate is migrated (for the visitor chart's history). The p
 is NOT migrated — it was operational dedup state; the new front-page counter starts fresh with
 HMAC-hashed IPs. Legacy date format is "dd/mm-YYYY".
 """
+
 import datetime
 
 from django.core.management.base import BaseCommand
@@ -28,7 +29,9 @@ class Command(BaseCommand):
                 continue
             DailyVisitCount.objects.update_or_create(date=d, defaults=dict(count=r["count"] or 0))
             ok += 1
-        self.stdout.write(self.style.SUCCESS(
-            f"DailyVisitCount: {ok} days imported (skipped {bad} unparseable). "
-            f"gahk_counter (per-IP) not migrated by design."
-        ))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"DailyVisitCount: {ok} days imported (skipped {bad} unparseable). "
+                f"gahk_counter (per-IP) not migrated by design."
+            )
+        )

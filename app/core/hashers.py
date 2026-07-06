@@ -6,6 +6,7 @@ Django verify those on login; because ``must_update`` returns True, Django immed
 password with the default (strong) hasher on the next successful login — the upgrade-on-login path
 (scope §5). No forced global reset.
 """
+
 import hashlib
 
 from django.contrib.auth.hashers import BasePasswordHasher
