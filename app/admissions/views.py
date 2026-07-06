@@ -9,6 +9,7 @@ GET was CSRF-able). All fixes from F-001 (mass-assignment, SQLi, auth, CSRF) are
 """
 
 import json
+import logging
 import urllib.parse
 import urllib.request
 
@@ -24,6 +25,11 @@ from residents.permissions import role_required
 
 from .forms import FremlejeForm, RundvisningForm
 from .models import Application
+
+logger = logging.getLogger(__name__)
+
+# Cloudflare Turnstile server-side verification endpoint (fixed, HTTPS-only).
+TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 
 
 def index(request):
@@ -46,11 +52,11 @@ def _verify_turnstile(request):
         }
     ).encode()
     try:
-        with urllib.request.urlopen(
-            "https://challenges.cloudflare.com/turnstile/v0/siteverify", data=data, timeout=5
-        ) as resp:
+        # URL is a fixed HTTPS constant, not user-controlled — safe from B310 scheme abuse.
+        with urllib.request.urlopen(TURNSTILE_VERIFY_URL, data=data, timeout=5) as resp:  # nosec B310
             return bool(json.loads(resp.read()).get("success"))
     except Exception:
+        logger.warning("Turnstile verification request failed", exc_info=True)
         return False
 
 
@@ -138,7 +144,7 @@ def _send_emails(app, notify_committee):
             fail_silently=True,
         )
     except Exception:
-        pass
+        logger.exception("Failed sending admissions email for application %s", app.pk)
 
 
 # ---- indstilling review ----
