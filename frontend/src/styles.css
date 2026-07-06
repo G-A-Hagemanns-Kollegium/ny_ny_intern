@@ -22,6 +22,9 @@
   .btn { @apply inline-block bg-emerald-600 text-white rounded-md px-4 py-2 cursor-pointer no-underline hover:bg-emerald-700; }
   .muted { @apply text-gray-500; }
   .errorlist { @apply text-red-600; }
+  /* Signed money/tally amounts (see core.templatetags.ui_extras.sign_class). */
+  .amount-pos { @apply text-emerald-700; }
+  .amount-neg { @apply text-red-600; }
   .font-display { font-family: "Julius Sans One", sans-serif; }
 
   /* Readable rendering for migrated CMS body HTML. */
@@ -33,4 +36,38 @@
   .prose-gahk ol { @apply list-decimal ml-6 my-3; }
   .prose-gahk a { @apply text-emerald-700 underline; }
   .prose-gahk img { @apply max-w-full h-auto rounded my-3; }
+  .prose-gahk blockquote { @apply border-l-4 border-emerald-700 pl-4 my-4 italic text-gray-700; }
+
+  /* Horizontal, side-scrollable lineage chart (stamtræ, F-011): each node's children fan out to the
+     right; connectors are pure-CSS pseudo-elements so there is no JS/CDN dependency. */
+  .lineage { width: max-content; }
+  .lineage ul { display: flex; flex-direction: column; justify-content: center; }
+  .lineage li { display: flex; align-items: center; position: relative; }
+  .lineage .node {
+    position: relative;
+    display: inline-block;
+    white-space: nowrap;
+    margin: 3px 0;
+    padding: 3px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 9999px;
+    background: #fff;
+    font-size: 0.875rem;
+    color: #1f2937;
+  }
+  .lineage li > ul { margin-left: 2rem; }
+  /* stub from a parent node to its children's vertical bar */
+  .lineage li:has(> ul) > .node::after {
+    content: ""; position: absolute; left: 100%; top: 50%; width: 1rem; border-top: 1px solid #cbd5e1;
+  }
+  /* per-child: horizontal stub + shared vertical bar */
+  .lineage li > ul > li::before {
+    content: ""; position: absolute; left: -1rem; top: 50%; width: 1rem; border-top: 1px solid #cbd5e1;
+  }
+  .lineage li > ul > li::after {
+    content: ""; position: absolute; left: -1rem; top: 0; bottom: 0; border-left: 1px solid #cbd5e1;
+  }
+  .lineage li > ul > li:first-child::after { top: 50%; }
+  .lineage li > ul > li:last-child::after { bottom: 50%; }
+  .lineage li > ul > li:only-child::after { display: none; }
 }

@@ -1,12 +1,16 @@
 {% for r in rows %}
   <tr style="border-bottom:1px solid #f0f1f4">
-    <td>{{ r.room.number|stringformat:"03d" }}</td>
     <td>{{ r.resident.full_name }}</td>
-    <td>{{ r.resident.study }}</td>
-    <td>{{ r.resident.phone }}</td>
-    <td><a href="mailto:{{ r.resident.email }}">{{ r.resident.email }}</a></td>
+    <td>{{ r.room.number|stringformat:"03d" }}</td>
     <td>{{ r.workgroup.name|default:"" }}</td>
+    <td>{{ r.cleaning.name|default:"" }}</td>
+    <td>{% if r.resident.sponsor %}{{ r.resident.sponsor.full_name }}{% else %}{{ r.resident.fylgje_raw }}{% endif %}</td>
+    <td class="whitespace-nowrap">{{ r.resident.birthday|date:"Y-m-d" }}</td>
+    <td class="whitespace-nowrap">{{ r.resident.move_in_date|date:"Y-m-d" }}</td>
+    <td>{{ r.resident.study }}</td>
+    <td class="whitespace-nowrap">{{ r.resident.phone }}</td>
+    <td><a href="mailto:{{ r.resident.email }}">{{ r.resident.email }}</a></td>
   </tr>
 {% empty %}
-  <tr><td colspan="6" class="muted">Ingen beboere matcher.</td></tr>
+  <tr><td colspan="10" class="muted">Ingen beboere matcher.</td></tr>
 {% endfor %}

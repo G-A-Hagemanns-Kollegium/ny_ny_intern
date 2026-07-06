@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Resident, Residency, RoleAssignment
+from .models import Residency, Resident, RoleAssignment
 
 
 @admin.register(Resident)

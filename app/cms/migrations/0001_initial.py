@@ -4,58 +4,76 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Event',
+            name="Event",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=255)),
-                ('description', models.TextField(blank=True)),
-                ('starts_on', models.DateField()),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("title", models.CharField(max_length=255)),
+                ("description", models.TextField(blank=True)),
+                ("starts_on", models.DateField()),
             ],
             options={
-                'ordering': ['starts_on'],
+                "ordering": ["starts_on"],
             },
         ),
         migrations.CreateModel(
-            name='NewsItem',
+            name="NewsItem",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=255)),
-                ('body', models.TextField(blank=True)),
-                ('published_at', models.DateTimeField()),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("title", models.CharField(max_length=255)),
+                ("body", models.TextField(blank=True)),
+                ("published_at", models.DateTimeField()),
             ],
             options={
-                'ordering': ['-published_at'],
+                "ordering": ["-published_at"],
             },
         ),
         migrations.CreateModel(
-            name='Page',
+            name="Page",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('menu_category', models.PositiveSmallIntegerField(default=0)),
-                ('slug', models.SlugField(blank=True, max_length=80, unique=True)),
-                ('header', models.CharField(max_length=255)),
-                ('body', models.TextField(blank=True)),
-                ('background_image', models.CharField(blank=True, max_length=255)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("menu_category", models.PositiveSmallIntegerField(default=0)),
+                ("slug", models.SlugField(blank=True, max_length=80, unique=True)),
+                ("header", models.CharField(max_length=255)),
+                ("body", models.TextField(blank=True)),
+                ("background_image", models.CharField(blank=True, max_length=255)),
             ],
         ),
         migrations.CreateModel(
-            name='PylonEvent',
+            name="PylonEvent",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=255)),
-                ('description', models.TextField(blank=True)),
-                ('starts_on', models.DateField()),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("title", models.CharField(max_length=255)),
+                ("description", models.TextField(blank=True)),
+                ("starts_on", models.DateField()),
             ],
             options={
-                'ordering': ['starts_on'],
+                "ordering": ["starts_on"],
             },
         ),
     ]

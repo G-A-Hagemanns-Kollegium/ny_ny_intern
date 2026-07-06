@@ -3,14 +3,17 @@
 (migrated + maintained via fixtures), rendered read-only with template autoescaping. HTML bodies are
 sanitized on import as defence-in-depth.
 """
+
 from django.db import models
 
 
 class Page(models.Model):  # gahk_page
-    menu_category = models.PositiveSmallIntegerField(default=0)   # legacy menuCat (nav highlighting)
-    slug = models.SlugField(max_length=80, unique=True, blank=True, null=True)  # seeded from legacy routes.php; NULL when unmapped
+    menu_category = models.PositiveSmallIntegerField(default=0)  # legacy menuCat (nav highlighting)
+    slug = models.SlugField(
+        max_length=80, unique=True, blank=True, null=True
+    )  # seeded from legacy routes.php; NULL when unmapped
     header = models.CharField(max_length=255)
-    body = models.TextField(blank=True)                          # legacy `text` (HTML), sanitized on import
+    body = models.TextField(blank=True)  # legacy `text` (HTML), sanitized on import
     background_image = models.CharField(max_length=255, blank=True)  # legacy bgpic
 
     def __str__(self):
@@ -41,7 +44,9 @@ class PylonEvent(models.Model):  # gahk_pylon_calendar — likely retired; migra
         return f"{self.starts_on}: {self.title}"
 
 
-class Event(models.Model):  # NEW — replaces the hard-coded array in legacy begivenheder.php (developer-edited)
+class Event(
+    models.Model
+):  # NEW — replaces the hard-coded array in legacy begivenheder.php (developer-edited)
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     starts_on = models.DateField()

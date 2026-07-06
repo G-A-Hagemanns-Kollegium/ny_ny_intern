@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load oel_extras %}
+{% load oel_extras ui_extras %}
 {% block title %}Ølkælder-admin — GAHK Intern{% endblock %}
 {% block content %}
   <h1>Ølkælder — saldi</h1>
@@ -9,7 +9,7 @@
     {% for shopper, balance in rows %}
       <tr style="border-bottom:1px solid #f0f1f4">
         <td>{{ shopper.resident.full_name }}</td>
-        <td style="color:{% if balance < 0 %}#c00{% else %}#0a5{% endif %}">{{ balance|kr }}</td>
+        <td class="{{ balance|sign_class }}">{{ balance|kr }}</td>
         <td>
           <form method="post" action="{% url 'oelkaelder:deposit' shopper.id %}" style="display:flex; gap:.4rem">
             {% csrf_token %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Vis siden som rolle — GAHK{% endblock %}
+{% block content %}
+  <h1>Vis siden som rolle</h1>
+  <p class="muted">Se hvordan det interne site ser ud og opfører sig for en given embedsgruppe. Menu og
+  adgang ændrer sig, mens du selv stadig er logget ind som dig. Kun administratorer kan bruge dette.</p>
+
+  <div class="card">
+    <p class="mb-2"><strong>Nuværende visning:</strong>
+      {% if current is None %}
+        Ingen — du ser siden som dig selv.
+      {% elif current %}
+        {{ current|join:", " }}
+      {% else %}
+        beboer (ingen rolle)
+      {% endif %}
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>Vælg rolle</h2>
+    <div class="grid gap-2 sm:grid-cols-3 mt-2">
+      {% for value, label in all_roles %}
+        <form method="post" action="{% url 'siteadmin:preview_set' %}">
+          {% csrf_token %}
+          <input type="hidden" name="mode" value="role">
+          <input type="hidden" name="role" value="{{ value }}">
+          <button type="submit" class="btn w-full">{{ label }}{% if value == "administrator" %} (alle){% endif %}</button>
+        </form>
+      {% endfor %}
+      <form method="post" action="{% url 'siteadmin:preview_set' %}">
+        {% csrf_token %}
+        <input type="hidden" name="mode" value="resident">
+        <button type="submit" class="btn w-full">Ingen rolle (beboer)</button>
+      </form>
+    </div>
+  </div>
+
+  <form method="post" action="{% url 'siteadmin:preview_set' %}" class="mt-4">
+    {% csrf_token %}
+    <input type="hidden" name="mode" value="clear">
+    <button type="submit" class="btn bg-gray-600! hover:bg-gray-700!">Afslut forhåndsvisning</button>
+  </form>
+{% endblock %}

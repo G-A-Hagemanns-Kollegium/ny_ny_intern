@@ -3,6 +3,7 @@
 The ETL preserves legacy integer PKs (bulk_create / explicit id), which does NOT advance Postgres
 sequences — so the first ORM-created row collides at id=1. Run this once after the ETL (02-schema-etl §8).
 """
+
 from django.apps import apps
 from django.core.management.base import BaseCommand
 from django.core.management.color import no_style
@@ -20,6 +21,6 @@ class Command(BaseCommand):
         with connection.cursor() as cur:
             for stmt in statements:
                 cur.execute(stmt)
-        self.stdout.write(self.style.SUCCESS(
-            f"Reset sequences for {len(models)} models ({len(statements)} statements)."
-        ))
+        self.stdout.write(
+            self.style.SUCCESS(f"Reset sequences for {len(models)} models ({len(statements)} statements).")
+        )

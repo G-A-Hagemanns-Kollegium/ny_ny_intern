@@ -3,6 +3,7 @@
 Room is seeded from the hard-coded room map in legacy `intern/delt.php` (there is no rooms table);
 Workgroup/Cleaning come from `intern_alumne_workgroup` / `intern_alumne_cleaning`.
 """
+
 from django.db import models
 
 
@@ -11,8 +12,8 @@ class Room(models.Model):
     # kvotient lottery) and the human room number ("003", "101", … stored as int).
     legacy_index = models.PositiveSmallIntegerField(unique=True)
     number = models.PositiveSmallIntegerField(unique=True)
-    floor = models.CharField(max_length=20)             # "stuen", "1. sal", …
-    side = models.CharField(max_length=20)              # "mod gaden" / "mod gården"
+    floor = models.CharField(max_length=20)  # "stuen", "1. sal", …
+    side = models.CharField(max_length=20)  # "mod gaden" / "mod gården"
     note = models.CharField(max_length=40, blank=True)  # "(røvhullet)", "(fængslet)", …
 
     class Meta:

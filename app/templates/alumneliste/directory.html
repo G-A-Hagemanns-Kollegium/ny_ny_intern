@@ -1,15 +1,41 @@
 {% extends "base.html" %}
 {% block title %}Alumneliste — GAHK Intern{% endblock %}
+{% block content_width %}max-w-full{% endblock %}
 {% block content %}
-  <h1>Alumneliste</h1>
+  <h1>Alumneliste — {{ period_label }}</h1>
+
+  <div class="flex flex-wrap items-center gap-2 mb-3">
+    <form method="get" class="flex items-center gap-2">
+      <label for="period" class="font-semibold">Måned:</label>
+      <select id="period" name="period" onchange="this.form.submit()" class="w-auto!">
+        {% for p in periods %}
+          <option value="{{ p.value }}" {% if p.selected %}selected{% endif %}>{{ p.label }}</option>
+        {% endfor %}
+      </select>
+      <noscript><button type="submit" class="btn">Vis</button></noscript>
+    </form>
+    <span class="hidden sm:block flex-1"></span>
+    <a class="btn" href="{% url 'directory_export' %}?format=csv&period={{ period_value }}">Eksportér CSV</a>
+    <a class="btn" href="{% url 'directory_export' %}?format=xlsx&period={{ period_value }}">Eksportér Excel</a>
+    {% if "indstilling" in effective_roles %}
+      <a class="btn" href="{% url 'next_month_list' %}">Rediger næste måned ›</a>
+    {% endif %}
+  </div>
+
   <input type="search" name="q" placeholder="Søg navn, studie, e-mail…"
-         hx-get="{% url 'directory_rows' %}" hx-target="#dir-rows" hx-trigger="keyup changed delay:250ms, search"
+         hx-get="{% url 'directory_rows' %}" hx-vals='{"period": "{{ period_value }}"}'
+         hx-target="#dir-rows" hx-trigger="keyup changed delay:250ms, search"
          style="width:100%; padding:.5rem; margin-bottom:1rem">
-  <table cellpadding="6" style="width:100%; border-collapse:collapse">
-    <thead><tr style="text-align:left; border-bottom:1px solid #e6e8ec">
-      <th>Værelse</th><th>Navn</th><th>Studie</th><th>Telefon</th><th>E-mail</th><th>Embedsgruppe</th></tr></thead>
-    <tbody id="dir-rows">
-      {% include "alumneliste/_rows.html" %}
-    </tbody>
-  </table>
+
+  <div class="overflow-x-auto">
+    <table cellpadding="6" style="width:100%; border-collapse:collapse">
+      <thead><tr style="text-align:left; border-bottom:1px solid #e6e8ec; white-space:nowrap">
+        <th>Navn</th><th>Værelse</th><th>Embedsgruppe</th><th>Rengøring</th><th>Fylgje</th>
+        <th>Fødselsdag</th><th>Indflyttet</th><th>Studie</th><th>Telefon</th><th>Email</th>
+      </tr></thead>
+      <tbody id="dir-rows">
+        {% include "alumneliste/_rows.html" %}
+      </tbody>
+    </table>
+  </div>
 {% endblock %}

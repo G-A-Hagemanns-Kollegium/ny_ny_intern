@@ -7,103 +7,200 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('core', '0001_initial'),
+        ("core", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='RoomCriterion',
+            name="RoomCriterion",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('code', models.CharField(max_length=50, unique=True)),
-                ('name', models.CharField(max_length=50)),
-                ('description', models.TextField(blank=True)),
-                ('options', models.PositiveSmallIntegerField()),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("code", models.CharField(max_length=50, unique=True)),
+                ("name", models.CharField(max_length=50)),
+                ("description", models.TextField(blank=True)),
+                ("options", models.PositiveSmallIntegerField()),
             ],
         ),
         migrations.CreateModel(
-            name='KvotientApplication',
+            name="KvotientApplication",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('move_month', models.IntegerField()),
-                ('move_in_month', models.IntegerField()),
-                ('done_studying_month', models.IntegerField()),
-                ('k', models.FloatField()),
-                ('apply_datetime', models.DateTimeField(default=django.utils.timezone.now)),
-                ('resident', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='kvotient_applications', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("move_month", models.IntegerField()),
+                ("move_in_month", models.IntegerField()),
+                ("done_studying_month", models.IntegerField()),
+                ("k", models.FloatField()),
+                ("apply_datetime", models.DateTimeField(default=django.utils.timezone.now)),
+                (
+                    "resident",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="kvotient_applications",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-k', 'apply_datetime'],
+                "ordering": ["-k", "apply_datetime"],
             },
         ),
         migrations.CreateModel(
-            name='KvotientOrlov',
+            name="KvotientOrlov",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('start_month', models.IntegerField()),
-                ('end_month', models.IntegerField()),
-                ('application', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='orlov_periods', to='rooms.kvotientapplication')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("start_month", models.IntegerField()),
+                ("end_month", models.IntegerField()),
+                (
+                    "application",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="orlov_periods",
+                        to="rooms.kvotientapplication",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='RoomCondition',
+            name="RoomCondition",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('recorded_by_name', models.CharField(blank=True, max_length=255)),
-                ('recorded_at', models.DateTimeField()),
-                ('is_current', models.BooleanField(default=True)),
-                ('resident', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL)),
-                ('room', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='conditions', to='core.room')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("recorded_by_name", models.CharField(blank=True, max_length=255)),
+                ("recorded_at", models.DateTimeField()),
+                ("is_current", models.BooleanField(default=True)),
+                (
+                    "resident",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="+",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "room",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE, related_name="conditions", to="core.room"
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='RoomConditionScore',
+            name="RoomConditionScore",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('score', models.IntegerField(blank=True, null=True)),
-                ('comment', models.TextField(blank=True)),
-                ('image', models.FileField(blank=True, upload_to='roomimages/')),
-                ('condition', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='scores', to='rooms.roomcondition')),
-                ('criterion', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='+', to='rooms.roomcriterion')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("score", models.IntegerField(blank=True, null=True)),
+                ("comment", models.TextField(blank=True)),
+                ("image", models.FileField(blank=True, upload_to="roomimages/")),
+                (
+                    "condition",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="scores",
+                        to="rooms.roomcondition",
+                    ),
+                ),
+                (
+                    "criterion",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="+",
+                        to="rooms.roomcriterion",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='RoomOffer',
+            name="RoomOffer",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('month', models.IntegerField()),
-                ('room', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='offers', to='core.room')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("month", models.IntegerField()),
+                (
+                    "room",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT, related_name="offers", to="core.room"
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='KvotientPriority',
+            name="KvotientPriority",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('priority', models.PositiveSmallIntegerField()),
-                ('month', models.IntegerField(blank=True, null=True)),
-                ('application', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='priorities', to='rooms.kvotientapplication')),
-                ('room', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='+', to='core.room')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("priority", models.PositiveSmallIntegerField()),
+                ("month", models.IntegerField(blank=True, null=True)),
+                (
+                    "application",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="priorities",
+                        to="rooms.kvotientapplication",
+                    ),
+                ),
+                (
+                    "room",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT, related_name="+", to="core.room"
+                    ),
+                ),
             ],
             options={
-                'ordering': ['priority'],
-                'constraints': [models.UniqueConstraint(fields=('application', 'priority'), name='uniq_app_priority')],
+                "ordering": ["priority"],
+                "constraints": [
+                    models.UniqueConstraint(fields=("application", "priority"), name="uniq_app_priority")
+                ],
             },
         ),
         migrations.AddIndex(
-            model_name='roomcondition',
-            index=models.Index(fields=['room', 'is_current'], name='rooms_roomc_room_id_a2dd41_idx'),
+            model_name="roomcondition",
+            index=models.Index(fields=["room", "is_current"], name="rooms_roomc_room_id_a2dd41_idx"),
         ),
         migrations.AddConstraint(
-            model_name='roomconditionscore',
-            constraint=models.UniqueConstraint(fields=('condition', 'criterion'), name='uniq_condition_criterion'),
+            model_name="roomconditionscore",
+            constraint=models.UniqueConstraint(
+                fields=("condition", "criterion"), name="uniq_condition_criterion"
+            ),
         ),
         migrations.AddConstraint(
-            model_name='roomoffer',
-            constraint=models.UniqueConstraint(fields=('room', 'month'), name='uniq_room_offer_month'),
+            model_name="roomoffer",
+            constraint=models.UniqueConstraint(fields=("room", "month"), name="uniq_room_offer_month"),
         ),
     ]

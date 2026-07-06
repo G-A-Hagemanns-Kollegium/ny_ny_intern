@@ -1,27 +1,57 @@
 {% extends "base.html" %}
 {% block title %}Ansøgninger — GAHK Intern{% endblock %}
+{% block content_width %}max-w-5xl{% endblock %}
 {% block content %}
   <h1>Ansøgninger</h1>
-  <table border="0" cellpadding="6" style="width:100%; border-collapse:collapse">
-    <thead><tr style="text-align:left; border-bottom:1px solid #e6e8ec">
-      <th>Dato</th><th>Type</th><th>Navn</th><th>E-mail</th><th>Modtaget</th></tr></thead>
-    <tbody>
-    {% for a in page_obj %}
-      <tr style="border-bottom:1px solid #f0f1f4">
-        <td>{{ a.submitted_at|date:"Y-m-d" }}</td>
-        <td>{{ a.get_type_display }}</td>
-        <td><a href="{% url 'admissions:show' a.pk %}">{{ a.full_name }}</a></td>
-        <td>{{ a.email }}</td>
-        <td>{% if a.received_by %}✓{% else %}—{% endif %}</td>
-      </tr>
-    {% empty %}
-      <tr><td colspan="5" class="muted">Ingen ansøgninger.</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  <p class="muted">
-    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">‹ forrige</a>{% endif %}
-    Side {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
-    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">næste ›</a>{% endif %}
-  </p>
+  <p class="muted mb-4">Nyeste ansøgninger til rundvisning og fremleje. Endnu ikke modtagne er fremhævet.</p>
+
+  <div class="rounded-lg border border-gray-200 overflow-x-auto">
+    <table class="w-full text-sm border-collapse">
+      <thead>
+        <tr class="text-left bg-gray-50 border-b border-gray-200 text-gray-600">
+          <th class="px-3 py-2 font-semibold whitespace-nowrap">Dato</th>
+          <th class="px-3 py-2 font-semibold">Type</th>
+          <th class="px-3 py-2 font-semibold">Navn</th>
+          <th class="px-3 py-2 font-semibold">Uddannelse</th>
+          <th class="px-3 py-2 font-semibold">Modtaget af</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for a in page_obj %}
+        <tr class="border-b border-gray-100 hover:bg-gray-50 {% if not a.received_by %}bg-amber-50{% endif %}">
+          <td class="px-3 py-2 whitespace-nowrap text-gray-500">{{ a.submitted_at|date:"Y-m-d" }}</td>
+          <td class="px-3 py-2">
+            {% if a.type == "rundvisning" %}
+              <span class="inline-block rounded-full bg-emerald-100 text-emerald-800 text-xs px-2 py-0.5">Rundvisning</span>
+            {% else %}
+              <span class="inline-block rounded-full bg-gray-200 text-gray-700 text-xs px-2 py-0.5">Fremleje</span>
+            {% endif %}
+          </td>
+          <td class="px-3 py-2">
+            <a href="{% url 'admissions:show' a.pk %}" class="text-emerald-700 hover:underline font-medium">{{ a.full_name }}</a>
+          </td>
+          <td class="px-3 py-2 text-gray-700">{{ a.university|default:a.occupation|default:"—" }}</td>
+          <td class="px-3 py-2 whitespace-nowrap">
+            {% if a.received_by %}
+              <span class="text-gray-800">✓ {{ a.received_by.first_name }} {{ a.received_by.last_name|slice:":1" }}.</span>
+              {% if a.received_at %}<span class="text-gray-400 text-xs">· {{ a.received_at|date:"Y-m-d" }}</span>{% endif %}
+            {% else %}
+              <span class="inline-block rounded-full bg-amber-200 text-amber-900 text-xs px-2 py-0.5">Afventer</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="px-3 py-4 muted text-center">Ingen ansøgninger.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page_obj.paginator.num_pages > 1 %}
+    <p class="muted mt-4 flex items-center gap-3">
+      {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">‹ forrige</a>{% endif %}
+      <span>Side {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">næste ›</a>{% endif %}
+    </p>
+  {% endif %}
 {% endblock %}

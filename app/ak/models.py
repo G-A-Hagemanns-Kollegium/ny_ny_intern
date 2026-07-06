@@ -8,6 +8,7 @@ Modelled as an **append-only ledger** (one row per change) instead of the legacy
 buggy bulk ops (`monthNumber='24178'`, `-1*` insert). The balance is the SUM of entries — always
 consistent, and the monthly assessment / labour / adjustments are just entries.
 """
+
 from django.db import models
 from django.db.models import Sum
 from django.utils import timezone
@@ -20,17 +21,18 @@ class AkEntry(models.Model):
         ADJUSTMENT = "adjustment", "Manuel justering"
         OPENING = "opening", "Startsaldo (migreret)"
 
-    resident = models.ForeignKey(
-        "residents.Resident", on_delete=models.CASCADE, related_name="ak_entries"
-    )
+    resident = models.ForeignKey("residents.Resident", on_delete=models.CASCADE, related_name="ak_entries")
     delta = models.IntegerField()  # krydser; negative allowed (debt), positive = credit
     kind = models.CharField(max_length=12, choices=Kind.choices, default=Kind.ADJUSTMENT)
     reason = models.CharField(max_length=255, blank=True)  # legacy `comment`
     created_at = models.DateTimeField(default=timezone.now)
     # the officer who made the change; null for system/monthly/migrated entries
     created_by = models.ForeignKey(
-        "residents.Resident", null=True, blank=True,
-        on_delete=models.SET_NULL, related_name="ak_entries_created",
+        "residents.Resident",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="ak_entries_created",
     )
 
     class Meta:

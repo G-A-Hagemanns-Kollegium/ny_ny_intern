@@ -5,6 +5,7 @@ Consolidates the legacy `intern_alumne` (directory + login principal) and `gahk_
 privileges come from the *current month's* assignments, not a static table — see
 02-schema-etl.md §5 / 99-index.md F-010. Network-closed / MAC fields are dropped (feature retired).
 """
+
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 from django.utils import timezone
@@ -18,6 +19,19 @@ class Role(models.TextChoices):
     OELKAELDER = "oelkaelder", "Ølkælderen"
     ADMINISTRATOR = "administrator", "Administrator"
     # NOTE: legacy `editpage` is intentionally omitted — there is no runtime CMS editing (F-006/F-007).
+
+
+# Embedsgrupper (workgroups) are the monthly office groups every resident belongs to; the ones below
+# are the *privileged* subset that grants a site-access role. Keyed by Workgroup.name (core.Workgroup).
+# `administrator` is deliberately absent — it is not a workgroup and is managed separately.
+WORKGROUP_ROLE = {
+    "Indstillingen": Role.INDSTILLING,
+    "Inspektionen": Role.INSPEKTION,
+    "Køkkengruppen": Role.KOKKENGRUPPE,
+    "AK-gruppen": Role.AK,
+    "Ølkælderen": Role.OELKAELDER,
+}
+WORKGROUP_ROLE_VALUES = frozenset(WORKGROUP_ROLE.values())
 
 
 class ResidentManager(BaseUserManager):
@@ -56,7 +70,9 @@ class Resident(AbstractBaseUser, PermissionsMixin):
     fylgje_raw = models.CharField(max_length=255, blank=True)  # original free-text, kept if unresolved
     # django auth
     is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)  # = holds any role in the active period (set by ETL/signals)
+    is_staff = models.BooleanField(
+        default=False
+    )  # = holds any role in the active period (set by ETL/signals)
     date_joined = models.DateTimeField(default=timezone.now)
 
     objects = ResidentManager()
@@ -81,6 +97,7 @@ class Resident(AbstractBaseUser, PermissionsMixin):
 
 class Residency(models.Model):
     """One row per resident per month (legacy intern_alumne_liste): which room + chore groups."""
+
     resident = models.ForeignKey(Resident, on_delete=models.CASCADE, related_name="residencies")
     room = models.ForeignKey("core.Room", on_delete=models.PROTECT, related_name="residencies")
     workgroup = models.ForeignKey("core.Workgroup", null=True, blank=True, on_delete=models.SET_NULL)
@@ -101,6 +118,7 @@ class Residency(models.Model):
 
 class RoleAssignment(models.Model):
     """A privilege/embedsgruppe role held by a resident **for a specific month** (decided 2026-06)."""
+
     resident = models.ForeignKey(Resident, on_delete=models.CASCADE, related_name="role_assignments")
     role = models.CharField(max_length=20, choices=Role.choices)
     year = models.PositiveSmallIntegerField()
@@ -108,9 +126,7 @@ class RoleAssignment(models.Model):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(
-                fields=["resident", "role", "year", "month"], name="uniq_role_assignment"
-            )
+            models.UniqueConstraint(fields=["resident", "role", "year", "month"], name="uniq_role_assignment")
         ]
         indexes = [models.Index(fields=["role", "year", "month"])]
 
@@ -119,12 +135,26 @@ class RoleAssignment(models.Model):
 
 
 def active_period():
-    """The (year, month) of the most recently published residency list — what is 'in effect'.
+    """The (year, month) currently *in effect*: the most recent published residency list that has
+    already started. A list indstilling is preparing for a future month does NOT become active until
+    that month arrives. Falls back to the calendar month when no (past-or-current) list exists.
 
-    Per F-010: the newest monthly list governs; if none exists yet, fall back to the calendar month.
+    Per F-010: the newest monthly list governs — but future-dated lists are held back so next month's
+    roster can be edited ahead of time without changing who has access now.
     """
-    latest = Residency.objects.order_by("-year", "-month").values("year", "month").first()
+    now = timezone.localtime()
+    latest = (
+        Residency.objects.filter(models.Q(year__lt=now.year) | models.Q(year=now.year, month__lte=now.month))
+        .order_by("-year", "-month")
+        .values("year", "month")
+        .first()
+    )
     if latest:
         return latest["year"], latest["month"]
-    now = timezone.localtime()
     return now.year, now.month
+
+
+def next_period(period=None):
+    """The month after `period` (defaults to the active period), as (year, month)."""
+    year, month = period or active_period()
+    return (year + 1, 1) if month == 12 else (year, month + 1)

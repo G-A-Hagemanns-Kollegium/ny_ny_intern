@@ -6,6 +6,7 @@ day/month/year/timestamp quartet -> a single aware `submitted_at`, and `received
 (no mass-assignment). Imports the full history; the 1-year retention is a separate scheduled purge
 (`purge_applications`), not applied here, so the stats history is preserved.
 """
+
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
@@ -23,6 +24,7 @@ class Command(BaseCommand):
     def handle(self, *args, **opts):
         remap = resident_id_remap()
         from residents.models import Resident
+
         resident_ids = set(Resident.objects.values_list("id", flat=True))
 
         rows = fetch_all("SELECT * FROM gahk_ansoegninger")
@@ -70,8 +72,10 @@ class Command(BaseCommand):
                 ),
             )
 
-        self.stdout.write(self.style.SUCCESS(
-            f"Applications: {len(rows)} imported "
-            f"(unknown-type {unknown_type}, junk-date->reconstructed {no_date}, "
-            f"receiver-unresolved {receiver_dropped})."
-        ))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Applications: {len(rows)} imported "
+                f"(unknown-type {unknown_type}, junk-date->reconstructed {no_date}, "
+                f"receiver-unresolved {receiver_dropped})."
+            )
+        )

@@ -1,0 +1,10 @@
+line-length = 110
+target-version = "py312"
+
+[lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]  # long lines tolerated (comments/URLs)
+
+[lint.per-file-ignores]
+"*/migrations/*" = ["E", "F", "UP", "B"]
+"tests/*" = ["B", "F811"]

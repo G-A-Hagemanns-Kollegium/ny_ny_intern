@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Match the production image's interpreter (Django 5.2's supported range), not the dev .python-version.
+env:
+  UV_PYTHON: "3.13"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: app } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { enable-cache: true }
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run bandit -q -r . -x ./tests,./core/management  # skip tests + one-off ETL scripts
+
+  test:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: app } }
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_DB: gahk, POSTGRES_USER: gahk, POSTGRES_PASSWORD: gahk }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U gahk" --health-interval 5s
+          --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgres://gahk:gahk@localhost:5432/gahk
+      DJANGO_DEBUG: "1"          # plain static storage → no manifest needed for tests
+      DJANGO_SECRET_KEY: ci-secret
+      VISIT_COUNTER_HMAC_KEY: ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { enable-cache: true }
+      - run: uv run python -m pytest -q
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      # Audit the locked prod dependencies (exported from uv.lock, no requirements file committed).
+      - run: uv export --frozen --no-dev --no-emit-project --format requirements-txt -o /tmp/req.txt
+      - run: uvx pip-audit -r /tmp/req.txt
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t gahk:ci .       # verifies the multi-stage image builds (no push)

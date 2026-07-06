@@ -5,6 +5,7 @@ indices 0..61 in delt.php. Index 0 is the "Intet valgt" sentinel (not a real roo
 indices 1..61 become Room rows. `legacy_index` is the kvotient `vaerelse_id`; `number` is the 3-digit
 room number used elsewhere.
 """
+
 from django.core.management.base import BaseCommand
 
 from core.models import Room
@@ -69,4 +70,6 @@ class Command(BaseCommand):
         for r in build_rooms():
             Room.objects.update_or_create(legacy_index=r["legacy_index"], defaults=r)
             n += 1
-        self.stdout.write(self.style.SUCCESS(f"Seeded/updated {n} rooms (Room.objects={Room.objects.count()})."))
+        self.stdout.write(
+            self.style.SUCCESS(f"Seeded/updated {n} rooms (Room.objects={Room.objects.count()}).")
+        )

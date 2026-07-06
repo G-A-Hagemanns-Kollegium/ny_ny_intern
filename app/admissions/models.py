@@ -4,6 +4,7 @@ Clean reimplementation of F-001: explicit fields (no mass-assignment), `gender` 
 (legacy stored only a `female` bool), a single `submitted_at` instead of day/month/year/timestamp, and a
 real `received_by`/`received_at`. 1-year retention is enforced by a scheduled purge (see management cmd).
 """
+
 from django.db import models
 
 
@@ -34,8 +35,11 @@ class Application(models.Model):
     motivation = models.TextField(blank=True)
     submitted_at = models.DateTimeField()
     received_by = models.ForeignKey(
-        "residents.Resident", null=True, blank=True,
-        on_delete=models.SET_NULL, related_name="applications_received",
+        "residents.Resident",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="applications_received",
     )
     received_at = models.DateTimeField(null=True, blank=True)
 

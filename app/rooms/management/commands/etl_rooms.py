@@ -5,6 +5,7 @@ kvotient tables map straight across (resolving residents via the dedup remap, ro
 rows: `criteria` = "id:score;…", `comments` = "id:comment;…", `images` = "id:path|…". Only the current
 state (is_newest=1) is migrated (decided). room_id is the Room *number*.
 """
+
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
@@ -12,8 +13,13 @@ from django.utils import timezone
 from core.etl import epoch_to_dt, fetch_all, resident_id_remap
 from core.models import Room
 from rooms.models import (
-    KvotientApplication, KvotientOrlov, KvotientPriority, RoomCondition,
-    RoomConditionScore, RoomCriterion, RoomOffer,
+    KvotientApplication,
+    KvotientOrlov,
+    KvotientPriority,
+    RoomCondition,
+    RoomConditionScore,
+    RoomCriterion,
+    RoomOffer,
 )
 
 
@@ -33,6 +39,7 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *args, **opts):
         from residents.models import Resident
+
         remap = resident_id_remap()
         resident_ids = set(Resident.objects.values_list("id", flat=True))
         by_index = {r.legacy_index: r for r in Room.objects.all()}
@@ -48,8 +55,11 @@ class Command(BaseCommand):
             KvotientApplication.objects.update_or_create(
                 id=a["ID"],
                 defaults=dict(
-                    resident_id=rid, move_month=a["moveMonth"], move_in_month=a["moveInMonth"],
-                    done_studying_month=a["doneStudyingMonth"], k=a["K"],
+                    resident_id=rid,
+                    move_month=a["moveMonth"],
+                    move_in_month=a["moveInMonth"],
+                    done_studying_month=a["doneStudyingMonth"],
+                    k=a["K"],
                     apply_datetime=epoch_to_dt(a["applyDatetime"]) or timezone.now(),
                 ),
             )
@@ -63,8 +73,10 @@ class Command(BaseCommand):
                 prio_skipped += 1
                 continue
             KvotientPriority.objects.create(
-                application_id=p["ansoegnings_id"], room=room,
-                priority=p["priority"], month=p["month"] or None,
+                application_id=p["ansoegnings_id"],
+                room=room,
+                priority=p["priority"],
+                month=p["month"] or None,
             )
 
         KvotientOrlov.objects.all().delete()
@@ -72,7 +84,9 @@ class Command(BaseCommand):
             if o["ansoegnings_id"] not in app_ids:
                 continue
             KvotientOrlov.objects.create(
-                application_id=o["ansoegnings_id"], start_month=o["orlov_start"], end_month=o["orlov_end"],
+                application_id=o["ansoegnings_id"],
+                start_month=o["orlov_start"],
+                end_month=o["orlov_end"],
             )
 
         offers = 0
@@ -116,17 +130,20 @@ class Command(BaseCommand):
                     continue
                 raw = crit_scores.get(code, "").strip()
                 RoomConditionScore.objects.create(
-                    condition=cond, criterion=crit,
+                    condition=cond,
+                    criterion=crit,
                     score=int(raw) if raw.lstrip("-").isdigit() else None,
                     comment=(comments.get(code) or "").strip(),
                     image=(images.get(code) or "").strip().lstrip("/"),
                 )
                 scores += 1
 
-        self.stdout.write(self.style.SUCCESS(
-            f"Kvotient: {KvotientApplication.objects.count()} applications (skipped {app_skipped}), "
-            f"{KvotientPriority.objects.count()} priorities (skipped {prio_skipped}), "
-            f"{KvotientOrlov.objects.count()} orlov, {offers} offers. "
-            f"Conditions: {RoomCondition.objects.count()} current (skipped {cond_skipped_room} unmapped-room), "
-            f"{scores} scores; {len(criteria)} criteria."
-        ))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Kvotient: {KvotientApplication.objects.count()} applications (skipped {app_skipped}), "
+                f"{KvotientPriority.objects.count()} priorities (skipped {prio_skipped}), "
+                f"{KvotientOrlov.objects.count()} orlov, {offers} offers. "
+                f"Conditions: {RoomCondition.objects.count()} current (skipped {cond_skipped_room} unmapped-room), "
+                f"{scores} scores; {len(criteria)} criteria."
+            )
+        )

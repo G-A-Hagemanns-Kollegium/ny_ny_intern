@@ -6,11 +6,11 @@ version: '3'
 # Uses the project virtualenv at ./.venv and the Django project in ./app. Local dev uses SQLite
 # unless DATABASE_URL is set (see app/.env.example); the Docker DBs (task db:up) are for ETL/Postgres.
 
-# NOTE: PY is a forward-slash path *relative to app/* (every Python task sets `dir: app`). An absolute
-# {{.ROOT_DIR}} path would contain Windows backslashes, which go-task's sh interpreter treats as escape
-# sequences (\n, \a, …) and mangles → "not found" (exit 127).
+# Dependencies are managed by uv (pyproject.toml + uv.lock). `uv run` auto-syncs the ./.venv and runs
+# in it; every Python task sets `dir: app`, and uv discovers the project by walking up to the repo root.
+# Run `task install` (uv sync) once to create the environment.
 vars:
-  PY: '../.venv/Scripts/python.exe'
+  PY: 'uv run python'
   APP: '{{.ROOT_DIR}}/app'
   # Dev server address. 8000/8001/8080 are often taken by VS Code; override with:
   #   task dev DEV_ADDR=127.0.0.1:9000
@@ -24,6 +24,10 @@ tasks:
     desc: List available tasks
     cmds: ['task --list']
     silent: true
+
+  install:
+    desc: Create/sync the virtualenv from pyproject.toml + uv.lock (runtime + dev deps)
+    cmds: ['uv sync']
 
   dev:
     desc: Build assets, migrate, then run the dev server (http://127.0.0.1:8800)
@@ -67,9 +71,19 @@ tasks:
     cmds: ['{{.PY}} manage.py createsuperuser']
 
   test:
-    desc: Run the test suite
+    desc: Run the pytest suite
     dir: '{{.APP}}'
-    cmds: ['{{.PY}} manage.py test {{.CLI_ARGS}}']
+    cmds: ['{{.PY}} -m pytest {{.CLI_ARGS}}']
+
+  lint:
+    desc: Lint + format-check with ruff
+    dir: '{{.APP}}'
+    cmds: ['uv run ruff check .', 'uv run ruff format --check .']
+
+  etl:verify:
+    desc: Diff legacy MariaDB counts vs migrated Postgres counts
+    dir: '{{.APP}}'
+    cmds: ['{{.PY}} manage.py etl_verify']
 
   db:up:
     desc: Start the Postgres + MariaDB containers
@@ -100,6 +114,7 @@ tasks:
       - '{{.PY}} manage.py etl_oelkaelder'
       - '{{.PY}} manage.py etl_stats'
       - '{{.PY}} manage.py reset_sequences'
+      - '{{.PY}} manage.py sync_cms_media'
 
   frontend:install:
     desc: Install frontend dependencies (npm)

@@ -4,41 +4,54 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Cleaning',
+            name="Cleaning",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('legacy_id', models.PositiveIntegerField(blank=True, null=True, unique=True)),
-                ('name', models.CharField(max_length=100, unique=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("legacy_id", models.PositiveIntegerField(blank=True, null=True, unique=True)),
+                ("name", models.CharField(max_length=100, unique=True)),
             ],
         ),
         migrations.CreateModel(
-            name='Room',
+            name="Room",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('legacy_index', models.PositiveSmallIntegerField(unique=True)),
-                ('number', models.PositiveSmallIntegerField(unique=True)),
-                ('floor', models.CharField(max_length=20)),
-                ('side', models.CharField(max_length=20)),
-                ('note', models.CharField(blank=True, max_length=40)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("legacy_index", models.PositiveSmallIntegerField(unique=True)),
+                ("number", models.PositiveSmallIntegerField(unique=True)),
+                ("floor", models.CharField(max_length=20)),
+                ("side", models.CharField(max_length=20)),
+                ("note", models.CharField(blank=True, max_length=40)),
             ],
             options={
-                'ordering': ['number'],
+                "ordering": ["number"],
             },
         ),
         migrations.CreateModel(
-            name='Workgroup',
+            name="Workgroup",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('legacy_id', models.PositiveIntegerField(blank=True, null=True, unique=True)),
-                ('name', models.CharField(max_length=100, unique=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("legacy_id", models.PositiveIntegerField(blank=True, null=True, unique=True)),
+                ("name", models.CharField(max_length=100, unique=True)),
             ],
         ),
     ]

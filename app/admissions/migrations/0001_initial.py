@@ -4,34 +4,49 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Application',
+            name="Application",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('type', models.CharField(choices=[('rundvisning', 'Rundvisning'), ('fremleje', 'Fremleje')], max_length=20)),
-                ('full_name', models.CharField(max_length=255)),
-                ('email', models.EmailField(max_length=254)),
-                ('gender', models.CharField(blank=True, choices=[('male', 'Mand'), ('female', 'Kvinde'), ('other', 'Andet')], max_length=10)),
-                ('age', models.CharField(blank=True, max_length=50)),
-                ('study_year', models.CharField(blank=True, max_length=255)),
-                ('year_left', models.CharField(blank=True, max_length=255)),
-                ('university', models.CharField(blank=True, max_length=255)),
-                ('field_of_study', models.CharField(blank=True, max_length=255)),
-                ('occupation', models.CharField(blank=True, max_length=255)),
-                ('heard_about_us', models.CharField(blank=True, max_length=255)),
-                ('motivation', models.TextField(blank=True)),
-                ('submitted_at', models.DateTimeField()),
-                ('received_at', models.DateTimeField(blank=True, null=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                (
+                    "type",
+                    models.CharField(
+                        choices=[("rundvisning", "Rundvisning"), ("fremleje", "Fremleje")], max_length=20
+                    ),
+                ),
+                ("full_name", models.CharField(max_length=255)),
+                ("email", models.EmailField(max_length=254)),
+                (
+                    "gender",
+                    models.CharField(
+                        blank=True,
+                        choices=[("male", "Mand"), ("female", "Kvinde"), ("other", "Andet")],
+                        max_length=10,
+                    ),
+                ),
+                ("age", models.CharField(blank=True, max_length=50)),
+                ("study_year", models.CharField(blank=True, max_length=255)),
+                ("year_left", models.CharField(blank=True, max_length=255)),
+                ("university", models.CharField(blank=True, max_length=255)),
+                ("field_of_study", models.CharField(blank=True, max_length=255)),
+                ("occupation", models.CharField(blank=True, max_length=255)),
+                ("heard_about_us", models.CharField(blank=True, max_length=255)),
+                ("motivation", models.TextField(blank=True)),
+                ("submitted_at", models.DateTimeField()),
+                ("received_at", models.DateTimeField(blank=True, null=True)),
             ],
             options={
-                'ordering': ['-submitted_at'],
+                "ordering": ["-submitted_at"],
             },
         ),
     ]

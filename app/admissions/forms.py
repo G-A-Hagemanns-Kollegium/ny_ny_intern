@@ -3,6 +3,7 @@
 Explicit fields (kills the legacy mass-assignment), server-side validation, a honeypot for spam.
 (reCAPTCHA/Turnstile to be wired with keys — see TODO in views.) gender is male/female/other.
 """
+
 from django import forms
 
 from .models import Application
@@ -34,12 +35,27 @@ class _BaseApplicationForm(forms.ModelForm):
 class RundvisningForm(_BaseApplicationForm):
     class Meta:
         model = Application
-        fields = ["full_name", "email", "gender", "age", "study_year", "year_left",
-                  "university", "field_of_study", "heard_about_us", "motivation"]
+        fields = [
+            "full_name",
+            "email",
+            "gender",
+            "age",
+            "study_year",
+            "year_left",
+            "university",
+            "field_of_study",
+            "heard_about_us",
+            "motivation",
+        ]
         labels = {
-            "full_name": "Fulde navn", "email": "E-mail", "age": "Alder",
-            "study_year": "Antal år studeret", "year_left": "Studieår tilbage",
-            "university": "Universitet", "field_of_study": "Studieretning", "motivation": "Motivation",
+            "full_name": "Fulde navn",
+            "email": "E-mail",
+            "age": "Alder",
+            "study_year": "Antal år studeret",
+            "year_left": "Studieår tilbage",
+            "university": "Universitet",
+            "field_of_study": "Studieretning",
+            "motivation": "Motivation",
         }
         widgets = {"motivation": forms.Textarea(attrs={"rows": 5})}
 
@@ -49,7 +65,10 @@ class FremlejeForm(_BaseApplicationForm):
         model = Application
         fields = ["full_name", "email", "gender", "age", "occupation", "heard_about_us", "motivation"]
         labels = {
-            "full_name": "Fulde navn", "email": "E-mail", "age": "Alder",
-            "occupation": "Beskæftigelse", "motivation": "Motivation",
+            "full_name": "Fulde navn",
+            "email": "E-mail",
+            "age": "Alder",
+            "occupation": "Beskæftigelse",
+            "motivation": "Motivation",
         }
         widgets = {"motivation": forms.Textarea(attrs={"rows": 5})}

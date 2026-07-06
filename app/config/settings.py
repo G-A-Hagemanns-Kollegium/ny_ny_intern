@@ -3,8 +3,9 @@
 Schema/decisions: see ../02-schema-etl.md. Target DB is PostgreSQL (via DATABASE_URL);
 falls back to SQLite for local dev/validation when DATABASE_URL is unset.
 """
-from pathlib import Path
+
 import os
+from pathlib import Path
 
 import dj_database_url
 from dotenv import load_dotenv
@@ -43,6 +44,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "stats.middleware.FrontPageVisitCounterMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -108,7 +110,8 @@ STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {
         "BACKEND": (
-            "django.contrib.staticfiles.storage.StaticFilesStorage" if DEBUG
+            "django.contrib.staticfiles.storage.StaticFilesStorage"
+            if DEBUG
             else "whitenoise.storage.CompressedManifestStaticFilesStorage"
         )
     },
@@ -134,6 +137,17 @@ EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "autosvar@gahk.dk")
 INDSTILLING_EMAIL = os.environ.get("INDSTILLING_EMAIL", "indstillingen@gahk.dk")
 
+# Front-page visit counter: server-side secret for HMAC-hashing visitor IPs (F-002/F-011).
+VISIT_COUNTER_HMAC_KEY = os.environ.get("VISIT_COUNTER_HMAC_KEY", "dev-hmac-key")
+
+# Cloudflare Turnstile on the public application forms (F-001). Unset in dev → the check is skipped.
+TURNSTILE_SITE_KEY = os.environ.get("TURNSTILE_SITE_KEY", "")
+TURNSTILE_SECRET_KEY = os.environ.get("TURNSTILE_SECRET_KEY", "")
+
 # Ølkælder till is an open kiosk on the GAHK LAN (F-003): purchases allowed without per-user login,
 # but only from these source IPs (as seen by the server). In DEBUG the gate is open for testing.
 OELKAELDER_KIOSK_IPS = [ip for ip in os.environ.get("OELKAELDER_KIOSK_IPS", "").split(",") if ip]
+
+# GAHK Wiki — standalone MediaWiki, served at /wiki/ in prod (legacy path). Point WIKI_URL at the
+# preview container (e.g. http://localhost:8899) during local development.
+WIKI_URL = os.environ.get("WIKI_URL", "/wiki/")

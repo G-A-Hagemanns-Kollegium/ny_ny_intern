@@ -1,5 +1,6 @@
 """AK views (F-009). Members see their own balance/log; AK officers (role `ak`) see everyone and can
 add/adjust crosses for anyone. Balance is the SUM of ledger entries."""
+
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404, redirect, render
@@ -14,10 +15,14 @@ from .models import AkEntry
 
 @login_required
 def my_ak(request):
-    return render(request, "ak/my.html", {
-        "balance": AkEntry.balance_for(request.user),
-        "entries": request.user.ak_entries.all()[:100],
-    })
+    return render(
+        request,
+        "ak/my.html",
+        {
+            "balance": AkEntry.balance_for(request.user),
+            "entries": request.user.ak_entries.all()[:100],
+        },
+    )
 
 
 @role_required("ak")
@@ -34,11 +39,15 @@ def overview(request):
 @role_required("ak")
 def resident_log(request, pk):
     resident = get_object_or_404(Resident, pk=pk)
-    return render(request, "ak/log.html", {
-        "resident": resident,
-        "balance": AkEntry.balance_for(resident),
-        "entries": resident.ak_entries.all()[:200],
-    })
+    return render(
+        request,
+        "ak/log.html",
+        {
+            "resident": resident,
+            "balance": AkEntry.balance_for(resident),
+            "entries": resident.ak_entries.all()[:200],
+        },
+    )
 
 
 @require_POST
@@ -51,10 +60,12 @@ def add_entry(request, pk):
         delta = 0
     if delta:
         AkEntry.objects.create(
-            resident=resident, delta=delta,
+            resident=resident,
+            delta=delta,
             kind=AkEntry.Kind.LABOUR if delta > 0 else AkEntry.Kind.ADJUSTMENT,
             reason=request.POST.get("reason", "").strip(),
-            created_by=request.user, created_at=timezone.now(),
+            created_by=request.user,
+            created_at=timezone.now(),
         )
     return redirect("ak:log", pk=pk)
 

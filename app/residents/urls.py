@@ -1,4 +1,5 @@
 """Internal members area + auth, under /nyintern/ (legacy URLs preserved). F-013/F-014."""
+
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
@@ -9,6 +10,9 @@ urlpatterns = [
     path("", views.dashboard, name="dashboard"),
     path("alumneliste/", views.directory, name="directory"),
     path("alumneliste/rows", views.directory_rows, name="directory_rows"),
+    path("alumneliste/eksport", views.directory_export, name="directory_export"),
+    path("alumneliste/naeste-maaned", views.next_month_list, name="next_month_list"),
+    path("stamtree/", views.stamtree, name="stamtree"),
     path("ak/", include("ak.urls")),
     path("oelkaelder/", include("oelkaelder.urls")),
     path("statistik/", include("stats.urls")),
@@ -17,7 +21,8 @@ urlpatterns = [
     path(
         "admin/login",
         auth_views.LoginView.as_view(
-            template_name="registration/login.html", authentication_form=EmailAuthenticationForm,
+            template_name="registration/login.html",
+            authentication_form=EmailAuthenticationForm,
         ),
         name="login",
     ),
@@ -50,21 +55,21 @@ urlpatterns = [
     ),
     path(
         "admin/password-reset/done",
-        auth_views.PasswordResetDoneView.as_view(
-            template_name="registration/password_reset_done.html"),
+        auth_views.PasswordResetDoneView.as_view(template_name="registration/password_reset_done.html"),
         name="password_reset_done",
     ),
     path(
         "admin/reset/<uidb64>/<token>/",
         auth_views.PasswordResetConfirmView.as_view(
-            template_name="registration/password_reset_confirm.html",
-            success_url="/nyintern/admin/reset/done"),
+            template_name="registration/password_reset_confirm.html", success_url="/nyintern/admin/reset/done"
+        ),
         name="password_reset_confirm",
     ),
     path(
         "admin/reset/done",
         auth_views.PasswordResetCompleteView.as_view(
-            template_name="registration/password_reset_complete.html"),
+            template_name="registration/password_reset_complete.html"
+        ),
         name="password_reset_complete",
     ),
 ]
