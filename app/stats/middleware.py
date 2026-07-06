@@ -8,6 +8,7 @@ hashed IP mirrors the legacy `counter()` behaviour. Failures never break the pag
 import datetime
 import hashlib
 import hmac
+import logging
 
 from django.conf import settings
 from django.db import transaction
@@ -16,6 +17,7 @@ from django.utils import timezone
 
 from .models import DailyVisitCount, VisitTally
 
+logger = logging.getLogger(__name__)
 DEDUP_WINDOW = datetime.timedelta(minutes=30)
 
 
@@ -29,7 +31,8 @@ class FrontPageVisitCounterMiddleware:
             try:
                 self._count(request)
             except Exception:
-                pass  # a counter hiccup must never break the front page
+                # a counter hiccup must never break the front page
+                logger.warning("front-page visit counter failed", exc_info=True)
         return response
 
     def _count(self, request):
