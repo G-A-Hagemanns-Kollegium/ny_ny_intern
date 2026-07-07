@@ -1,34 +1,19 @@
-# Production-ish stack for a single Hetzner box (Coolify can consume this compose; Kamal uses the
-# Dockerfile directly). TLS/reverse-proxy is provided by Coolify/Traefik in front of `web`.
-# MediaWiki runs as its own service against MariaDB (see DEPLOY.md) — not shown here.
+# Production stack for Coolify (single Hetzner box). TLS/reverse-proxy is provided by Coolify/Traefik
+# in front of `web`. PostgreSQL and MariaDB are separate **Coolify-managed resources** (not defined
+# here) in the same Coolify project — set DATABASE_URL to the managed Postgres resource's *internal*
+# URL. Env vars (DATABASE_URL, DJANGO_SECRET_KEY, ALLOWED_HOSTS, CSRF_TRUSTED_ORIGINS, SMTP_*, …) are
+# injected by Coolify's env manager, so there is no committed env_file. MediaWiki is its own app.
 services:
   web:
     build: .
     restart: unless-stopped
-    env_file: [app/.env.prod]        # DJANGO_DEBUG=0, SECRET_KEY, ALLOWED_HOSTS, DATABASE_URL, secrets…
     command: >-
       sh -c "python manage.py migrate --noinput &&
              gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 60"
     volumes:
-      - media:/app/media             # uploaded files (room-inspection photos etc.)
-    depends_on:
-      postgres: { condition: service_healthy }
-    ports: ["8000:8000"]
-
-  postgres:
-    image: postgres:16
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: gahk
-      POSTGRES_USER: gahk
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in env}
-    volumes: ["pgdata:/var/lib/postgresql/data"]
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U gahk"]
-      interval: 10s
-      timeout: 5s
-      retries: 20
+      - media:/app/media       # uploaded files (room-inspection photos, relocated legacy images)
+    expose:
+      - "8000"                 # reached by Coolify/Traefik over the internal network (not host-published)
 
 volumes:
-  pgdata:
   media:
