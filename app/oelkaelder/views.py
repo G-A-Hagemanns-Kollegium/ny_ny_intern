@@ -14,8 +14,18 @@ from .models import Deposit, Product, PurchaseShare, Shopper
 from .services import record_deposit, record_purchase
 
 
+def _client_ip(request):
+    """The till's real IP. Behind Coolify/Traefik, REMOTE_ADDR is the proxy, so trust the last hop of
+    X-Forwarded-For (the IP Traefik observed — the rightmost entry is the one it appended, not a value
+    a client could spoof). Safe only because gunicorn is reachable *only* via the proxy."""
+    xff = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    if xff:
+        return xff.split(",")[-1].strip()
+    return request.META.get("REMOTE_ADDR", "")
+
+
 def _is_kiosk(request):
-    return settings.DEBUG or request.META.get("REMOTE_ADDR") in settings.OELKAELDER_KIOSK_IPS
+    return settings.DEBUG or _client_ip(request) in settings.OELKAELDER_KIOSK_IPS
 
 
 def shop(request):
