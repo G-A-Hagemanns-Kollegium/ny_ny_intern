@@ -211,6 +211,29 @@ def test_is_staff_synced_with_roles(make_resident):
     assert su.is_staff is True  # superuser stays staff regardless
 
 
+@pytest.mark.django_db
+def test_dashboard_shows_shared_calendar_credentials(make_resident, monkeypatch):
+    monkeypatch.setenv("GOOGLE_CALENDAR_USER", "gahkkalender@gmail.com")
+    monkeypatch.setenv("GOOGLE_CALENDAR_PASSWORD", "dummy-pw")
+    c = Client()
+    c.force_login(make_resident(email="d@gahk.dk"))
+    h = c.get("/nyintern/").content.decode()
+    assert "gahkkalender@gmail.com" in h and "dummy-pw" in h  # both shown to logged-in residents
+
+
+@pytest.mark.django_db
+def test_oelkaelder_kiosk_gate_uses_forwarded_ip():
+    from django.test import override_settings
+
+    with override_settings(DEBUG=False, OELKAELDER_KIOSK_IPS=["130.225.243.26"]):
+        c = Client()
+        # Traefik appends the real client IP as the last X-Forwarded-For hop.
+        ok = c.get("/nyintern/oelkaelder/", HTTP_X_FORWARDED_FOR="130.225.243.26")
+        assert ok.status_code == 200  # kiosk open from the dorm egress IP
+        blocked = c.get("/nyintern/oelkaelder/", HTTP_X_FORWARDED_FOR="203.0.113.9")
+        assert blocked.status_code == 403  # any other IP is denied
+
+
 # ---------------------------------------------------------------- visit counter (F-002/F-011)
 @pytest.mark.django_db
 def test_frontpage_counter_hashes_and_dedups():

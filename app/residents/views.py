@@ -46,6 +46,7 @@ def dashboard(request):
             "roles": roles,
             "wifi_password": os.environ.get("WIFI_PASSWORD", ""),
             "calendar_user": os.environ.get("GOOGLE_CALENDAR_USER", ""),
+            "calendar_password": os.environ.get("GOOGLE_CALENDAR_PASSWORD", ""),
         },
     )
 
