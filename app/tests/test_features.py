@@ -234,6 +234,25 @@ def test_oelkaelder_kiosk_gate_uses_forwarded_ip():
         assert blocked.status_code == 403  # any other IP is denied
 
 
+@pytest.mark.django_db
+def test_media_files_are_served_in_prod():
+    from pathlib import Path
+
+    from django.conf import settings
+    from django.test import override_settings
+
+    Path(settings.MEDIA_ROOT).mkdir(parents=True, exist_ok=True)
+    f = Path(settings.MEDIA_ROOT) / "__test_serve.txt"
+    f.write_text("hello-media")
+    try:
+        with override_settings(DEBUG=False):  # prod-like: must still serve /media/
+            r = Client().get("/media/__test_serve.txt")
+        assert r.status_code == 200
+        assert b"".join(r.streaming_content) == b"hello-media"
+    finally:
+        f.unlink(missing_ok=True)
+
+
 # ---------------------------------------------------------------- visit counter (F-002/F-011)
 @pytest.mark.django_db
 def test_frontpage_counter_hashes_and_dedups():
