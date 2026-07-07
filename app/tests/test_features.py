@@ -295,8 +295,12 @@ def test_statistik_renders_charts(make_resident):
     from stats.models import DailyVisitCount
 
     Application.objects.create(
-        type=Application.Type.TOUR, full_name="A", email="a@x.dk", submitted_at=timezone.now(),
-        university="DTU", heard_about_us="plakat",
+        type=Application.Type.TOUR,
+        full_name="A",
+        email="a@x.dk",
+        submitted_at=timezone.now(),
+        university="DTU",
+        heard_about_us="plakat",
     )
     DailyVisitCount.objects.create(date=date.today(), count=5)
     c = Client()
