@@ -163,3 +163,7 @@ OELKAELDER_KIOSK_IPS = [ip for ip in os.environ.get("OELKAELDER_KIOSK_IPS", "").
 # GAHK Wiki — standalone MediaWiki, served at /wiki/ in prod (legacy path). Point WIKI_URL at the
 # preview container (e.g. http://localhost:8899) during local development.
 WIKI_URL = os.environ.get("WIKI_URL", "/wiki/")
+
+# Room-inspection photo uploads (F-005): server-side hard cap. Images are also downscaled client-side
+# before upload, so this is mainly a backstop against oversized/crafted uploads.
+ROOM_PHOTO_MAX_MB = int(os.environ.get("ROOM_PHOTO_MAX_MB", "5"))
