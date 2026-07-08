@@ -253,6 +253,19 @@ def test_media_files_are_served_in_prod():
         f.unlink(missing_ok=True)
 
 
+def test_body_media_rewrites_relative_and_absolute_legacy_urls():
+    from cms.templatetags.cms_extras import body_media
+
+    html = (
+        '<img src="/public/image/a.jpg">'
+        '<img src="http://gahk.dk/public/image/b.jpg">'
+        '<img src="https://www.gahk.dk/public/image/c.jpg">'
+    )
+    out = body_media(html)
+    assert out.count('src="/static/legacy/image/') == 3  # all three rewritten
+    assert "gahk.dk/public" not in out and 'src="/public' not in out  # no http/relative leftovers
+
+
 # ---------------------------------------------------------------- visit counter (F-002/F-011)
 @pytest.mark.django_db
 def test_frontpage_counter_hashes_and_dedups():

@@ -18,8 +18,14 @@ def legacy_img(path):
 
 @register.filter
 def body_media(html):
-    """Rewrite legacy /public/... asset URLs inside CMS body HTML to the copied static location."""
+    """Rewrite legacy asset URLs inside CMS body HTML to the copied static location. Handles both the
+    relative forms (`/public/…`, `public/…`) and the absolute legacy-host form
+    (`http(s)://[www.]gahk.dk/public/…`) — rewriting the absolute one also removes mixed-content
+    warnings on the HTTPS site (it was still pointing at `http://…`)."""
     if not html:
         return html
     prefix = settings.STATIC_URL.rstrip("/") + "/legacy/"
-    return re.sub(r'((?:src|href)\s*=\s*["\'])/?public/', r"\1" + prefix, html, flags=re.I)
+    attr = r'((?:src|href)\s*=\s*["\'])'
+    html = re.sub(attr + r"https?://(?:www\.)?gahk\.dk/public/", r"\1" + prefix, html, flags=re.I)
+    html = re.sub(attr + r"/?public/", r"\1" + prefix, html, flags=re.I)
+    return html
