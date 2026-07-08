@@ -108,3 +108,14 @@ class RoomConditionScore(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["condition", "criterion"], name="uniq_condition_criterion")
         ]
+
+    @property
+    def image_url(self):
+        """Served URL for the migrated legacy image path (under MEDIA_ROOT), the raw value if it is
+        already an absolute URL, or '' if none. New uploads use `photo.url` instead."""
+        from django.conf import settings
+
+        v = (self.image or "").strip()
+        if not v or v.startswith(("http://", "https://")):
+            return v
+        return f"{settings.MEDIA_URL.rstrip('/')}/{v.lstrip('/')}"

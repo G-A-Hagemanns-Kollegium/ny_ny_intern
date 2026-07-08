@@ -253,6 +253,17 @@ def test_media_files_are_served_in_prod():
         f.unlink(missing_ok=True)
 
 
+def test_room_condition_image_url():
+    from rooms.models import RoomConditionScore
+
+    assert (
+        RoomConditionScore(image="public/image/intern/roomimages/112/a.jpg").image_url
+        == "/media/public/image/intern/roomimages/112/a.jpg"
+    )
+    assert RoomConditionScore(image="https://ex.com/y.jpg").image_url == "https://ex.com/y.jpg"
+    assert RoomConditionScore(image="").image_url == ""
+
+
 def test_body_media_rewrites_relative_and_absolute_legacy_urls():
     from cms.templatetags.cms_extras import body_media
 
