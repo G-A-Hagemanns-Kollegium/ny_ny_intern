@@ -14,7 +14,7 @@
           <td class="p-2">
             {{ s.comment }}
             {% if s.photo %}<div class="mt-1"><img src="{{ s.photo.url }}" alt="" class="max-w-xs h-auto rounded border border-gray-200" loading="lazy"></div>{% endif %}
-            {% if s.image_url %}<div class="mt-1"><img src="{{ s.image_url }}" alt="billede" class="max-w-xs h-auto rounded border border-gray-200" loading="lazy"></div>{% endif %}
+            {% for u in s.image_urls %}<div class="mt-1"><img src="{{ u }}" alt="billede" class="max-w-xs h-auto rounded border border-gray-200" loading="lazy"></div>{% endfor %}
           </td>
         </tr>
       {% endfor %}

@@ -277,15 +277,14 @@ def test_room_photo_over_max_is_rejected(make_resident):
     assert not s.photo  # the oversized photo was skipped
 
 
-def test_room_condition_image_url():
+def test_room_condition_image_urls():
     from rooms.models import RoomConditionScore
 
-    assert (
-        RoomConditionScore(image="public/image/intern/roomimages/112/a.jpg").image_url
-        == "/media/public/image/intern/roomimages/112/a.jpg"
-    )
-    assert RoomConditionScore(image="https://ex.com/y.jpg").image_url == "https://ex.com/y.jpg"
-    assert RoomConditionScore(image="").image_url == ""
+    # legacy `image` is a ';'-separated list with mixed public/ and /public/ prefixes
+    s = RoomConditionScore(image="public/image/a.jpg;/public/image/b.jpg;")
+    assert s.image_urls == ["/media/public/image/a.jpg", "/media/public/image/b.jpg"]
+    assert RoomConditionScore(image="https://ex.com/y.jpg").image_urls == ["https://ex.com/y.jpg"]
+    assert RoomConditionScore(image="").image_urls == []
 
 
 def test_body_media_rewrites_relative_and_absolute_legacy_urls():
