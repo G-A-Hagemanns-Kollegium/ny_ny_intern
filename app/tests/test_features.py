@@ -253,6 +253,30 @@ def test_media_files_are_served_in_prod():
         f.unlink(missing_ok=True)
 
 
+@pytest.mark.django_db
+def test_room_photo_over_max_is_rejected(make_resident):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from django.test import override_settings
+
+    from core.models import Room
+    from rooms.models import RoomConditionScore, RoomCriterion
+
+    rm = Room.objects.create(legacy_index=90, number=90, floor="stuen", side="mod gaden")
+    RoomCriterion.objects.create(code="floor", name="Gulv", options=5)
+    ins = make_resident(email="ins@gahk.dk", roles=[Role.INSPEKTION])
+    c = Client()
+    c.force_login(ins)
+    img = SimpleUploadedFile("p.jpg", b"x" * 2048, content_type="image/jpeg")
+    with override_settings(ROOM_PHOTO_MAX_MB=0):  # cap 0 → any file counts as "too big"
+        c.post(
+            f"/nyintern/vaerelsestjek/besvar/{rm.number}",
+            {"score_floor": "3", "comment_floor": "", "image_floor": img},
+        )
+    s = RoomConditionScore.objects.get(criterion__code="floor")
+    assert s.score == 3  # the score/comment are still saved
+    assert not s.photo  # the oversized photo was skipped
+
+
 def test_room_condition_image_url():
     from rooms.models import RoomConditionScore
 

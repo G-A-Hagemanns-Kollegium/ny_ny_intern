@@ -6,6 +6,8 @@ Only the current condition is kept. (Per-criterion image *upload* is a later ref
 legacy image path references are shown read-only.)
 """
 
+from django.conf import settings
+from django.contrib import messages
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -57,6 +59,17 @@ def besvar(request, room_id):
                 raw = request.POST.get(f"score_{crit.code}", "").strip()
                 comment = request.POST.get(f"comment_{crit.code}", "").strip()
                 photo = request.FILES.get(f"image_{crit.code}")
+                if photo:  # backstop: reject non-images / oversized uploads (client already downscales)
+                    if not (photo.content_type or "").startswith("image/"):
+                        messages.warning(request, f"{crit.name}: filen er ikke et billede og blev ikke gemt.")
+                        photo = None
+                    elif photo.size > settings.ROOM_PHOTO_MAX_MB * 1024 * 1024:
+                        messages.warning(
+                            request,
+                            f"{crit.name}: billedet var for stort (over {settings.ROOM_PHOTO_MAX_MB} MB) "
+                            "og blev ikke gemt.",
+                        )
+                        photo = None
                 if raw or comment or photo:
                     RoomConditionScore.objects.create(
                         condition=cond,
