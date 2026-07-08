@@ -110,12 +110,17 @@ class RoomConditionScore(models.Model):
         ]
 
     @property
-    def image_url(self):
-        """Served URL for the migrated legacy image path (under MEDIA_ROOT), the raw value if it is
-        already an absolute URL, or '' if none. New uploads use `photo.url` instead."""
+    def image_urls(self):
+        """Served URLs for the migrated legacy image(s). The legacy `image` field is a ';'-separated
+        list of paths (mixed `public/` and `/public/` prefixes); each becomes a MEDIA_ROOT URL (or is
+        passed through if already absolute). New uploads use `photo.url` instead."""
         from django.conf import settings
 
-        v = (self.image or "").strip()
-        if not v or v.startswith(("http://", "https://")):
-            return v
-        return f"{settings.MEDIA_URL.rstrip('/')}/{v.lstrip('/')}"
+        base = settings.MEDIA_URL.rstrip("/")
+        urls = []
+        for part in (self.image or "").split(";"):
+            v = part.strip()
+            if not v:
+                continue
+            urls.append(v if v.startswith(("http://", "https://")) else f"{base}/{v.lstrip('/')}")
+        return urls
