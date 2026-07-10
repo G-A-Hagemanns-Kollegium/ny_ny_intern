@@ -6,24 +6,20 @@
 # Owners can be users (@handle) or org teams (@G-A-Hagemanns-Kollegium/<team>).
 # A team must exist and have write access to the repo, or GitHub ignores the line.
 
-# Default owners: everyone in the G-A-Hagemanns-Kollegium org.
-# (Listing individuals because the org has no teams yet. If you create a team,
-#  replace these with @G-A-Hagemanns-Kollegium/<team> for round-robin review.)
-*                       @osquera @magnusgp @boldalt @gahk
+# Default owner: the Netværk team.
+# NOTE: teams are referenced by SLUG (not display name), and GitHub silently ignores
+# an invalid team. Confirm the slug in the team URL:
+#   https://github.com/orgs/G-A-Hagemanns-Kollegium/teams/<slug>
+# "Netværk" should slugify to "netvaerk" — fix the line below if the URL differs.
+# The team must have write access to this repo, or the rule is ignored.
+*                       @G-A-Hagemanns-Kollegium/netvaerk
 
 # --- Per-area overrides (optional) ---
-# Uncomment and narrow to route reviews to whoever owns each area as the team
-# specializes. The LAST matching line wins, so these override the catch-all above.
+# Uncomment and narrow to route reviews as the team specializes.
+# The LAST matching line wins, so these override the catch-all above.
 #
 # /app/residents/       @osquera
 # /app/admissions/      @magnusgp
 # /app/oelkaelder/      @boldalt
 # /app/rooms/           @osquera
 # /app/cms/             @magnusgp
-#
-# Infra, CI, and deploy affect everyone — keep the whole org as owners:
-# /.github/             @osquera @magnusgp @boldalt @gahk
-# /Dockerfile           @osquera @magnusgp @boldalt @gahk
-# /docker-compose*.yml  @osquera @magnusgp @boldalt @gahk
-# /Taskfile.yml         @osquera @magnusgp @boldalt @gahk
-# /DEPLOY.md            @osquera @magnusgp @boldalt @gahk
