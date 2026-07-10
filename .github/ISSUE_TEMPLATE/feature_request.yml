@@ -1,0 +1,44 @@
+name: Feature request
+description: Propose a new feature or an improvement
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What are you trying to do, and why is it hard today?
+      placeholder: Residents can't see upcoming events without opening Google Calendar separately.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like to happen? Link a spec/feature ID (e.g. F-013) if one exists.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - "residents (alumneliste / dashboard)"
+        - "admissions (optagelse)"
+        - "ak"
+        - "oelkaelder"
+        - "rooms (vaerelsestjek / soegvaerelse)"
+        - "cms (public pages / news)"
+        - "stats"
+        - "auth / login"
+        - "infra / deploy"
+        - "other"
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any other approaches you thought about, or how it's handled today / in the legacy site.
