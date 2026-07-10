@@ -57,13 +57,12 @@ def _calendar_embed_url() -> str:
     """Build the shared Google Calendar agenda embed shown on the dashboard (restored from the
     legacy /nyintern dashboard). The calendar IDs are public embed IDs, not secrets, but come from
     env so the source stays deployment-agnostic. Returns "" when no calendar is configured."""
-    calendar_ids = [os.environ.get("GOOGLE_CALENDAR_USER", "")]
-    calendar_ids += os.environ.get(
-        "GOOGLE_CALENDAR_EXTRA_IDS", "mnic13suhuvarq6ffitg2j30m4@group.calendar.google.com"
-    ).split(",")
-    calendar_ids = [c.strip() for c in calendar_ids if c.strip()]
-    if not calendar_ids:
+    calendar_user = os.environ.get("GOOGLE_CALENDAR_USER", "").strip()
+    if not calendar_user:
         return ""
+    calendar_ids = [calendar_user]
+    extra_ids = os.environ.get("GOOGLE_CALENDAR_EXTRA_IDS", "")
+    calendar_ids += [c.strip() for c in extra_ids.split(",") if c.strip()]
     params = [
         ("mode", "AGENDA"),
         ("ctz", "Europe/Copenhagen"),
