@@ -1,0 +1,29 @@
+# Code owners for ny_ny_intern.
+# GitHub auto-requests review from the owner(s) of every file a PR touches.
+# Order matters: the LAST matching pattern wins, so keep the catch-all first
+# and add more specific overrides below it.
+#
+# Owners can be users (@handle) or org teams (@G-A-Hagemanns-Kollegium/<team>).
+# A team must exist and have write access to the repo, or GitHub ignores the line.
+
+# Default owners: everyone in the G-A-Hagemanns-Kollegium org.
+# (Listing individuals because the org has no teams yet. If you create a team,
+#  replace these with @G-A-Hagemanns-Kollegium/<team> for round-robin review.)
+*                       @osquera @magnusgp @boldalt @gahk
+
+# --- Per-area overrides (optional) ---
+# Uncomment and narrow to route reviews to whoever owns each area as the team
+# specializes. The LAST matching line wins, so these override the catch-all above.
+#
+# /app/residents/       @osquera
+# /app/admissions/      @magnusgp
+# /app/oelkaelder/      @boldalt
+# /app/rooms/           @osquera
+# /app/cms/             @magnusgp
+#
+# Infra, CI, and deploy affect everyone — keep the whole org as owners:
+# /.github/             @osquera @magnusgp @boldalt @gahk
+# /Dockerfile           @osquera @magnusgp @boldalt @gahk
+# /docker-compose*.yml  @osquera @magnusgp @boldalt @gahk
+# /Taskfile.yml         @osquera @magnusgp @boldalt @gahk
+# /DEPLOY.md            @osquera @magnusgp @boldalt @gahk
