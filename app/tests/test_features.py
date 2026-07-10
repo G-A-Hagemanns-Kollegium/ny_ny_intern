@@ -219,6 +219,9 @@ def test_dashboard_shows_shared_calendar_credentials(make_resident, monkeypatch)
     c.force_login(make_resident(email="d@gahk.dk"))
     h = c.get("/nyintern/").content.decode()
     assert "gahkkalender@gmail.com" in h and "dummy-pw" in h  # both shown to logged-in residents
+    # The embedded Google Calendar agenda (restored from the legacy dashboard) renders for logged-in users.
+    assert "calendar.google.com/calendar/embed" in h
+    assert "src=gahkkalender%40gmail.com" in h
 
 
 @pytest.mark.django_db

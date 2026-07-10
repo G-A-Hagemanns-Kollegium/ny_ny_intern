@@ -2,6 +2,7 @@ import csv
 import io
 import os
 from datetime import date
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib import messages
@@ -47,8 +48,37 @@ def dashboard(request):
             "wifi_password": os.environ.get("WIFI_PASSWORD", ""),
             "calendar_user": os.environ.get("GOOGLE_CALENDAR_USER", ""),
             "calendar_password": os.environ.get("GOOGLE_CALENDAR_PASSWORD", ""),
+            "calendar_embed_url": _calendar_embed_url(),
         },
     )
+
+
+def _calendar_embed_url() -> str:
+    """Build the shared Google Calendar agenda embed shown on the dashboard (restored from the
+    legacy /nyintern dashboard). The calendar IDs are public embed IDs, not secrets, but come from
+    env so the source stays deployment-agnostic. Returns "" when no calendar is configured."""
+    calendar_ids = [os.environ.get("GOOGLE_CALENDAR_USER", "")]
+    calendar_ids += os.environ.get(
+        "GOOGLE_CALENDAR_EXTRA_IDS", "mnic13suhuvarq6ffitg2j30m4@group.calendar.google.com"
+    ).split(",")
+    calendar_ids = [c.strip() for c in calendar_ids if c.strip()]
+    if not calendar_ids:
+        return ""
+    params = [
+        ("mode", "AGENDA"),
+        ("ctz", "Europe/Copenhagen"),
+        ("wkst", "2"),
+        ("bgcolor", "#ffffff"),
+        ("showTitle", "0"),
+        ("showNav", "0"),
+        ("showDate", "0"),
+        ("showPrint", "0"),
+        ("showTabs", "0"),
+        ("showCalendars", "0"),
+        ("showTz", "0"),
+    ]
+    params += [("src", cid) for cid in calendar_ids]
+    return "https://calendar.google.com/calendar/embed?" + urlencode(params)
 
 
 # ---- Alumneliste: the resident directory (F-010) ----
