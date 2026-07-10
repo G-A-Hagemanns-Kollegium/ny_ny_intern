@@ -70,6 +70,13 @@ tasks:
     dir: '{{.APP}}'
     cmds: ['{{.PY}} manage.py createsuperuser']
 
+  seed:
+    desc: Fill the DB with realistic fake data for dev/demo (wipes existing demo data; prints logins)
+    dir: '{{.APP}}'
+    cmds:
+      - '{{.PY}} manage.py migrate'
+      - '{{.PY}} manage.py seed_demo --fresh {{.CLI_ARGS}}'
+
   test:
     desc: Run the pytest suite
     dir: '{{.APP}}'

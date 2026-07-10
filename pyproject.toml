@@ -23,6 +23,7 @@ dev = [
     "ruff>=0.6",
     "bandit>=1.7",
     "pip-audit>=2.7",
+    "faker>=30.0",            # fake data for the seed_demo dev fixture command
 ]
 
 # This is an application, not a distributable package: uv manages the venv + deps but does not build/
