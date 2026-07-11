@@ -202,6 +202,44 @@ def test_save_rejects_duplicate_room(
 
 
 @pytest.mark.django_db
+def test_save_enforces_exact_group_sizes(
+    make_resident: Callable, groups: dict[str, Room | Workgroup | Cleaning]
+) -> None:
+    c, ind, target = _setup(make_resident, groups)
+    ny, nm = next_period(active_period())
+    c.post(URL, {"action": "copy"})  # ind -> Indstillingen, target -> Festgruppen
+    Workgroup.objects.filter(id=groups["priv"].id).update(size=1)  # Indstillingen must have exactly 1
+
+    # Put BOTH in Indstillingen -> 2 members, needs 1 -> blocked, nothing saved.
+    c.post(
+        URL,
+        {
+            "action": "save",
+            f"room_{ind.id}": groups["r1"].id,
+            f"workgroup_{ind.id}": groups["priv"].id,
+            f"room_{target.id}": groups["r2"].id,
+            f"workgroup_{target.id}": groups["priv"].id,
+        },
+    )
+    tr = Residency.objects.get(resident=target, year=ny, month=nm)
+    assert tr.workgroup_id == groups["plain"].id  # unchanged (save rejected)
+
+    # Exactly 1 in Indstillingen -> allowed.
+    c.post(
+        URL,
+        {
+            "action": "save",
+            f"room_{ind.id}": groups["r1"].id,
+            f"workgroup_{ind.id}": groups["priv"].id,
+            f"room_{target.id}": groups["r2"].id,
+            f"workgroup_{target.id}": groups["ak"].id,
+        },
+    )
+    tr.refresh_from_db()
+    assert tr.workgroup_id == groups["ak"].id  # saved
+
+
+@pytest.mark.django_db
 def test_add_existing_rejects_occupied_room(
     make_resident: Callable, groups: dict[str, Room | Workgroup | Cleaning]
 ) -> None:

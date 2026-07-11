@@ -11,9 +11,13 @@ class RoomAdmin(admin.ModelAdmin):
 
 @admin.register(Workgroup)
 class WorkgroupAdmin(admin.ModelAdmin):
-    list_display = ("name", "legacy_id")
+    list_display = ("name", "size", "legacy_id")
+    list_editable = ("size",)  # required embedsgruppe size, editable per year
+    ordering = ("name",)
 
 
 @admin.register(Cleaning)
 class CleaningAdmin(admin.ModelAdmin):
-    list_display = ("name", "legacy_id")
+    list_display = ("name", "size", "legacy_id")
+    list_editable = ("size",)  # required cleaning-group size, editable per year
+    ordering = ("name",)
