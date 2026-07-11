@@ -110,6 +110,14 @@ tasks:
     dir: '{{.APP}}'
     cmds: ['uv run ruff check .', 'uv run ruff format --check .']
 
+  typecheck:
+    desc: Static type-check with mypy (+ django-stubs). Runs from the repo root (config in pyproject.toml).
+    cmds: ['uv run mypy app']
+
+  hooks:
+    desc: Install the prek git pre-commit hooks (ruff + mypy run on commit)
+    cmds: ['uv run prek install']
+
   etl:verify:
     desc: Diff legacy MariaDB counts vs migrated Postgres counts
     dir: '{{.APP}}'

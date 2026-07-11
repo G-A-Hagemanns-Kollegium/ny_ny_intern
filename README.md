@@ -29,3 +29,16 @@ kan køres igen når som helst (`--fresh` rydder først). Logins (kodeord `demo1
 task test:pg      # kør testsuiten mod Postgres (som CI); kræver `task db:up`
 task test:sqlite  # kør testsuiten mod SQLite (uden Docker)
 ```
+
+## Code Quality: lint + typer + pre-commit
+
+```sh
+task lint         # ruff check + format-tjek
+task typecheck    # mypy med django-stubs (samme som CI's typecheck-job)
+task hooks        # installér prek git pre-commit hooks (kør én gang)
+```
+
+`task hooks` installerer [prek](https://github.com/j178/prek) (en hurtig, pre-commit-kompatibel
+runner) via `.pre-commit-config.yaml`. Derefter kører **ruff** (check + format) og **mypy** automatisk
+ved hvert commit. Kør manuelt på alt med `uv run prek run --all-files`. De samme tjek håndhæves i CI
+(`.github/workflows/ci.yml`): `lint`, `typecheck`, `test`, `security` og `build`.
