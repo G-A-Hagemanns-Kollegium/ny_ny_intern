@@ -13,3 +13,14 @@ def kr(ore: int | None) -> str:
     except (TypeError, ValueError):
         return ""
     return f"{ore / 100:.2f} kr".replace(".", ",")
+
+
+@register.filter
+def kr_value(ore: int | None) -> str:
+    """Bare kroner value for a number input (dot decimal), e.g. 1250 -> '12.50'; '' when unset."""
+    if ore is None:
+        return ""
+    try:
+        return f"{int(ore) / 100:.2f}"
+    except (TypeError, ValueError):
+        return ""
