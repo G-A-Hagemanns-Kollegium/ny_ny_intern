@@ -362,16 +362,38 @@ def next_month_list(request: HttpRequest) -> HttpResponse | HttpResponseRedirect
                 )
             # No two residents may share a room in the same month.
             occupancy: dict[int, list[int]] = {}
-            for rid, (room, _wg, _cl) in intended.items():
+            wg_counts: dict[int, int] = {}
+            cl_counts: dict[int, int] = {}
+            for rid, (room, wg, cl) in intended.items():
                 occupancy.setdefault(room.id, []).append(rid)
+                if wg is not None:
+                    wg_counts[wg.id] = wg_counts.get(wg.id, 0) + 1
+                if cl is not None:
+                    cl_counts[cl.id] = cl_counts.get(cl.id, 0) + 1
+            errors = []
             clashes = sorted(
                 room_by_id[room_id].number for room_id, rids in occupancy.items() if len(rids) > 1
             )
             if clashes:
                 nums = ", ".join(f"{n:03d}" for n in clashes)
-                messages.error(
-                    request, f"To beboere kan ikke have samme værelse ({nums}). Ingen ændringer gemt."
-                )
+                errors.append(f"To beboere kan ikke have samme værelse ({nums}).")
+            # A group with a set size (0 = no limit) must have *exactly* that many members (legacy rule).
+            for w in workgroups:
+                if w.size and wg_counts.get(w.id, 0) != w.size:
+                    errors.append(
+                        f"Embedsgruppen «{w.name}» skal have {w.size} medlem(mer); "
+                        f"listen har {wg_counts.get(w.id, 0)}."
+                    )
+            for c in cleanings:
+                if c.size and cl_counts.get(c.id, 0) != c.size:
+                    errors.append(
+                        f"Rengøringen «{c.name}» skal have {c.size} medlem(mer); "
+                        f"listen har {cl_counts.get(c.id, 0)}."
+                    )
+            if errors:
+                for e in errors:
+                    messages.error(request, e)
+                messages.error(request, "Ingen ændringer gemt.")
             else:
                 with transaction.atomic():
                     RoleAssignment.objects.filter(resident_id__in=removed, year=ny, month=nm).delete()
