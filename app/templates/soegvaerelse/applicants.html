@@ -1,7 +1,8 @@
 {% extends "base.html" %}
+{% load room_extras %}
 {% block title %}Ansøgere — Værelse {{ offer.room.number }}{% endblock %}
 {% block content %}
-  <h1>Ansøgere til værelse {{ offer.room.number|stringformat:"03d" }} (måned {{ offer.month }})</h1>
+  <h1>Ansøgere til værelse {{ offer.room.number|stringformat:"03d" }} ({{ offer.month|maaned }})</h1>
   <p class="muted mb-3">Rangeret efter K (højest først), derefter ansøgningstidspunkt og prioritet.</p>
   <table class="w-full border-collapse">
     <thead><tr class="border-b border-gray-200"><th class="p-2">#</th><th class="p-2">Beboer</th><th class="p-2">K</th><th class="p-2">Prioritet</th><th class="p-2">Sendt</th></tr></thead>
@@ -9,7 +10,8 @@
     {% for p in prios %}
       <tr class="border-b border-gray-100">
         <td class="p-2">{{ forloop.counter }}</td>
-        <td class="p-2"><a href="{% url 'soegvaerelse:detail' p.application.id %}">{{ p.application.resident.full_name }}</a></td>
+        <td class="p-2"><a href="{% url 'soegvaerelse:detail' p.application.id %}">{{ p.application.resident.full_name }}</a>
+          {% if p.application.id == winner_app_id %}<span title="Ville vinde værelset">🏆</span>{% endif %}</td>
         <td class="p-2">{{ p.application.k }}</td>
         <td class="p-2">{{ p.priority }}</td>
         <td class="p-2">{{ p.application.apply_datetime|date:"Y-m-d H:i" }}</td>
