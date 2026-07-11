@@ -8,7 +8,7 @@ COPY app/templates/ ./app/templates/
 RUN cd frontend && npm run build          # → /build/app/static/dist/{app.css,app.js}
 
 # --- Stage 2: the Django app (Python 3.13 — Django 5.2's supported range) ---
-FROM python:3.13-slim AS app
+FROM python:3.14-slim AS app
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
 COPY --from=ghcr.io/astral-sh/uv:0.8 /uv /uvx /bin/
