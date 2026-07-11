@@ -27,7 +27,7 @@ from oelkaelder.models import (
 )
 
 
-def largest_remainder(total, n):
+def largest_remainder(total: int, n: int) -> list[int]:
     """Split `total` into n integer parts summing exactly to total (first parts get the +1s)."""
     base, rem = divmod(total, n)
     return [base + 1 if i < rem else base for i in range(n)]
@@ -37,7 +37,7 @@ class Command(BaseCommand):
     help = "Migrate the ølkælder POS data from the legacy DB."
 
     @transaction.atomic
-    def handle(self, *args, **opts):
+    def handle(self, *args, **opts) -> None:  # noqa: ANN002, ANN003
         from residents.models import Resident
 
         remap = resident_id_remap()
@@ -53,15 +53,15 @@ class Command(BaseCommand):
                     steps = None
             Product.objects.update_or_create(
                 id=p["productId"],
-                defaults=dict(
-                    name=(p["name"] or "").strip(),
-                    price_ore=max(p["current_price"] or 0, 0),
-                    weight_price_ore=p["weight_price"] or None,
-                    price_steps=steps,
-                    image=(p["imageurl"] or "").strip().lstrip("/"),
-                    active=bool(p["active"]),
-                    highlighted=bool(p["highlighted"]),
-                ),
+                defaults={
+                    "name": (p["name"] or "").strip(),
+                    "price_ore": max(p["current_price"] or 0, 0),
+                    "weight_price_ore": p["weight_price"] or None,
+                    "price_steps": steps,
+                    "image": (p["imageurl"] or "").strip().lstrip("/"),
+                    "active": bool(p["active"]),
+                    "highlighted": bool(p["highlighted"]),
+                },
             )
 
         # ---- shoppers (join saldo for active flag); skip shoppers without a migrated resident ----
@@ -77,7 +77,7 @@ class Command(BaseCommand):
                 continue
             Shopper.objects.update_or_create(
                 id=s["shopperId"],
-                defaults=dict(resident_id=rid, active=saldo_active.get(s["shopperId"], True)),
+                defaults={"resident_id": rid, "active": saldo_active.get(s["shopperId"], True)},
             )
             shopper_ok.add(s["shopperId"])
 
@@ -111,7 +111,8 @@ class Command(BaseCommand):
         Deposit.objects.bulk_create(deps, batch_size=2000)
 
         # ---- items (+ accumulate per-transaction totals) ----
-        items, item_total = [], {}
+        items: list[TransactionItem] = []
+        item_total: dict[int, int] = {}
         for it in fetch_all("SELECT * FROM intern_oelkaelder_transaction_item"):
             if it["transactionId"] not in txn_ids:
                 continue
@@ -128,7 +129,7 @@ class Command(BaseCommand):
         TransactionItem.objects.bulk_create(items, batch_size=2000)
 
         # ---- reconstructed purchase shares (largest-remainder) ----
-        buyers = {}
+        buyers: dict[int, list[int]] = {}
         for pr in fetch_all("SELECT * FROM intern_oelkaelder_purchase"):
             if pr["transactionId"] in txn_ids and pr["shopperId"] in shopper_ok:
                 buyers.setdefault(pr["transactionId"], []).append(pr["shopperId"])
@@ -143,9 +144,11 @@ class Command(BaseCommand):
         for w in fetch_all("SELECT * FROM intern_oelkaelder_warnings"):
             Warning.objects.update_or_create(
                 id=w["id"],
-                defaults=dict(
-                    message=w["message"] or "", threshold_ore=w["amount"], active=bool(w["active"])
-                ),
+                defaults={
+                    "message": w["message"] or "",
+                    "threshold_ore": w["amount"],
+                    "active": bool(w["active"]),
+                },
             )
         LogEntry.objects.all().delete()
         LogEntry.objects.bulk_create(

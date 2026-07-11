@@ -12,8 +12,9 @@ Idempotent (keyed on preserved PKs). Run `seed_rooms` first.
 """
 
 import datetime
+from typing import Any
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from core.etl import decode_month_number, fetch_all
@@ -31,7 +32,7 @@ FLAG_TO_ROLE = [
 ]
 
 
-def _date(value):
+def _date(value: datetime.datetime | datetime.date | None) -> datetime.date | None:
     return value if isinstance(value, datetime.date) else None
 
 
@@ -39,14 +40,15 @@ class Command(BaseCommand):
     help = "Migrate residents, monthly roles and residency from the legacy DB."
 
     @transaction.atomic
-    def handle(self, *args, **opts):
+    def handle(self, *args, **opts) -> None:  # noqa: ANN002, ANN003
         if not Room.objects.exists():
             self.stderr.write("No rooms — run `manage.py seed_rooms` first.")
             return
 
         # ---- 1. dedupe/merge residents by normalized email -------------------------------------
         rows = fetch_all("SELECT * FROM intern_alumne")
-        by_email, dropped_empty = {}, 0
+        by_email: dict[str, list[dict[str, Any]]] = {}
+        dropped_empty = 0
         for r in rows:
             key = (r["email"] or "").strip().lower()
             if not key:
@@ -69,25 +71,28 @@ class Command(BaseCommand):
             password = f"gahk_sha256$${pw}" if pw else "!unusable"
             Resident.objects.update_or_create(
                 id=r["ID"],
-                defaults=dict(
-                    email=r["email"].strip().lower(),
-                    first_name=(r["firstName"] or "").strip(),
-                    last_name=(r["lastName"] or "").strip(),
-                    phone=(r["phone"] or "").strip(),
-                    birthday=_date(r["birthday"]),
-                    move_in_date=_date(r["moveInDay"]),
-                    move_out_date=_date(r["moveOutDay"]),
-                    study=(r["study"] or "").strip(),
-                    fylgje_raw=(r["fylgje"] or "").strip(),
-                    password=password,
-                    is_active=True,
-                    is_staff=False,
-                ),
+                defaults={
+                    "email": r["email"].strip().lower(),
+                    "first_name": (r["firstName"] or "").strip(),
+                    "last_name": (r["lastName"] or "").strip(),
+                    "phone": (r["phone"] or "").strip(),
+                    "birthday": _date(r["birthday"]),
+                    "move_in_date": _date(r["moveInDay"]),
+                    "move_out_date": _date(r["moveOutDay"]),
+                    "study": (r["study"] or "").strip(),
+                    "fylgje_raw": (r["fylgje"] or "").strip(),
+                    "password": password,
+                    "is_active": True,
+                    "is_staff": False,
+                },
             )
 
         # ---- 2. active period (newest published month) -----------------------------------------
         mn = fetch_all("SELECT MAX(monthNumber) AS m FROM intern_alumne_liste")[0]["m"]
-        active_year, active_month = decode_month_number(mn)
+        decoded = decode_month_number(mn)
+        if decoded is None:
+            raise CommandError("No months in intern_alumne_liste — nothing to migrate.")
+        active_year, active_month = decoded
 
         # ---- 3. roles for the active month (gahk_admin_user flags) ------------------------------
         RoleAssignment.objects.all().delete()
@@ -106,7 +111,8 @@ class Command(BaseCommand):
 
         # ---- 4. residency per month -------------------------------------------------------------
         rooms_by_number = {room.number: room for room in Room.objects.all()}
-        wg_cache, cl_cache = {}, {}
+        wg_cache: dict[str, Workgroup] = {}
+        cl_cache: dict[str, Cleaning] = {}
         orphan_resident = orphan_room = residencies = 0
         for row in fetch_all("SELECT * FROM intern_alumne_liste"):
             rid = id_remap.get(row["alumne_ID"])
@@ -117,7 +123,10 @@ class Command(BaseCommand):
             if room is None:
                 orphan_room += 1
                 continue
-            year, month = decode_month_number(row["monthNumber"])
+            decoded = decode_month_number(row["monthNumber"])
+            if decoded is None:
+                raise CommandError(f"Residency row for {row['alumne_ID']} has no monthNumber.")
+            year, month = decoded
             wg = cl = None
             wgname = (row["workgroup"] or "").strip()
             if wgname:
@@ -131,12 +140,12 @@ class Command(BaseCommand):
                 resident_id=rid,
                 year=year,
                 month=month,
-                defaults=dict(room=room, workgroup=wg, cleaning=cl),
+                defaults={"room": room, "workgroup": wg, "cleaning": cl},
             )
             residencies += 1
 
         # ---- 5. fylgje -> sponsor (unambiguous full-name match) --------------------------------
-        name_index = {}
+        name_index: dict[str, list[int]] = {}
         for rid_, fn, ln in Resident.objects.values_list("id", "first_name", "last_name"):
             name_index.setdefault(f"{fn} {ln}".strip().lower(), []).append(rid_)
         sponsor_set = sponsor_ambiguous = 0

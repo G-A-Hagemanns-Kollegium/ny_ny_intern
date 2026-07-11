@@ -10,8 +10,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.db import transaction
-from django.db.models import Q
-from django.http import HttpResponse
+from django.db.models import Q, QuerySet
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.encoding import force_bytes
@@ -33,7 +33,7 @@ from .permissions import effective_roles, role_required
 
 
 @login_required
-def dashboard(request):
+def dashboard(request: HttpRequest) -> HttpResponse:
     """Internal landing page (F-013). Shows the member's active-month roles and the shared
     WiFi/calendar info — now gated by authentication (not campus IP) with secrets read from env.
     Uses effective roles so the preview override is reflected here too."""
@@ -98,7 +98,7 @@ DA_MONTHS = [
 ]
 
 
-def _directory_rows(year, month, query):
+def _directory_rows(year: int, month: int, query: str) -> QuerySet[Residency]:
     qs = (
         Residency.objects.filter(year=year, month=month)
         .select_related("resident", "resident__sponsor", "room", "workgroup", "cleaning")
@@ -115,11 +115,11 @@ def _directory_rows(year, month, query):
     return qs
 
 
-def _parse_period(request):
+def _parse_period(request: HttpRequest) -> tuple[int, int]:
     """The (year, month) chosen via ?period=YYYY-M, or the active period as default."""
     try:
-        y, m = (request.GET.get("period") or "").split("-")
-        y, m = int(y), int(m)
+        ys, ms = (request.GET.get("period") or "").split("-")
+        y, m = int(ys), int(ms)
         if 1 <= m <= 12:
             return y, m
     except ValueError:
@@ -127,7 +127,7 @@ def _parse_period(request):
     return active_period()
 
 
-def _period_options(selected):
+def _period_options(selected: tuple[int, int]) -> list[dict[str, str | bool]]:
     """All months that have a published list, newest first, for the history picker."""
     periods = Residency.objects.values_list("year", "month").distinct().order_by("-year", "-month")
     return [
@@ -137,7 +137,7 @@ def _period_options(selected):
 
 
 @login_required
-def directory(request):
+def directory(request: HttpRequest) -> HttpResponse:
     """Full directory page (login-required). Legacy `json()` was campus-IP gated; with real auth the
     members-only login is the control (F-010). HTMX powers the live search; the period picker shows any
     past month's list (the legacy "oldLists")."""
@@ -155,7 +155,7 @@ def directory(request):
 
 
 @login_required
-def directory_rows(request):
+def directory_rows(request: HttpRequest) -> HttpResponse:
     """HTMX fragment: just the filtered table rows (for the selected period)."""
     year, month = _parse_period(request)
     return render(
@@ -163,13 +163,14 @@ def directory_rows(request):
     )
 
 
-def _iso(d):
+def _iso(d: date | None) -> str:
     return d.isoformat() if d else ""
 
 
-def _fylgje(residency):
+def _fylgje(residency: Residency) -> str:
     r = residency.resident
-    return r.sponsor.full_name if r.sponsor_id else r.fylgje_raw
+    sponsor = r.sponsor
+    return sponsor.full_name if sponsor is not None else r.fylgje_raw
 
 
 # Single source of truth for the alumneliste columns (order matches the HTML table + the exports).
@@ -188,7 +189,7 @@ DIRECTORY_COLUMNS = [
 
 
 @login_required
-def directory_export(request):
+def directory_export(request: HttpRequest) -> HttpResponse:
     """Export the selected month's alumneliste as CSV or Excel (?format=csv|xlsx)."""
     year, month = _parse_period(request)
     rows = _directory_rows(year, month, request.GET.get("q", ""))
@@ -225,19 +226,19 @@ def directory_export(request):
 
 
 # ---- Stamtræ: the fylgje lineage (F-011) ----
-def _fylgje_forest():
+def _fylgje_forest() -> list[dict[str, Resident | list]]:
     """Build the sponsor (fylgje) tree from resolved Resident.sponsor links. Residents with no (resolved)
     sponsor are roots under "Hagemanns Ånd". Cycle-safe; siblings ordered by move-in then name."""
     residents = list(Resident.objects.select_related("sponsor").all())
     ids = {r.id for r in residents}
-    children = {}
+    children: dict[int | None, list[Resident]] = {}
     for r in residents:
         children.setdefault(r.sponsor_id if r.sponsor_id in ids else None, []).append(r)
 
-    def _sorted(rs):
+    def _sorted(rs: list[Resident]) -> list[Resident]:
         return sorted(rs, key=lambda c: (c.move_in_date or date.min, c.first_name, c.last_name))
 
-    def _node(r, seen):
+    def _node(r: Resident, seen: set[int]) -> dict[str, Resident | list]:
         seen = seen | {r.id}
         kids = [_node(k, seen) for k in _sorted(children.get(r.id, [])) if k.id not in seen]
         return {"resident": r, "children": kids}
@@ -246,13 +247,15 @@ def _fylgje_forest():
 
 
 @login_required
-def stamtree(request):
+def stamtree(request: HttpRequest) -> HttpResponse:
     """GAHK's stamtræ — the fylgje lineage of all alumner, rooted in "Hagemanns Ånd"."""
     return render(request, "stamtree/stamtree.html", {"forest": _fylgje_forest()})
 
 
 # ---- Next month's list — indstilling's monthly update task (F-010) ----
-def _sync_month_roles(resident_id, workgroup, year, month, is_admin):
+def _sync_month_roles(
+    resident_id: int, workgroup: Workgroup | None, year: int, month: int, is_admin: bool
+) -> None:
     """Privileged-workgroup roles are derived from the chosen embedsgruppe: clear then re-add. The
     `administrator` role is not a workgroup, so it is preserved/carried separately."""
     RoleAssignment.objects.filter(
@@ -267,12 +270,12 @@ def _sync_month_roles(resident_id, workgroup, year, month, is_admin):
         )
 
 
-def _pick(mapping, raw):
+def _pick[T](mapping: dict[int, T], raw: str | None) -> T | None:
     """Look up an id (from a POST field) in an {id: obj} map; None if blank/invalid."""
     return mapping.get(int(raw)) if raw and raw.isdigit() else None
 
 
-def _send_welcome_email(request, resident):
+def _send_welcome_email(request: HttpRequest, resident: Resident) -> None:
     """Welcome a newly created resident with a link to set their password (F-014). Best-effort — a
     mail failure must not undo the creation."""
     uid = urlsafe_base64_encode(force_bytes(resident.pk))
@@ -296,7 +299,7 @@ def _send_welcome_email(request, resident):
     )
 
 
-def _room_taken(room, year, month, exclude_resident_id=None):
+def _room_taken(room: Room, year: int, month: int, exclude_resident_id: int | None = None) -> bool:
     """True if `room` already has an occupant that month (optionally ignoring one resident)."""
     qs = Residency.objects.filter(year=year, month=month, room=room)
     if exclude_resident_id is not None:
@@ -305,7 +308,7 @@ def _room_taken(room, year, month, exclude_resident_id=None):
 
 
 @role_required("indstilling")  # administrator/superuser pass via all-access
-def next_month_list(request):
+def next_month_list(request: HttpRequest) -> HttpResponse | HttpResponseRedirect:
     """Indstilling (and admin) prepare next month's alumneliste: copy the list forward, then edit each
     resident's room, embedsgruppe (workgroup) and cleaning, and add/remove people. A privileged
     embedsgruppe grants the matching role for next month; `administrator` is carried forward. Changes
@@ -344,20 +347,21 @@ def next_month_list(request):
             messages.success(request, f"Listen er kopieret til {ny}-{nm:02d}.")
 
         elif action == "save":  # edit room/workgroup/cleaning + remove people
-            removed, intended = set(), {}  # intended: rid -> (room, workgroup, cleaning)
+            removed: set[int] = set()
+            intended: dict[int, tuple[Room, Workgroup | None, Cleaning | None]] = {}
             for res in Residency.objects.filter(year=ny, month=nm):
                 rid = res.resident_id
                 if request.POST.get(f"remove_{rid}"):
                     removed.add(rid)
                     continue
-                room = _pick(room_by_id, request.POST.get(f"room_{rid}", "")) or res.room
+                room: Room | None = _pick(room_by_id, request.POST.get(f"room_{rid}", "")) or res.room
                 intended[rid] = (
-                    room,
+                    room or res.room,
                     _pick(wg_by_id, request.POST.get(f"workgroup_{rid}", "")),
                     _pick(cl_by_id, request.POST.get(f"cleaning_{rid}", "")),
                 )
             # No two residents may share a room in the same month.
-            occupancy = {}
+            occupancy: dict[int, list[int]] = {}
             for rid, (room, _wg, _cl) in intended.items():
                 occupancy.setdefault(room.id, []).append(rid)
             clashes = sorted(

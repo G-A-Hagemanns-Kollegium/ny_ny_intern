@@ -6,15 +6,18 @@ indices 1..61 become Room rows. `legacy_index` is the kvotient `vaerelse_id`; `n
 room number used elsewhere.
 """
 
+from typing import cast
+
 from django.core.management.base import BaseCommand
 
 from core.models import Room
 
 
-def build_rooms():
+def build_rooms() -> list[dict[str, str | int]]:
+    """Return a list of dicts suitable for Room.objects.update_or_create(legacy_index=...)."""
     rooms = []
     room_on_floor = 0
-    for i in range(0, 62):
+    for i in range(62):
         room_on_floor += 1
         floor = side = note = None
         number = None
@@ -58,14 +61,19 @@ def build_rooms():
             number = room_on_floor + 400
         else:
             continue  # i == 0 -> "Intet valgt"
-        rooms.append(dict(legacy_index=i, number=number, floor=floor, side=side, note=note or ""))
+        rooms.append(
+            cast(
+                "dict[str, str | int]",
+                {"legacy_index": i, "number": number, "floor": floor, "side": side, "note": note or ""},
+            )
+        )
     return rooms
 
 
 class Command(BaseCommand):
     help = "Seed core.Room from the legacy delt.php room map (idempotent)."
 
-    def handle(self, *args, **opts):
+    def handle(self, *args, **opts) -> None:  # noqa: ANN002, ANN003
         n = 0
         for r in build_rooms():
             Room.objects.update_or_create(legacy_index=r["legacy_index"], defaults=r)

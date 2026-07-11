@@ -16,7 +16,7 @@ class Page(models.Model):  # gahk_page
     body = models.TextField(blank=True)  # legacy `text` (HTML), sanitized on import
     background_image = models.CharField(max_length=255, blank=True)  # legacy bgpic
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.slug or self.header
 
 
@@ -28,7 +28,7 @@ class NewsItem(models.Model):  # gahk_news — archive-only (live site shows the
     class Meta:
         ordering = ["-published_at"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.title
 
 
@@ -40,7 +40,7 @@ class PylonEvent(models.Model):  # gahk_pylon_calendar — likely retired; migra
     class Meta:
         ordering = ["starts_on"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.starts_on}: {self.title}"
 
 
@@ -54,5 +54,5 @@ class Event(
     class Meta:
         ordering = ["starts_on"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.starts_on}: {self.title}"

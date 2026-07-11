@@ -11,7 +11,7 @@ from django.dispatch import receiver
 from .models import Resident, RoleAssignment
 
 
-def _sync_is_staff(resident_id):
+def _sync_is_staff(resident_id: int) -> None:
     has_any = RoleAssignment.objects.filter(resident_id=resident_id).exists()
     (
         Resident.objects.filter(id=resident_id)
@@ -22,10 +22,10 @@ def _sync_is_staff(resident_id):
 
 
 @receiver(post_save, sender=RoleAssignment)
-def role_added(sender, instance, **kwargs):
+def role_added(sender: type[RoleAssignment], instance: RoleAssignment, **kwargs) -> None:  # noqa: ANN003
     _sync_is_staff(instance.resident_id)
 
 
 @receiver(post_delete, sender=RoleAssignment)
-def role_removed(sender, instance, **kwargs):
+def role_removed(sender: type[RoleAssignment], instance: RoleAssignment, **kwargs) -> None:  # noqa: ANN003
     _sync_is_staff(instance.resident_id)

@@ -13,10 +13,12 @@ from django.db import models
 from django.db.models import Sum
 from django.utils import timezone
 
+from residents.models import Resident
+
 
 class AkEntry(models.Model):
     class Kind(models.TextChoices):
-        MONTHLY = "monthly", "Månedlig vurdering (−2)"
+        MONTHLY = "monthly", "Månedlig vurdering (-2)"
         LABOUR = "labour", "Udført arbejde"
         ADJUSTMENT = "adjustment", "Manuel justering"
         OPENING = "opening", "Startsaldo (migreret)"
@@ -39,9 +41,9 @@ class AkEntry(models.Model):
         ordering = ["-created_at"]
         indexes = [models.Index(fields=["resident", "created_at"])]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.resident.full_name}: {self.delta:+d} ({self.get_kind_display()})"
 
     @staticmethod
-    def balance_for(resident):
+    def balance_for(resident: Resident) -> int:
         return AkEntry.objects.filter(resident=resident).aggregate(b=Sum("delta"))["b"] or 0

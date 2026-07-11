@@ -27,7 +27,7 @@ class KvotientApplication(models.Model):  # intern_kvotient_nyintern
     class Meta:
         ordering = ["-k", "apply_datetime"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Kvotient {self.resident.full_name} (K={self.k:.2f})"
 
 
@@ -50,7 +50,7 @@ class KvotientOrlov(models.Model):  # intern_kvotient_orlov_nyintern (leave-of-a
     end_month = models.IntegerField()
 
     @property
-    def number_of_months(self):
+    def number_of_months(self) -> int:
         return self.end_month - self.start_month
 
 
@@ -61,7 +61,7 @@ class RoomOffer(models.Model):  # intern_kvotient_offer_nyintern (a room offered
     class Meta:
         constraints = [models.UniqueConstraint(fields=["room", "month"], name="uniq_room_offer_month")]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Tilbud: {self.room} ({self.month})"
 
 
@@ -72,7 +72,7 @@ class RoomCriterion(models.Model):  # intern_room_criteria
     description = models.TextField(blank=True)
     options = models.PositiveSmallIntegerField()  # number of score options
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
 
@@ -88,7 +88,7 @@ class RoomCondition(models.Model):  # intern_room_condition (only the current st
     class Meta:
         indexes = [models.Index(fields=["room", "is_current"])]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Tilstand {self.room} @ {self.recorded_at:%Y-%m-%d}"
 
 
@@ -110,7 +110,7 @@ class RoomConditionScore(models.Model):
         ]
 
     @property
-    def image_urls(self):
+    def image_urls(self) -> list[str]:
         """Served URLs for the migrated legacy image(s). The legacy `image` field is a ';'-separated
         list of paths (mixed `public/` and `/public/` prefixes); each becomes a MEDIA_ROOT URL (or is
         passed through if already absolute). New uploads use `photo.url` instead."""

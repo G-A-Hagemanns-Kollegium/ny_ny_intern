@@ -3,30 +3,32 @@ add/adjust crosses for anyone. Balance is the SUM of ledger entries."""
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from residents.models import Resident, active_period
-from residents.permissions import role_required
+from residents.permissions import current_resident, role_required
 
 from .models import AkEntry
 
 
 @login_required
-def my_ak(request):
+def my_ak(request: HttpRequest) -> HttpResponse:
+    user = current_resident(request)
     return render(
         request,
         "ak/my.html",
         {
-            "balance": AkEntry.balance_for(request.user),
-            "entries": request.user.ak_entries.all()[:100],
+            "balance": AkEntry.balance_for(user),
+            "entries": user.ak_entries.all()[:100],
         },
     )
 
 
 @role_required("ak")
-def overview(request):
+def overview(request: HttpRequest) -> HttpResponse:
     year, month = active_period()
     residents = Resident.objects.filter(residencies__year=year, residencies__month=month).distinct()
     balances = dict(
@@ -37,7 +39,7 @@ def overview(request):
 
 
 @role_required("ak")
-def resident_log(request, pk):
+def resident_log(request: HttpRequest, pk: int) -> HttpResponse:
     resident = get_object_or_404(Resident, pk=pk)
     return render(
         request,
@@ -52,7 +54,7 @@ def resident_log(request, pk):
 
 @require_POST
 @role_required("ak")
-def add_entry(request, pk):
+def add_entry(request: HttpRequest, pk: int) -> HttpResponseRedirect:
     resident = get_object_or_404(Resident, pk=pk)
     try:
         delta = int(request.POST.get("delta", "0"))
@@ -64,7 +66,7 @@ def add_entry(request, pk):
             delta=delta,
             kind=AkEntry.Kind.LABOUR if delta > 0 else AkEntry.Kind.ADJUSTMENT,
             reason=request.POST.get("reason", "").strip(),
-            created_by=request.user,
+            created_by=current_resident(request),
             created_at=timezone.now(),
         )
     return redirect("ak:log", pk=pk)
@@ -72,6 +74,6 @@ def add_entry(request, pk):
 
 @require_POST
 @role_required("ak")
-def delete_entry(request, pk, entry_id):
+def delete_entry(request: HttpRequest, pk: int, entry_id: int) -> HttpResponseRedirect:
     AkEntry.objects.filter(id=entry_id, resident_id=pk).delete()
     return redirect("ak:log", pk=pk)

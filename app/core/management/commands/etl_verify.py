@@ -17,14 +17,14 @@ from rooms.models import KvotientApplication, RoomCondition
 from stats.models import DailyVisitCount
 
 
-def _legacy(sql):
+def _legacy(sql: str) -> int:
     return fetch_all(sql)[0]["n"]
 
 
 class Command(BaseCommand):
     help = "Compare legacy MariaDB counts to the migrated Postgres counts."
 
-    def handle(self, *args, **opts):
+    def handle(self, *args: object, **opts: object) -> None:
         checks = [
             (
                 "residents",

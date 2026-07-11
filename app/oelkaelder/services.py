@@ -13,13 +13,13 @@ from django.utils import timezone
 from .models import LogEntry, Product, PurchaseShare, Shopper, Transaction, TransactionItem
 
 
-def largest_remainder(total, n):
+def largest_remainder(total: int, n: int) -> list[int]:
     base, rem = divmod(total, n)
     return [base + 1 if i < rem else base for i in range(n)]
 
 
 @transaction.atomic
-def record_purchase(shopper_ids, quantities):
+def record_purchase(shopper_ids: list[int], quantities: dict[int, int]) -> Transaction:
     """quantities: {product_id: qty}. Returns the created Transaction. Raises ValueError on bad input."""
     shoppers = list(Shopper.objects.filter(id__in=shopper_ids, active=True))
     if not shoppers:
@@ -49,7 +49,7 @@ def record_purchase(shopper_ids, quantities):
 
 
 @transaction.atomic
-def record_deposit(shopper, amount_ore):
+def record_deposit(shopper: Shopper, amount_ore: int) -> None:
     from .models import Deposit
 
     if amount_ore <= 0:

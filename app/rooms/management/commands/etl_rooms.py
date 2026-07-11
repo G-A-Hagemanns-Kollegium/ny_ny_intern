@@ -23,7 +23,7 @@ from rooms.models import (
 )
 
 
-def parse_kv(blob, sep):
+def parse_kv(blob: str | None, sep: str) -> dict[str, str]:
     out = {}
     for part in (blob or "").split(sep):
         if not part:
@@ -37,7 +37,7 @@ class Command(BaseCommand):
     help = "Migrate kvotient applications and room conditions from the legacy DB."
 
     @transaction.atomic
-    def handle(self, *args, **opts):
+    def handle(self, *args, **opts) -> None:  # noqa: ANN002, ANN003
         from residents.models import Resident
 
         remap = resident_id_remap()
@@ -54,14 +54,14 @@ class Command(BaseCommand):
                 continue
             KvotientApplication.objects.update_or_create(
                 id=a["ID"],
-                defaults=dict(
-                    resident_id=rid,
-                    move_month=a["moveMonth"],
-                    move_in_month=a["moveInMonth"],
-                    done_studying_month=a["doneStudyingMonth"],
-                    k=a["K"],
-                    apply_datetime=epoch_to_dt(a["applyDatetime"]) or timezone.now(),
-                ),
+                defaults={
+                    "resident_id": rid,
+                    "move_month": a["moveMonth"],
+                    "move_in_month": a["moveInMonth"],
+                    "done_studying_month": a["doneStudyingMonth"],
+                    "k": a["K"],
+                    "apply_datetime": epoch_to_dt(a["applyDatetime"]) or timezone.now(),
+                },
             )
         app_ids = set(KvotientApplication.objects.values_list("id", flat=True))
 
@@ -94,14 +94,14 @@ class Command(BaseCommand):
             room = by_index.get(f["vaerelses_id"])
             if room is None:
                 continue
-            RoomOffer.objects.update_or_create(id=f["id"], defaults=dict(room=room, month=f["month"]))
+            RoomOffer.objects.update_or_create(id=f["id"], defaults={"room": room, "month": f["month"]})
             offers += 1
 
         # ---- room criteria ----
         for c in fetch_all("SELECT * FROM intern_room_criteria"):
             RoomCriterion.objects.update_or_create(
                 code=c["id"],
-                defaults=dict(name=c["name"], description=c["description"] or "", options=c["options"]),
+                defaults={"name": c["name"], "description": c["description"] or "", "options": c["options"]},
             )
         criteria = {c.code: c for c in RoomCriterion.objects.all()}
 

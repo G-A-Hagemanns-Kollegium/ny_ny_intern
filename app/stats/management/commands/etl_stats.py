@@ -18,16 +18,18 @@ class Command(BaseCommand):
     help = "Migrate the per-date visit counter from the legacy DB."
 
     @transaction.atomic
-    def handle(self, *args, **opts):
+    def handle(self, *args, **opts) -> None:  # noqa: ANN002, ANN003
         rows = fetch_all("SELECT dato, count FROM gahk_counterdato")
         ok = bad = 0
         for r in rows:
             try:
-                d = datetime.datetime.strptime((r["dato"] or "").strip(), "%d/%m-%Y").date()
+                # Legacy value is a pure date ("dd/mm-yyyy"); we take .date() immediately, so the
+                # timezone is irrelevant and adding tzinfo would be noise (hence the suppression).
+                d = datetime.datetime.strptime((r["dato"] or "").strip(), "%d/%m-%Y").date()  # noqa: DTZ007
             except ValueError:
                 bad += 1
                 continue
-            DailyVisitCount.objects.update_or_create(date=d, defaults=dict(count=r["count"] or 0))
+            DailyVisitCount.objects.update_or_create(date=d, defaults={"count": r["count"] or 0})
             ok += 1
         self.stdout.write(
             self.style.SUCCESS(

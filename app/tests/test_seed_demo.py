@@ -10,7 +10,7 @@ from residents.permissions import real_roles
 
 
 @pytest.mark.django_db
-def test_seed_demo_populates_and_is_idempotent():
+def test_seed_demo_populates_and_is_idempotent() -> None:
     # --force because Django's test runner forces DEBUG=False, which the safety guard blocks.
     call_command("seed_demo", "--fresh", "--force", "--residents", "12", verbosity=0)
     first_count = Resident.objects.count()

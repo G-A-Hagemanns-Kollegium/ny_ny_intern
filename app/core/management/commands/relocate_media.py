@@ -18,17 +18,17 @@ from rooms.models import RoomConditionScore
 class Command(BaseCommand):
     help = "Copy referenced legacy image files into MEDIA_ROOT."
 
-    def handle(self, *args, **opts):
+    def handle(self, *args, **opts) -> None:  # noqa: ANN002, ANN003
         legacy_public = Path(settings.BASE_DIR).parent / "legacy_site" / "public"
         media = Path(settings.MEDIA_ROOT)
         stats = {"copied": 0, "missing": 0, "skipped": 0}
 
-        def relocate(name):
+        def relocate(name: str | None) -> None:
             name = (name or "").strip()
             if not name or name.startswith(("http://", "https://")):
                 stats["skipped"] += 1
                 return
-            rel = name[len("public/") :] if name.startswith("public/") else name
+            rel = name.removeprefix("public/")
             src = legacy_public / rel
             dst = media / name
             if src.is_file():

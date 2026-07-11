@@ -23,10 +23,29 @@ dev = [
     "ruff>=0.6",
     "bandit>=1.7",
     "pip-audit>=2.7",
-    "faker>=30.0",            # fake data for the seed_demo dev fixture command
+    "faker>=30.0", # fake data for the seed_demo dev fixture command
+    "mypy>=2.1.0",
+    "django-stubs[compatible-mypy]>=6.0.6",
+    "prek>=0.4.9",
 ]
 
 # This is an application, not a distributable package: uv manages the venv + deps but does not build/
 # install the project itself (no build backend needed). The Django code lives in ./app.
 [tool.uv]
 package = false
+
+# Type checking. Run from the repo root as `mypy app` (see `task typecheck`); django-stubs resolves the
+# ORM's dynamic attributes so annotations added for ANN are actually verified. Migrations (generated)
+# and tests are excluded. Pragmatic baseline — tighten (disallow_untyped_defs, strict) incrementally.
+[tool.mypy]
+python_version = "3.13"
+plugins = ["mypy_django_plugin.main"]
+mypy_path = "app"
+namespace_packages = true
+explicit_package_bases = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+exclude = '(^|/)(migrations|tests)/'
+
+[tool.django-stubs]
+django_settings_module = "config.settings"

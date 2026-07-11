@@ -8,30 +8,34 @@ password with the default (strong) hasher on the next successful login — the u
 """
 
 import hashlib
+from typing import TYPE_CHECKING, Any, Literal
 
 from django.contrib.auth.hashers import BasePasswordHasher
 from django.utils.crypto import constant_time_compare
+
+if TYPE_CHECKING:
+    from django.utils.functional import _StrPromise
 
 
 class GahkLegacySHA256PasswordHasher(BasePasswordHasher):
     algorithm = "gahk_sha256"
 
-    def salt(self):
+    def salt(self) -> Literal[""]:
         return ""  # legacy hashes were unsalted
 
-    def encode(self, password, salt=""):
+    def encode(self, password: str, salt: str = "") -> str:
         digest = hashlib.sha256(password.encode("utf-8")).hexdigest()
         return f"{self.algorithm}$${digest}"
 
-    def verify(self, password, encoded):
+    def verify(self, password: str, encoded: str) -> bool:
         return constant_time_compare(self.encode(password), encoded)
 
-    def safe_summary(self, encoded):
+    def safe_summary(self, encoded: str) -> "dict[str | _StrPromise, Any]":
         algorithm, _, digest = encoded.partition("$$")
         return {"algorithm": algorithm, "hash": digest[:6] + "…"}
 
-    def must_update(self, encoded):
+    def must_update(self, encoded: str) -> bool:
         return True  # always upgrade legacy hashes to the default hasher on next login
 
-    def harden_runtime(self, password, encoded):
+    def harden_runtime(self, password: str, encoded: str) -> None:
         return
