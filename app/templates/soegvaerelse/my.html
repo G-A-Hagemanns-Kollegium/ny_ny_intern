@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% load room_extras %}
 {% block title %}Mine ansøgninger — GAHK Intern{% endblock %}
 {% block content %}
   <h1>Mine værelsesansøgninger</h1>
   {% for app in apps %}
     <div class="card">
-      <p><strong>K = {{ app.k }}</strong> · sendt {{ app.apply_datetime|date:"Y-m-d" }} · måned {{ app.move_month }}</p>
+      <p><strong>K = {{ app.k }}</strong> · sendt {{ app.apply_datetime|date:"Y-m-d" }} · {{ app.move_month|maaned }}</p>
       <p class="muted">Prioriteter:
         {% for p in app.priorities.all %}{{ p.priority }}: {{ p.room.number|stringformat:"03d" }}{% if not forloop.last %} · {% endif %}{% endfor %}
       </p>
