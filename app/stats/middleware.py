@@ -9,10 +9,12 @@ import datetime
 import hashlib
 import hmac
 import logging
+from collections.abc import Callable
 
 from django.conf import settings
 from django.db import transaction
 from django.db.models import F
+from django.http import HttpRequest, HttpResponse
 from django.utils import timezone
 
 from .models import DailyVisitCount, VisitTally
@@ -22,10 +24,10 @@ DEDUP_WINDOW = datetime.timedelta(minutes=30)
 
 
 class FrontPageVisitCounterMiddleware:
-    def __init__(self, get_response):
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
 
-    def __call__(self, request):
+    def __call__(self, request: HttpRequest) -> HttpResponse:
         response = self.get_response(request)
         if request.method == "GET" and request.path == "/" and getattr(response, "status_code", 0) == 200:
             try:
@@ -35,7 +37,7 @@ class FrontPageVisitCounterMiddleware:
                 logger.warning("front-page visit counter failed", exc_info=True)
         return response
 
-    def _count(self, request):
+    def _count(self, request: HttpRequest) -> None:
         fwd = request.META.get("HTTP_X_FORWARDED_FOR", "")
         ip = fwd.split(",")[0].strip() if fwd else request.META.get("REMOTE_ADDR", "")
         if not ip:

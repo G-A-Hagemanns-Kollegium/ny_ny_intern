@@ -10,19 +10,21 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from core.models import Room
-from residents.permissions import request_has_role, role_required
+from residents.permissions import current_resident, request_has_role, role_required
 
 from .kvotient import compute_k, month_index
 from .models import KvotientApplication, KvotientOrlov, KvotientPriority, RoomOffer
 
 
 @login_required
-def soeg(request):
+def soeg(request: HttpRequest) -> HttpResponse:
+    resident = current_resident(request)
     offers = RoomOffer.objects.select_related("room").order_by("month", "room__number")
     offered_rooms = [o.room for o in offers]
     if request.method == "POST":
@@ -37,17 +39,17 @@ def soeg(request):
         if not room_ids:
             messages.error(request, "Vælg mindst én prioritet.")
             return render(request, "soegvaerelse/apply.html", {"offered_rooms": offered_rooms})
-        if not request.user.move_in_date:
+        if not resident.move_in_date:
             messages.error(request, "Din indflytningsdato mangler — kontakt indstillingen.")
             return render(request, "soegvaerelse/apply.html", {"offered_rooms": offered_rooms})
 
         target = month_index(ty, tm)
-        move_in = month_index(request.user.move_in_date.year, request.user.move_in_date.month)
+        move_in = month_index(resident.move_in_date.year, resident.move_in_date.month)
         done = month_index(dy, dm)
         k = compute_k(move_in, done, target, orlov_months)
         with transaction.atomic():
             app = KvotientApplication.objects.create(
-                resident=request.user,
+                resident=resident,
                 move_month=target,
                 move_in_month=move_in,
                 done_studying_month=done,
@@ -66,13 +68,14 @@ def soeg(request):
 
 
 @login_required
-def my(request):
-    apps = request.user.kvotient_applications.prefetch_related("priorities__room").order_by("-apply_datetime")
+def my(request: HttpRequest) -> HttpResponse:
+    resident = current_resident(request)
+    apps = resident.kvotient_applications.prefetch_related("priorities__room").order_by("-apply_datetime")
     return render(request, "soegvaerelse/my.html", {"apps": apps})
 
 
 @login_required
-def detail(request, pk):
+def detail(request: HttpRequest, pk: int) -> HttpResponse:
     app = get_object_or_404(KvotientApplication, pk=pk)
     if app.resident_id != request.user.id and not request_has_role(request, "indstilling"):
         raise PermissionDenied
@@ -80,7 +83,7 @@ def detail(request, pk):
 
 
 @role_required("indstilling")
-def admin(request):
+def admin(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "soegvaerelse/admin.html",
@@ -93,7 +96,7 @@ def admin(request):
 
 @require_POST
 @role_required("indstilling")
-def create_offer(request):
+def create_offer(request: HttpRequest) -> HttpResponseRedirect:
     try:
         room = Room.objects.get(number=int(request.POST["room"]))
         target = month_index(int(request.POST["year"]), int(request.POST["month"]))
@@ -105,7 +108,7 @@ def create_offer(request):
 
 
 @role_required("indstilling")
-def applicants(request, offer_id):
+def applicants(request: HttpRequest, offer_id: int) -> HttpResponse:
     offer = get_object_or_404(RoomOffer, pk=offer_id)
     prios = (
         KvotientPriority.objects.filter(room=offer.room, application__move_month=offer.month)
@@ -117,7 +120,7 @@ def applicants(request, offer_id):
 
 @require_POST
 @role_required("indstilling")
-def close_offer(request, offer_id):
+def close_offer(request: HttpRequest, offer_id: int) -> HttpResponseRedirect:
     offer = get_object_or_404(RoomOffer, pk=offer_id)
     with transaction.atomic():
         # scoped to THIS offer's month only (fixes the legacy cross-month cascade delete)

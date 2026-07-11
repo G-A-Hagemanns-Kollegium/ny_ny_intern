@@ -68,7 +68,7 @@ ALLOWED_ATTRS = {
 }
 
 
-def clean_html(html):
+def clean_html(html: str | None) -> str | None:
     """Return `html` with scripts/handlers/unsafe URLs removed; safe to render with |safe."""
     if not html:
         return html

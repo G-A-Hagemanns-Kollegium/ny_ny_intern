@@ -8,12 +8,16 @@ PyMySQL. Connecting with charset utf8mb4 lets MariaDB transcode each column from
 import contextlib
 import datetime
 import os
+from collections.abc import Generator
+from typing import Any
 
 import pymysql
 from django.utils import timezone
+from pymysql.connections import Connection
+from pymysql.cursors import DictCursor
 
 
-def legacy_connect():
+def legacy_connect() -> Connection[DictCursor]:
     return pymysql.connect(
         host=os.environ.get("LEGACY_DB_HOST", "127.0.0.1"),
         port=int(os.environ.get("LEGACY_DB_PORT", "3306")),
@@ -26,7 +30,7 @@ def legacy_connect():
 
 
 @contextlib.contextmanager
-def legacy_cursor():
+def legacy_cursor() -> Generator[DictCursor, None, None]:
     conn = legacy_connect()
     try:
         with conn.cursor() as cur:
@@ -35,13 +39,15 @@ def legacy_cursor():
         conn.close()
 
 
-def fetch_all(sql, args=None):
+def fetch_all(sql: str, args: tuple | None = None) -> list[dict[str, Any]]:
+    # Legacy DB rows are dynamically typed (columns vary per query), so Any is the honest boundary
+    # type here — it lets the ETL commands assign row values into model fields without per-column casts.
     with legacy_cursor() as cur:
         cur.execute(sql, args or ())
         return cur.fetchall()
 
 
-def decode_month_number(mn):
+def decode_month_number(mn: int | None) -> tuple[int, int] | None:
     """Legacy monthNumber = 12*year + month  ->  (year, month) with month in 1..12 (delt.php)."""
     if mn is None:
         return None
@@ -50,7 +56,7 @@ def decode_month_number(mn):
     return year, month
 
 
-def epoch_to_dt(ts):
+def epoch_to_dt(ts: int | None) -> None | datetime.datetime:
     """Legacy int epoch -> aware datetime (Europe/Copenhagen). None/0/garbage -> None."""
     if not ts:
         return None
@@ -60,14 +66,14 @@ def epoch_to_dt(ts):
         return None
 
 
-def resident_id_remap():
+def resident_id_remap() -> dict[int, int]:
     """Map every legacy intern_alumne.ID -> the kept resident ID (dedupe by email, keep highest ID).
 
     Mirrors etl_residents so downstream ETLs attach references to the merged resident. Legacy IDs whose
     email was empty (dropped) or that aren't in intern_alumne (former residents — see A) accept) are
     simply absent from the map and should be skipped by callers.
     """
-    by_email = {}
+    by_email: dict[str, list[int]] = {}
     for r in fetch_all("SELECT ID, email FROM intern_alumne"):
         key = (r["email"] or "").strip().lower()
         if key:

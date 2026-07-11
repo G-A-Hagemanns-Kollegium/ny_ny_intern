@@ -1,0 +1,33 @@
+version: 2
+updates:
+  # Python dependencies (pyproject.toml + uv.lock).
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels: ["dependencies"]
+    # Batch routine bumps into one PR each to cut review noise; security fixes
+    # still come as their own PRs regardless of grouping.
+    groups:
+      python-minor-patch:
+        update-types: ["minor", "patch"]
+      python-major:
+        update-types: ["major"]
+
+  # GitHub Actions used by the workflows in .github/workflows/.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "ci"]
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Base image in the Dockerfile.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "infra"]

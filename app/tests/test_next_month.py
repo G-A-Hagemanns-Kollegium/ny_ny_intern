@@ -6,6 +6,8 @@ matching role for next month; `administrator` is carried forward. Only the NEXT 
 active month is untouched. Gated to indstilling (+ admin/superuser).
 """
 
+from collections.abc import Callable
+
 import pytest
 from django.core import mail
 from django.test import Client
@@ -17,7 +19,7 @@ URL = "/nyintern/alumneliste/naeste-maaned"
 
 
 @pytest.fixture
-def groups(db):
+def groups(db: None) -> dict[str, Room | Workgroup | Cleaning]:
     return {
         "r1": Room.objects.create(legacy_index=1, number=1, floor="stuen", side="mod gaden"),
         "r2": Room.objects.create(legacy_index=2, number=2, floor="stuen", side="mod gaden"),
@@ -29,13 +31,15 @@ def groups(db):
     }
 
 
-def _login(user):
+def _login(user: Resident) -> Client:
     c = Client()
-    c.force_login(user)
+    c.force_login(user=user)
     return c
 
 
-def _setup(make_resident, groups):
+def _setup(
+    make_resident: Callable, groups: dict[str, Room | Workgroup | Cleaning]
+) -> tuple[Client, Resident, Resident]:
     """An indstilling editor + a plain target, both in the active list; returns (client, ind, target)."""
     ind = make_resident(email="ind@gahk.dk", roles=[Role.INDSTILLING])
     target = make_resident(email="t@gahk.dk")
@@ -46,7 +50,9 @@ def _setup(make_resident, groups):
 
 
 @pytest.mark.django_db
-def test_access_is_indstilling_only(make_resident, groups):
+def test_access_is_indstilling_only(
+    make_resident: Callable, groups: dict[str, Room | Workgroup | Cleaning]
+) -> None:
     ind = make_resident(email="ind@gahk.dk", roles=[Role.INDSTILLING])
     plain = make_resident(email="p@gahk.dk")
     assert _login(ind).get(URL).status_code == 200
@@ -54,7 +60,9 @@ def test_access_is_indstilling_only(make_resident, groups):
 
 
 @pytest.mark.django_db
-def test_copy_seeds_next_month_and_syncs_roles(make_resident, groups):
+def test_copy_seeds_next_month_and_syncs_roles(
+    make_resident: Callable, groups: dict[str, Room | Workgroup | Cleaning]
+) -> None:
     c, ind, target = _setup(make_resident, groups)
     cy, cm = active_period()
     ny, nm = next_period((cy, cm))
@@ -70,7 +78,9 @@ def test_copy_seeds_next_month_and_syncs_roles(make_resident, groups):
 
 
 @pytest.mark.django_db
-def test_save_edits_room_workgroup_cleaning_and_resyncs_role(make_resident, groups):
+def test_save_edits_room_workgroup_cleaning_and_resyncs_role(
+    make_resident: Callable, groups: dict[str, Room | Workgroup | Cleaning]
+) -> None:
     c, ind, target = _setup(make_resident, groups)
     cy, cm = active_period()
     ny, nm = next_period((cy, cm))
@@ -109,7 +119,7 @@ def test_save_edits_room_workgroup_cleaning_and_resyncs_role(make_resident, grou
 
 
 @pytest.mark.django_db
-def test_remove_person(make_resident, groups):
+def test_remove_person(make_resident: Callable, groups: dict[str, Room | Workgroup | Cleaning]) -> None:
     c, ind, target = _setup(make_resident, groups)
     cy, cm = active_period()
     ny, nm = next_period((cy, cm))
@@ -123,8 +133,10 @@ def test_remove_person(make_resident, groups):
 
 
 @pytest.mark.django_db
-def test_add_existing_resident(make_resident, groups):
-    c, ind, target = _setup(make_resident, groups)
+def test_add_existing_resident(
+    make_resident: Callable, groups: dict[str, Room | Workgroup | Cleaning]
+) -> None:
+    c, _ind, _target = _setup(make_resident, groups)
     cy, cm = active_period()
     ny, nm = next_period((cy, cm))
     c.post(URL, {"action": "copy"})
@@ -144,8 +156,8 @@ def test_add_existing_resident(make_resident, groups):
 
 
 @pytest.mark.django_db
-def test_add_new_resident(make_resident, groups):
-    c, ind, target = _setup(make_resident, groups)
+def test_add_new_resident(make_resident: Callable, groups: dict[str, Room | Workgroup | Cleaning]) -> None:
+    c, _ind, _target = _setup(make_resident, groups)
     cy, cm = active_period()
     ny, nm = next_period((cy, cm))
     c.post(URL, {"action": "copy"})
@@ -170,7 +182,9 @@ def test_add_new_resident(make_resident, groups):
 
 
 @pytest.mark.django_db
-def test_save_rejects_duplicate_room(make_resident, groups):
+def test_save_rejects_duplicate_room(
+    make_resident: Callable, groups: dict[str, Room | Workgroup | Cleaning]
+) -> None:
     c, ind, target = _setup(make_resident, groups)
     cy, cm = active_period()
     ny, nm = next_period((cy, cm))
@@ -188,8 +202,10 @@ def test_save_rejects_duplicate_room(make_resident, groups):
 
 
 @pytest.mark.django_db
-def test_add_existing_rejects_occupied_room(make_resident, groups):
-    c, ind, target = _setup(make_resident, groups)
+def test_add_existing_rejects_occupied_room(
+    make_resident: Callable, groups: dict[str, Room | Workgroup | Cleaning]
+) -> None:
+    c, _ind, _target = _setup(make_resident, groups)
     cy, cm = active_period()
     ny, nm = next_period((cy, cm))
     c.post(URL, {"action": "copy"})  # r1 occupied by ind
@@ -199,8 +215,10 @@ def test_add_existing_rejects_occupied_room(make_resident, groups):
 
 
 @pytest.mark.django_db
-def test_add_new_rejects_occupied_room(make_resident, groups):
-    c, ind, target = _setup(make_resident, groups)
+def test_add_new_rejects_occupied_room(
+    make_resident: Callable, groups: dict[str, Room | Workgroup | Cleaning]
+) -> None:
+    c, _ind, _target = _setup(make_resident, groups)
     c.post(URL, {"action": "copy"})  # r1 occupied by ind
     c.post(
         URL,
@@ -216,16 +234,20 @@ def test_add_new_rejects_occupied_room(make_resident, groups):
 
 
 @pytest.mark.django_db
-def test_future_list_does_not_change_active_period(make_resident, groups):
+def test_future_list_does_not_change_active_period(
+    make_resident: Callable, groups: dict[str, Room | Workgroup | Cleaning]
+) -> None:
     """A list prepared for next month must not become the active period until that month arrives."""
-    c, ind, target = _setup(make_resident, groups)
+    c, _ind, _target = _setup(make_resident, groups)
     before = active_period()
     c.post(URL, {"action": "copy"})
     assert active_period() == before  # unchanged despite the next-month rows existing
 
 
 @pytest.mark.django_db
-def test_directory_history_shows_selected_month(make_resident, groups):
+def test_directory_history_shows_selected_month(
+    make_resident: Callable, groups: dict[str, Room | Workgroup | Cleaning]
+) -> None:
     viewer = make_resident(email="v@gahk.dk")
     cy, cm = active_period()
     cur = make_resident(email="cur@gahk.dk", first_name="Current", last_name="Person")
@@ -244,7 +266,9 @@ def test_directory_history_shows_selected_month(make_resident, groups):
 
 
 @pytest.mark.django_db
-def test_alumneliste_shows_fylgje_and_cleaning(make_resident, groups):
+def test_alumneliste_shows_fylgje_and_cleaning(
+    make_resident: Callable, groups: dict[str, Room | Workgroup | Cleaning]
+) -> None:
     viewer = make_resident(email="v@gahk.dk")
     sponsor = make_resident(email="spon@gahk.dk", first_name="Elder", last_name="Sponsor")
     junior = make_resident(email="jr@gahk.dk", first_name="Junior", last_name="Newbie", sponsor=sponsor)
@@ -265,7 +289,9 @@ def test_alumneliste_shows_fylgje_and_cleaning(make_resident, groups):
 
 
 @pytest.mark.django_db
-def test_alumneliste_export_csv_and_xlsx(make_resident, groups):
+def test_alumneliste_export_csv_and_xlsx(
+    make_resident: Callable, groups: dict[str, Room | Workgroup | Cleaning]
+) -> None:
     from datetime import date
 
     viewer = make_resident(email="v@gahk.dk")
@@ -303,7 +329,9 @@ def test_alumneliste_export_csv_and_xlsx(make_resident, groups):
 
 
 @pytest.mark.django_db
-def test_stamtree_shows_lineage(make_resident, groups):
+def test_stamtree_shows_lineage(
+    make_resident: Callable, groups: dict[str, Room | Workgroup | Cleaning]
+) -> None:
     from datetime import date
 
     viewer = make_resident(email="v@gahk.dk")

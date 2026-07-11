@@ -50,9 +50,9 @@ class Application(models.Model):
         ]
         ordering = ["-submitted_at"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.get_type_display()}: {self.full_name}"
 
     @property
-    def is_received(self):
+    def is_received(self) -> bool:
         return self.received_by_id is not None

@@ -8,7 +8,7 @@ register = template.Library()
 
 
 @register.filter
-def legacy_img(path):
+def legacy_img(path: str) -> str:
     """Map a stored legacy image path (/public/image/...) to its copied static asset URL."""
     if not path:
         return ""
@@ -17,7 +17,7 @@ def legacy_img(path):
 
 
 @register.filter
-def body_media(html):
+def body_media(html: str) -> str:
     """Rewrite legacy asset URLs inside CMS body HTML to the copied static location. Handles both the
     relative forms (`/public/…`, `public/…`) and the absolute legacy-host form
     (`http(s)://[www.]gahk.dk/public/…`) — rewriting the absolute one also removes mixed-content
@@ -26,6 +26,5 @@ def body_media(html):
         return html
     prefix = settings.STATIC_URL.rstrip("/") + "/legacy/"
     attr = r'((?:src|href)\s*=\s*["\'])'
-    html = re.sub(attr + r"https?://(?:www\.)?gahk\.dk/public/", r"\1" + prefix, html, flags=re.I)
-    html = re.sub(attr + r"/?public/", r"\1" + prefix, html, flags=re.I)
-    return html
+    html = re.sub(attr + r"https?://(?:www\.)?gahk\.dk/public/", r"\1" + prefix, html, flags=re.IGNORECASE)
+    return re.sub(attr + r"/?public/", r"\1" + prefix, html, flags=re.IGNORECASE)

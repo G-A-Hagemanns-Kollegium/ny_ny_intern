@@ -9,9 +9,9 @@ from residents.models import Resident, active_period
 
 
 class Command(BaseCommand):
-    help = "Charge every current resident −2 AK krydser for the active month (idempotent)."
+    help = "Charge every current resident -2 AK krydser for the active month (idempotent)."
 
-    def handle(self, *args, **opts):
+    def handle(self, *args, **opts) -> None:  # noqa: ANN002, ANN003
         year, month = active_period()
         tag = f"Månedlig vurdering {year}-{month:02d}"
         residents = Resident.objects.filter(residencies__year=year, residencies__month=month).distinct()

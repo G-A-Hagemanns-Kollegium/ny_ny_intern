@@ -6,11 +6,13 @@ both relative to the target (offer) month. Confirmed formula (incl. the +12). Hi
 """
 
 
-def month_index(year, month):
+def month_index(year: int, month: int) -> int:
     return year * 12 + (month - 1)
 
 
-def compute_k(move_in_index, done_studying_index, target_index, orlov_months=0):
+def compute_k(
+    move_in_index: int, done_studying_index: int, target_index: int, orlov_months: int = 0
+) -> float:
     a = (target_index - move_in_index) - orlov_months
     b = done_studying_index - target_index
     denom = a + b + 12

@@ -6,6 +6,7 @@ own copy and there is no runtime editing (F-006), so it stays code/fixture-manag
 """
 
 import datetime
+from typing import Any
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
@@ -33,7 +34,7 @@ SLUG_BY_PAGE_ID = {
 }
 
 
-def _date_from_ymd(row):
+def _date_from_ymd(row: dict[str, Any]) -> datetime.date | None:
     try:
         return datetime.date(int(row["year"]), int(row["month"]), max(int(row["day"]), 1))
     except (ValueError, TypeError):
@@ -45,18 +46,18 @@ class Command(BaseCommand):
     help = "Migrate CMS pages, news and pylon events from the legacy DB."
 
     @transaction.atomic
-    def handle(self, *args, **opts):
+    def handle(self, *args, **opts) -> None:  # noqa: ANN002, ANN003
         pages = fetch_all("SELECT * FROM gahk_page")
         for p in pages:
             Page.objects.update_or_create(
                 id=p["id"],
-                defaults=dict(
-                    menu_category=p["menuCat"] or 0,
-                    slug=SLUG_BY_PAGE_ID.get(p["id"]),  # None when unmapped (NULL allows many)
-                    header=(p["header"] or "").strip(),
-                    body=p["text"] or "",
-                    background_image=(p["bgpic"] or "").strip(),
-                ),
+                defaults={
+                    "menu_category": p["menuCat"] or 0,
+                    "slug": SLUG_BY_PAGE_ID.get(p["id"]),  # None when unmapped (NULL allows many)
+                    "header": (p["header"] or "").strip(),
+                    "body": p["text"] or "",
+                    "background_image": (p["bgpic"] or "").strip(),
+                },
             )
 
         news = fetch_all("SELECT * FROM gahk_news")
@@ -73,7 +74,11 @@ class Command(BaseCommand):
                 )
             NewsItem.objects.update_or_create(
                 id=n["id"],
-                defaults=dict(title=(n["title"] or "").strip(), body=n["text"] or "", published_at=published),
+                defaults={
+                    "title": (n["title"] or "").strip(),
+                    "body": n["text"] or "",
+                    "published_at": published,
+                },
             )
 
         pylon = fetch_all("SELECT * FROM gahk_pylon_calendar")
@@ -85,9 +90,11 @@ class Command(BaseCommand):
                 continue
             PylonEvent.objects.update_or_create(
                 id=e["id"],
-                defaults=dict(
-                    title=(e["name"] or "").strip(), description=e["description"] or "", starts_on=d
-                ),
+                defaults={
+                    "title": (e["name"] or "").strip(),
+                    "description": e["description"] or "",
+                    "starts_on": d,
+                },
             )
 
         self.stdout.write(

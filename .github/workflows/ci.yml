@@ -21,6 +21,16 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run bandit -q -r . -x ./tests,./core/management  # skip tests + one-off ETL scripts
 
+  typecheck:
+    runs-on: ubuntu-latest
+    # Runs from the repo root (not app/): the [tool.mypy] config lives in pyproject.toml and the
+    # django-stubs plugin only imports config.settings (which has safe defaults) — no DB needed.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { enable-cache: true }
+      - run: uv run mypy app
+
   test:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: app } }

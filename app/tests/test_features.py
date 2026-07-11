@@ -4,6 +4,8 @@ These lock in the fixes from the Phase-3 threat model so they can't regress: leg
 monthly roles, admissions email/CSRF rules, POS money integrity, and the front-page visit counter.
 """
 
+from collections.abc import Callable
+
 import pytest
 from django.contrib.auth.hashers import identify_hasher
 from django.core import mail
@@ -16,7 +18,7 @@ from residents.models import Resident, Role, active_period
 
 # ---------------------------------------------------------------- auth (F-014)
 @pytest.mark.django_db
-def test_legacy_sha256_upgrades_on_login(make_resident):
+def test_legacy_sha256_upgrades_on_login(make_resident: Callable) -> None:
     make_resident(email="a@gahk.dk", password="hemmelig", legacy=True)
     c = Client()
     assert c.login(email="a@gahk.dk", password="hemmelig") is True
@@ -25,7 +27,7 @@ def test_legacy_sha256_upgrades_on_login(make_resident):
 
 
 @pytest.mark.django_db
-def test_monthly_role_is_time_bound(make_resident):
+def test_monthly_role_is_time_bound(make_resident: Callable) -> None:
     r = make_resident(roles=[Role.AK])
     y, m = active_period()
     assert r.has_role(Role.AK, (y, m)) is True
@@ -35,7 +37,7 @@ def test_monthly_role_is_time_bound(make_resident):
 
 # ---------------------------------------------------------------- admissions (F-001)
 @pytest.mark.django_db
-def test_rundvisning_emails_committee_and_applicant():
+def test_rundvisning_emails_committee_and_applicant() -> None:
     mail.outbox = []
     Client().post(
         "/optagelse/send_rundvisning",
@@ -57,7 +59,7 @@ def test_rundvisning_emails_committee_and_applicant():
 
 
 @pytest.mark.django_db
-def test_fremleje_does_not_email_committee():
+def test_fremleje_does_not_email_committee() -> None:
     mail.outbox = []
     Client().post(
         "/optagelse/send_fremleje",
@@ -76,7 +78,7 @@ def test_fremleje_does_not_email_committee():
 
 
 @pytest.mark.django_db
-def test_mark_received_is_post_only_and_role_gated(make_resident):
+def test_mark_received_is_post_only_and_role_gated(make_resident: Callable) -> None:
     app = Application.objects.create(
         type="rundvisning", full_name="X", email="x@x.dk", submitted_at=timezone.now()
     )
@@ -92,7 +94,7 @@ def test_mark_received_is_post_only_and_role_gated(make_resident):
 
 # ---------------------------------------------------------------- ølkælder money (F-003)
 @pytest.mark.django_db
-def test_purchase_split_is_exact_and_atomic(make_resident):
+def test_purchase_split_is_exact_and_atomic(make_resident: Callable) -> None:
     from oelkaelder.models import Product, Shopper
     from oelkaelder.services import record_purchase
 
@@ -106,7 +108,7 @@ def test_purchase_split_is_exact_and_atomic(make_resident):
 
 
 @pytest.mark.django_db
-def test_my_balance_shows_account_statement(make_resident):
+def test_my_balance_shows_account_statement(make_resident: Callable) -> None:
     from oelkaelder.models import Product, Shopper
     from oelkaelder.services import record_deposit, record_purchase
 
@@ -125,7 +127,7 @@ def test_my_balance_shows_account_statement(make_resident):
 
 
 @pytest.mark.django_db
-def test_application_list_shows_receiver(make_resident):
+def test_application_list_shows_receiver(make_resident: Callable) -> None:
     ind = make_resident(
         email="ind@gahk.dk", first_name="Ida", last_name="Storgaard", roles=[Role.INDSTILLING]
     )
@@ -152,7 +154,7 @@ def test_application_list_shows_receiver(make_resident):
 
 
 @pytest.mark.django_db
-def test_cms_admin_is_gated_to_administrator(make_resident):
+def test_cms_admin_is_gated_to_administrator(make_resident: Callable) -> None:
     from cms.models import Page
 
     Page.objects.create(header="Testside", slug="testside", body="<p>hej</p>")
@@ -169,7 +171,7 @@ def test_cms_admin_is_gated_to_administrator(make_resident):
 
 
 @pytest.mark.django_db
-def test_cms_admin_sanitizes_html_on_save(make_resident):
+def test_cms_admin_sanitizes_html_on_save(make_resident: Callable) -> None:
     from cms.models import Page
 
     page = Page.objects.create(header="S", slug="s", body="")
@@ -192,7 +194,7 @@ def test_cms_admin_sanitizes_html_on_save(make_resident):
 
 
 @pytest.mark.django_db
-def test_is_staff_synced_with_roles(make_resident):
+def test_is_staff_synced_with_roles(make_resident: Callable) -> None:
     from residents.models import RoleAssignment, active_period
 
     r = make_resident(email="plain@gahk.dk")  # no roles → not staff
@@ -212,17 +214,22 @@ def test_is_staff_synced_with_roles(make_resident):
 
 
 @pytest.mark.django_db
-def test_dashboard_shows_shared_calendar_credentials(make_resident, monkeypatch):
+def test_dashboard_shows_shared_calendar_credentials(
+    make_resident: Callable, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("GOOGLE_CALENDAR_USER", "gahkkalender@gmail.com")
     monkeypatch.setenv("GOOGLE_CALENDAR_PASSWORD", "dummy-pw")
     c = Client()
     c.force_login(make_resident(email="d@gahk.dk"))
     h = c.get("/nyintern/").content.decode()
     assert "gahkkalender@gmail.com" in h and "dummy-pw" in h  # both shown to logged-in residents
+    # The embedded Google Calendar agenda (restored from the legacy dashboard) renders for logged-in users.
+    assert "calendar.google.com/calendar/embed" in h
+    assert "src=gahkkalender%40gmail.com" in h
 
 
 @pytest.mark.django_db
-def test_oelkaelder_kiosk_gate_uses_forwarded_ip():
+def test_oelkaelder_kiosk_gate_uses_forwarded_ip() -> None:
     from django.test import override_settings
 
     with override_settings(DEBUG=False, OELKAELDER_KIOSK_IPS=["130.225.243.26"]):
@@ -235,7 +242,7 @@ def test_oelkaelder_kiosk_gate_uses_forwarded_ip():
 
 
 @pytest.mark.django_db
-def test_media_files_are_served_in_prod():
+def test_media_files_are_served_in_prod() -> None:
     from pathlib import Path
 
     from django.conf import settings
@@ -254,7 +261,7 @@ def test_media_files_are_served_in_prod():
 
 
 @pytest.mark.django_db
-def test_room_photo_over_max_is_rejected(make_resident):
+def test_room_photo_over_max_is_rejected(make_resident: Callable) -> None:
     from django.core.files.uploadedfile import SimpleUploadedFile
     from django.test import override_settings
 
@@ -277,7 +284,7 @@ def test_room_photo_over_max_is_rejected(make_resident):
     assert not s.photo  # the oversized photo was skipped
 
 
-def test_room_condition_image_urls():
+def test_room_condition_image_urls() -> None:
     from rooms.models import RoomConditionScore
 
     # legacy `image` is a ';'-separated list with mixed public/ and /public/ prefixes
@@ -287,7 +294,7 @@ def test_room_condition_image_urls():
     assert RoomConditionScore(image="").image_urls == []
 
 
-def test_body_media_rewrites_relative_and_absolute_legacy_urls():
+def test_body_media_rewrites_relative_and_absolute_legacy_urls() -> None:
     from cms.templatetags.cms_extras import body_media
 
     html = (
@@ -302,7 +309,7 @@ def test_body_media_rewrites_relative_and_absolute_legacy_urls():
 
 # ---------------------------------------------------------------- visit counter (F-002/F-011)
 @pytest.mark.django_db
-def test_frontpage_counter_hashes_and_dedups():
+def test_frontpage_counter_hashes_and_dedups() -> None:
     from stats.models import DailyVisitCount, VisitTally
 
     c = Client()
@@ -315,7 +322,7 @@ def test_frontpage_counter_hashes_and_dedups():
 
 
 @pytest.mark.django_db
-def test_events_news_page_and_forside_teaser():
+def test_events_news_page_and_forside_teaser() -> None:
     from datetime import date, timedelta
 
     from cms.models import Event, NewsItem
@@ -336,7 +343,7 @@ def test_events_news_page_and_forside_teaser():
 
 
 @pytest.mark.django_db
-def test_statistik_renders_charts(make_resident):
+def test_statistik_renders_charts(make_resident: Callable) -> None:
     from datetime import date
 
     from stats.models import DailyVisitCount
@@ -361,7 +368,7 @@ def test_statistik_renders_charts(make_resident):
 
 # ---------------------------------------------------------------- public/auth separation
 @pytest.mark.django_db
-def test_public_window_has_no_internal_tools():
+def test_public_window_has_no_internal_tools() -> None:
     html = Client().get("/").content.decode()
     for label in ("Alumneliste", "AK-krydser", "Ølkælder-admin"):
         assert label not in html

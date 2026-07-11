@@ -15,16 +15,16 @@ from django.core.management.base import BaseCommand
 
 from cms.models import Event, NewsItem, Page
 
-REF = re.compile(r"/?public/(image/[^\s\"'()>]+)", re.I)
+REF = re.compile(r"/?public/(image/[^\s\"'()>]+)", re.IGNORECASE)
 
 
 class Command(BaseCommand):
     help = "Copy legacy /public/image files referenced by CMS content into static/legacy/."
 
-    def handle(self, *args, **opts):
+    def handle(self, *args, **opts) -> None:  # noqa: ANN002, ANN003
         legacy = Path(settings.BASE_DIR).parent / "legacy_site" / "public"
         dest = Path(settings.BASE_DIR) / "static" / "legacy"
-        refs = set()
+        refs: set[str] = set()
         for p in Page.objects.all():
             refs.update(m.group(1) for m in REF.finditer(f"{p.body or ''} {p.background_image or ''}"))
         for n in NewsItem.objects.all():

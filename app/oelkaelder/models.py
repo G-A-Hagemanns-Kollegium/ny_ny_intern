@@ -23,7 +23,7 @@ class Product(models.Model):  # intern_oelkaelder_product
     active = models.BooleanField(default=True)
     highlighted = models.BooleanField(default=False)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
 
@@ -33,12 +33,12 @@ class Shopper(models.Model):  # intern_shopper (+ intern_oelkaelder_saldo.active
     )
     active = models.BooleanField(default=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.resident.full_name
 
     @property
-    def balance_ore(self):
-        """Derived balance = valid deposits − this shopper's share of valid transactions."""
+    def balance_ore(self) -> int:
+        """Derived balance = valid deposits - this shopper's share of valid transactions."""
         deposits = self.deposits.filter(is_valid=True).aggregate(s=Sum("amount_ore"))["s"] or 0
         spent = (
             self.purchase_shares.filter(transaction__is_valid=True).aggregate(s=Sum("share_ore"))["s"] or 0

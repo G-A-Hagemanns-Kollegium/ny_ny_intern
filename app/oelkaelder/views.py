@@ -1,20 +1,30 @@
 """Ølkælder views (F-003). Kiosk (LAN-IP gated, no login) for the till; member balance view;
 ølkælder-admin screens for deposits/balances."""
 
+from datetime import datetime
+from typing import TypedDict
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from residents.permissions import role_required
+from residents.permissions import current_resident, role_required
 
 from .models import Deposit, Product, PurchaseShare, Shopper
 from .services import record_deposit, record_purchase
 
 
-def _client_ip(request):
+class _Entry(TypedDict):
+    created_at: datetime
+    text: str
+    amount_ore: int
+
+
+def _client_ip(request: HttpRequest) -> str:
     """The till's real IP. Behind Coolify/Traefik, REMOTE_ADDR is the proxy, so trust the last hop of
     X-Forwarded-For (the IP Traefik observed — the rightmost entry is the one it appended, not a value
     a client could spoof). Safe only because gunicorn is reachable *only* via the proxy."""
@@ -24,11 +34,11 @@ def _client_ip(request):
     return request.META.get("REMOTE_ADDR", "")
 
 
-def _is_kiosk(request):
+def _is_kiosk(request: HttpRequest) -> bool:
     return settings.DEBUG or _client_ip(request) in settings.OELKAELDER_KIOSK_IPS
 
 
-def shop(request):
+def shop(request: HttpRequest) -> HttpResponse:
     if not _is_kiosk(request):
         raise PermissionDenied("Tillen er kun tilgængelig fra kollegiets netværk.")
     return render(
@@ -42,10 +52,10 @@ def shop(request):
 
 
 @require_POST
-def purchase(request):
+def purchase(request: HttpRequest) -> HttpResponseRedirect:
     if not _is_kiosk(request):
         raise PermissionDenied
-    shopper_ids = request.POST.getlist("shopper")
+    shopper_ids = [int(x) for x in request.POST.getlist("shopper")]
     quantities = {}
     for p in Product.objects.filter(active=True):
         q = request.POST.get(f"qty_{p.id}", "")
@@ -60,24 +70,24 @@ def purchase(request):
 
 
 @login_required
-def my_balance(request):
+def my_balance(request: HttpRequest) -> HttpResponse:
     """Balance + a combined account statement (deposits as credits, purchase shares as debits)."""
-    accounts = list(request.user.shopper_accounts.all())
+    accounts = list(current_resident(request).shopper_accounts.all())
     shares = (
         PurchaseShare.objects.filter(shopper__in=accounts, transaction__is_valid=True)
         .select_related("transaction")
         .prefetch_related("transaction__items__product")
     )
     deposits = Deposit.objects.filter(shopper__in=accounts, is_valid=True)
-    entries = [
-        {
-            "created_at": s.transaction.created_at,
-            "text": ", ".join(f"{i.quantity}× {i.product.name}" for i in s.transaction.items.all()) or "Køb",
-            "amount_ore": -s.share_ore,  # debit
-        }
+    entries: list[_Entry] = [
+        _Entry(
+            created_at=s.transaction.created_at,
+            text=", ".join(f"{i.quantity}× {i.product.name}" for i in s.transaction.items.all()) or "Køb",
+            amount_ore=-s.share_ore,  # debit
+        )
         for s in shares
     ] + [
-        {"created_at": d.created_at, "text": "Indbetaling", "amount_ore": d.amount_ore}  # credit
+        _Entry(created_at=d.created_at, text="Indbetaling", amount_ore=d.amount_ore)  # credit
         for d in deposits
     ]
     entries.sort(key=lambda e: e["created_at"], reverse=True)
@@ -92,7 +102,7 @@ def my_balance(request):
 
 
 @role_required("oelkaelder")
-def admin(request):
+def admin(request: HttpRequest) -> HttpResponse:
     shoppers = Shopper.objects.filter(active=True).select_related("resident")
     rows = sorted(((s, s.balance_ore) for s in shoppers), key=lambda t: t[1])
     return render(request, "oelkaelder/admin.html", {"rows": rows})
@@ -100,7 +110,7 @@ def admin(request):
 
 @require_POST
 @role_required("oelkaelder")
-def add_deposit(request, pk):
+def add_deposit(request: HttpRequest, pk: int) -> HttpResponseRedirect:
     shopper = get_object_or_404(Shopper, pk=pk)
     try:
         kr = float(request.POST.get("amount_kr", "0").replace(",", "."))
