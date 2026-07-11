@@ -4,6 +4,8 @@ Explicit fields (kills the legacy mass-assignment), server-side validation, a ho
 (reCAPTCHA/Turnstile to be wired with keys — see TODO in views.) gender is male/female/other.
 """
 
+from typing import Literal
+
 from django import forms
 
 from .models import Application
@@ -26,7 +28,7 @@ class _BaseApplicationForm(forms.ModelForm):
     heard_about_us = forms.ChoiceField(choices=HEARD_CHOICES, required=True, label="Hvor hørte du om os?")
     gender = forms.ChoiceField(choices=Application.Gender.choices, required=True, label="Køn")
 
-    def clean_website(self):
+    def clean_website(self) -> Literal[""]:
         if self.cleaned_data.get("website"):
             raise forms.ValidationError("Spam detected.")
         return ""

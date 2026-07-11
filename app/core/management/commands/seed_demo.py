@@ -19,13 +19,14 @@ Deterministic logins (all password `demo1234`):
     beboer@gahk.dk     plain resident (no roles)
 """
 
+import argparse
 import random
 import unicodedata
 from datetime import timedelta
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 
 from admissions.models import Application
@@ -53,7 +54,7 @@ from stats.models import DailyVisitCount, VisitTally
 
 from .seed_rooms import build_rooms
 
-DEMO_PASSWORD = "demo1234"
+DEMO_PASSWORD = "demo1234"  # noqa: S105 — public demo credential, not a secret
 SEED = 1908  # the year GAHK was founded — any fixed value works, we just want reproducibility
 
 # Non-privileged chore groups (no site role) mixed in with the privileged ones from WORKGROUP_ROLE.
@@ -61,7 +62,7 @@ EXTRA_WORKGROUPS = ["Haven", "Vinklubben", "Festudvalget", "Bladet", "IT / Netv�
 CLEANING_GROUPS = ["Køkken", "Bad 1. sal", "Bad 2. sal", "Trappe", "Kælder", "Fællesrum"]
 
 # Deletion order: children before parents so PROTECT FKs don't block the wipe.
-WIPE_ORDER = [
+WIPE_ORDER: list[type[models.Model]] = [
     PurchaseShare,
     TransactionItem,
     Transaction,
@@ -91,7 +92,7 @@ WIPE_ORDER = [
 ]
 
 
-def _ascii_slug(text):
+def _ascii_slug(text: str) -> str:
     """Fold Danish letters to ASCII for email local-parts (Bjørn -> bjorn)."""
     swaps = {"æ": "ae", "ø": "oe", "å": "aa", "Æ": "ae", "Ø": "oe", "Å": "aa"}
     text = "".join(swaps.get(c, c) for c in text)
@@ -102,12 +103,12 @@ def _ascii_slug(text):
 class Command(BaseCommand):
     help = "Seed the DB with realistic fake data for dev/demo (deterministic, idempotent)."
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--fresh", action="store_true", help="Delete existing demo data first.")
         parser.add_argument("--residents", type=int, default=40, help="How many residents to create.")
         parser.add_argument("--force", action="store_true", help="Allow running when DEBUG is off.")
 
-    def handle(self, *args, **opts):
+    def handle(self, *args, **opts) -> None:  # noqa: ANN002, ANN003
         if not settings.DEBUG and not opts["force"]:
             raise CommandError("Refusing to seed with DEBUG=off. Pass --force if you really mean it.")
 
@@ -118,7 +119,7 @@ class Command(BaseCommand):
 
         self.fake = Faker("da_DK")
         Faker.seed(SEED)
-        self.rng = random.Random(SEED)
+        self.rng = random.Random(SEED)  # noqa: S311 — demo data only, not security-sensitive
         self.now = timezone.now()
         today = timezone.localdate()
         self.year, self.month = today.year, today.month
@@ -142,18 +143,18 @@ class Command(BaseCommand):
         self._report(residents)
 
     # ---------------------------------------------------------------- wipe
-    def _wipe(self):
+    def _wipe(self) -> None:
         for model in WIPE_ORDER:
-            model.objects.all().delete()
+            model._default_manager.all().delete()
         self.stdout.write("  wiped existing demo data")
 
     # ------------------------------------------------------------- lookups
-    def _seed_rooms(self):
+    def _seed_rooms(self) -> list[Room]:
         for r in build_rooms():
             Room.objects.update_or_create(legacy_index=r["legacy_index"], defaults=r)
         return list(Room.objects.all())
 
-    def _seed_lookups(self):
+    def _seed_lookups(self) -> tuple[list[Workgroup], list[Cleaning]]:
         workgroups = []
         for name in list(WORKGROUP_ROLE.keys()) + EXTRA_WORKGROUPS:
             wg, _ = Workgroup.objects.get_or_create(name=name)
@@ -162,13 +163,13 @@ class Command(BaseCommand):
         return workgroups, cleanings
 
     # ----------------------------------------------------------- residents
-    def _seed_residents(self, count):
+    def _seed_residents(self, count: int) -> list[Resident]:
         residents = []
         seen_emails = set()
 
         # Fixed, documented accounts first so devs always have known logins.
         fixtures = [
-            ("admin@gahk.dk", "Admin", "Istrator", dict(is_superuser=True, is_staff=True)),
+            ("admin@gahk.dk", "Admin", "Istrator", {"is_superuser": True, "is_staff": True}),
             ("formand@gahk.dk", "Frederik", "Formand", {}),
             ("ak@gahk.dk", "Astrid", "Krydsen", {}),
             ("oel@gahk.dk", "Ole", "Ølmand", {}),
@@ -198,7 +199,7 @@ class Command(BaseCommand):
                 r.save(update_fields=["sponsor"])
         return residents
 
-    def _make_resident(self, email, first, last, **extra):
+    def _make_resident(self, email: str, first: str, last: str, **extra) -> Resident:  # noqa: ANN003
         r = Resident(
             email=email,
             first_name=first,
@@ -225,7 +226,7 @@ class Command(BaseCommand):
         return r
 
     # --------------------------------------------------------- residencies
-    def _iter_recent_months(self, n=3):
+    def _iter_recent_months(self, n: int = 3) -> list[tuple[int, int]]:
         """The current month and the n-1 months before it, as (year, month) tuples (oldest first)."""
         y, m = self.year, self.month
         months = []
@@ -236,7 +237,13 @@ class Command(BaseCommand):
                 y, m = y - 1, 12
         return list(reversed(months))
 
-    def _seed_residencies(self, residents, rooms, workgroups, cleanings):
+    def _seed_residencies(
+        self,
+        residents: list[Resident],
+        rooms: list[Room],
+        workgroups: list[Workgroup],
+        cleanings: list[Cleaning],
+    ) -> None:
         for y, m in self._iter_recent_months(3):
             # Give each resident a distinct room this month (rooms outnumber residents).
             chosen_rooms = self.rng.sample(rooms, k=min(len(residents), len(rooms)))
@@ -245,15 +252,15 @@ class Command(BaseCommand):
                     resident=resident,
                     year=y,
                     month=m,
-                    defaults=dict(
-                        room=room,
-                        workgroup=self.rng.choice(workgroups),
-                        cleaning=self.rng.choice(cleanings),
-                    ),
+                    defaults={
+                        "room": room,
+                        "workgroup": self.rng.choice(workgroups),
+                        "cleaning": self.rng.choice(cleanings),
+                    },
                 )
 
     # --------------------------------------------------------------- roles
-    def _seed_roles(self, residents):
+    def _seed_roles(self, residents: list[Resident]) -> None:
         by_email = {r.email: r for r in residents}
         # Documented accounts get specific roles.
         fixed = {
@@ -279,7 +286,7 @@ class Command(BaseCommand):
         Resident.objects.filter(pk__in=assigned).update(is_staff=True)
 
     # ------------------------------------------------------------------ AK
-    def _seed_ak(self, residents):
+    def _seed_ak(self, residents: list[Resident]) -> None:
         entries = []
         for r in residents:
             entries.append(
@@ -314,7 +321,7 @@ class Command(BaseCommand):
         AkEntry.objects.bulk_create(entries)
 
     # ----------------------------------------------------------- ølkælder
-    def _seed_oelkaelder(self, residents):
+    def _seed_oelkaelder(self, residents: list[Resident]) -> None:
         products = [
             Product.objects.create(name=n, price_ore=p, active=True, highlighted=h)
             for n, p, h in [
@@ -356,7 +363,7 @@ class Command(BaseCommand):
                 )
 
     # ------------------------------------------------------------ admissions
-    def _seed_admissions(self, residents):
+    def _seed_admissions(self, residents: list[Resident]) -> None:
         officers = [r for r in residents if r.is_staff]
         apps = []
         for _ in range(25):
@@ -384,7 +391,7 @@ class Command(BaseCommand):
         Application.objects.bulk_create(apps)
 
     # ------------------------------------------------------------------ cms
-    def _seed_cms(self):
+    def _seed_cms(self) -> None:
         Page.objects.create(
             slug="om-kollegiet",
             header="Om Kollegiet",
@@ -417,9 +424,9 @@ class Command(BaseCommand):
         )
 
     # ------------------------------------------------------ room conditions
-    def _seed_room_conditions(self, rooms, residents):
+    def _seed_room_conditions(self, rooms: list[Room], residents: list[Resident]) -> None:
         criteria = [
-            RoomCriterion.objects.get_or_create(code=c, defaults=dict(name=n, options=4))[0]
+            RoomCriterion.objects.get_or_create(code=c, defaults={"name": n, "options": 4})[0]
             for c, n in [("walls", "Vægge"), ("floor", "Gulv"), ("windows", "Vinduer"), ("kitchen", "Køkken")]
         ]
         for room in self.rng.sample(rooms, k=min(15, len(rooms))):
@@ -439,7 +446,7 @@ class Command(BaseCommand):
                 )
 
     # -------------------------------------------------------------- kvotient
-    def _seed_kvotient(self, residents, rooms):
+    def _seed_kvotient(self, residents: list[Resident], rooms: list[Room]) -> None:
         month_no = 12 * self.year + self.month
         for room in self.rng.sample(rooms, k=min(6, len(rooms))):
             RoomOffer.objects.get_or_create(room=room, month=month_no)
@@ -455,11 +462,11 @@ class Command(BaseCommand):
                 KvotientPriority.objects.create(application=app, room=room, priority=prio)
 
     # ----------------------------------------------------------------- stats
-    def _seed_stats(self):
+    def _seed_stats(self) -> None:
         today = timezone.localdate()
         for i in range(60):
             DailyVisitCount.objects.update_or_create(
-                date=today - timedelta(days=i), defaults=dict(count=self.rng.randint(5, 120))
+                date=today - timedelta(days=i), defaults={"count": self.rng.randint(5, 120)}
             )
         for i in range(30):
             VisitTally.objects.create(
@@ -470,7 +477,7 @@ class Command(BaseCommand):
             )
 
     # ---------------------------------------------------------------- report
-    def _report(self, residents):
+    def _report(self, residents: list[Resident]) -> None:
         self.stdout.write(
             self.style.SUCCESS(
                 f"\nSeeded demo data: {len(residents)} residents, "

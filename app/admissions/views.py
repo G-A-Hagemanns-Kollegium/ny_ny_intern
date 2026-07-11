@@ -17,11 +17,12 @@ from django.conf import settings
 from django.contrib import messages
 from django.core.mail import send_mail
 from django.core.paginator import Paginator
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from residents.permissions import role_required
+from residents.permissions import current_resident, role_required
 
 from .forms import FremlejeForm, RundvisningForm
 from .models import Application
@@ -32,11 +33,11 @@ logger = logging.getLogger(__name__)
 TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 
 
-def index(request):
+def index(request: HttpRequest) -> HttpResponse:
     return render(request, "optagelse/landing.html")
 
 
-def _verify_turnstile(request):
+def _verify_turnstile(request: HttpRequest) -> bool:
     """Verify the Cloudflare Turnstile token. Skipped (returns True) when no secret is configured (dev)."""
     secret = settings.TURNSTILE_SECRET_KEY
     if not secret:
@@ -53,14 +54,23 @@ def _verify_turnstile(request):
     ).encode()
     try:
         # URL is a fixed HTTPS constant, not user-controlled — safe from B310 scheme abuse.
-        with urllib.request.urlopen(TURNSTILE_VERIFY_URL, data=data, timeout=5) as resp:  # nosec B310
+        with urllib.request.urlopen(TURNSTILE_VERIFY_URL, data=data, timeout=5) as resp:  # nosec B310  # noqa: S310
             return bool(json.loads(resp.read()).get("success"))
     except Exception:
         logger.warning("Turnstile verification request failed", exc_info=True)
         return False
 
 
-def _apply(request, form_class, app_type, post_url, title, notify_committee, show_criteria=False, intro=""):
+def _apply(
+    request: HttpRequest,
+    form_class: type,
+    app_type: str,
+    post_url: str,
+    title: str,
+    notify_committee: bool,
+    show_criteria: bool = False,
+    intro: str = "",
+) -> HttpResponse:
     form = form_class()
     if request.method == "POST":
         form = form_class(request.POST)
@@ -88,7 +98,7 @@ def _apply(request, form_class, app_type, post_url, title, notify_committee, sho
     )
 
 
-def ansoeg(request):
+def ansoeg(request: HttpRequest) -> HttpResponse:
     return _apply(
         request,
         RundvisningForm,
@@ -104,7 +114,7 @@ def ansoeg(request):
     )
 
 
-def fremlej(request):
+def fremlej(request: HttpRequest) -> HttpResponse:
     return _apply(
         request,
         FremlejeForm,
@@ -116,11 +126,11 @@ def fremlej(request):
     )
 
 
-def success(request):
+def success(request: HttpRequest) -> HttpResponse:
     return render(request, "optagelse/success.html")
 
 
-def _send_emails(app, notify_committee):
+def _send_emails(app: Application, notify_committee: bool) -> None:
     """Best-effort; a mail failure must not lose the saved application."""
     try:
         if notify_committee:
@@ -149,24 +159,24 @@ def _send_emails(app, notify_committee):
 
 # ---- indstilling review ----
 @role_required("indstilling")
-def list_applications(request):
+def list_applications(request: HttpRequest) -> HttpResponse:
     qs = Application.objects.select_related("received_by")
     page = Paginator(qs, 50).get_page(request.GET.get("page"))
     return render(request, "optagelse/list.html", {"page_obj": page})
 
 
 @role_required("indstilling")
-def show_application(request, pk):
+def show_application(request: HttpRequest, pk: int) -> HttpResponse:
     app = get_object_or_404(Application, pk=pk)
     return render(request, "optagelse/detail.html", {"app": app})
 
 
 @require_POST
 @role_required("indstilling")
-def mark_received(request, pk):
+def mark_received(request: HttpRequest, pk: int) -> HttpResponseRedirect:
     app = get_object_or_404(Application, pk=pk)
     if not app.received_by_id:
-        app.received_by = request.user
+        app.received_by = current_resident(request)
         app.received_at = timezone.now()
         app.save(update_fields=["received_by", "received_at"])
     return redirect("admissions:show", pk=pk)

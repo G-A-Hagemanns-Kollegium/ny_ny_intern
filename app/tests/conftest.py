@@ -1,4 +1,5 @@
 import hashlib
+from collections.abc import Callable
 
 import pytest
 
@@ -6,8 +7,14 @@ from residents.models import Resident, RoleAssignment, active_period
 
 
 @pytest.fixture
-def make_resident(db):
-    def _make(email="r@gahk.dk", password="hemmelig", legacy=False, roles=(), **extra):
+def make_resident(db: None) -> Callable[[str, str, bool, tuple], Resident]:
+    def _make(
+        email: str = "r@gahk.dk",
+        password: str = "hemmelig",
+        legacy: bool = False,
+        roles: tuple = (),
+        **extra: object,
+    ) -> Resident:
         r = Resident(
             email=email,
             first_name=extra.pop("first_name", "Test"),

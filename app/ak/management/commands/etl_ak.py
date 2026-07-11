@@ -20,7 +20,7 @@ class Command(BaseCommand):
     help = "Migrate AK krydser into the ledger from the legacy DB."
 
     @transaction.atomic
-    def handle(self, *args, **opts):
+    def handle(self, *args, **opts) -> None:  # noqa: ANN002, ANN003
         from residents.models import Resident
 
         remap = resident_id_remap()
@@ -28,12 +28,12 @@ class Command(BaseCommand):
 
         AkEntry.objects.all().delete()
 
-        log_sum = defaultdict(int)
+        log_sum: defaultdict[int, int] = defaultdict(int)
         skipped = 0
         entries = []
         for row in fetch_all("SELECT * FROM intern_alumne_aklog"):
             rid = remap.get(row["alumne_id"])
-            if rid not in resident_ids:
+            if rid is None or rid not in resident_ids:
                 skipped += 1
                 continue
             delta = int(row["krydser"] or 0)

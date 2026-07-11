@@ -1,6 +1,9 @@
 """Sidebar navigation + role/preview state, available to every template."""
 
+from collections.abc import Collection
+
 from django.conf import settings
+from django.http import HttpRequest
 
 from residents.permissions import can_preview, effective_roles
 
@@ -29,7 +32,7 @@ NAV_PUBLIC = [
 ]
 
 
-def _nav_intern(roles):
+def _nav_intern(roles: Collection[str]) -> list[tuple[str, str]]:
     """Internal menu built from the *effective* role set: base items for every resident, plus each
     embedsgruppe's admin tools. Honors the preview override (roles come from effective_roles)."""
     items = [
@@ -58,7 +61,7 @@ def _nav_intern(roles):
     return items
 
 
-def navigation(request):
+def navigation(request: HttpRequest) -> dict[str, object]:
     authed = request.user.is_authenticated
     roles = effective_roles(request) if authed else set()
     previewer = can_preview(request.user) if authed else False

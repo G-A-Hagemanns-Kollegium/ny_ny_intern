@@ -7,8 +7,10 @@ register = template.Library()
 
 
 @register.filter
-def sign_class(value):
+def sign_class(value: int | float | None) -> str:
     """Semantic CSS class for a signed amount: negative → red, otherwise green (see styles.css)."""
+    if value is None:
+        return ""
     try:
         return "amount-neg" if int(value) < 0 else "amount-pos"
     except (TypeError, ValueError):

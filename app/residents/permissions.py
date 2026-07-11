@@ -11,24 +11,46 @@ is the security boundary — only `real_roles`/`can_preview` decide who may prev
 the session, so a forged/stale override on a non-admin is silently ignored.
 """
 
+from collections.abc import Callable
 from functools import wraps
 
+from django.contrib.auth.base_user import AbstractBaseUser
+from django.contrib.auth.models import AnonymousUser
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import PermissionDenied
+from django.http import HttpRequest, HttpResponse
 
-from .models import Role, active_period
+from .models import Resident, Role, active_period
+
+# A Django view: called with a request (plus captured URL kwargs) and returns a response.
+View = Callable[..., HttpResponse]
+# What request.user is statically typed as: django-stubs can't know it is always a Resident here.
+AnyUser = AbstractBaseUser | AnonymousUser
 
 ALL_ROLES = frozenset(Role.values)
 PREVIEW_SESSION_KEY = "preview_roles"
 
 
-def real_roles(user):
+def current_resident(request: HttpRequest) -> Resident:
+    """The logged-in Resident for a request behind @login_required / @role_required.
+
+    Centralizes the "an authenticated user is a Resident" invariant that django-stubs can't express.
+    Raises PermissionDenied if the request user is not an authenticated resident - which only happens
+    if a view forgot its access decorator (a programming error), never in the normal flow.
+    """
+    user = request.user
+    if not isinstance(user, Resident):
+        raise PermissionDenied
+    return user
+
+
+def real_roles(user: AnyUser) -> set[str]:
     """The user's ACTUAL role codes for the active period. Never affected by preview.
 
-    Superuser and `administrator` => every role (all-access); anonymous => none. This is the only
-    authorization reader of the DB / superuser flag.
+    Superuser and `administrator` => every role (all-access); anonymous / non-resident => none. This
+    is the only authorization reader of the DB / superuser flag.
     """
-    if not user.is_authenticated:
+    if not isinstance(user, Resident):
         return set()
     if user.is_superuser:
         return set(ALL_ROLES)
@@ -39,12 +61,12 @@ def real_roles(user):
     return codes
 
 
-def can_preview(user):
+def can_preview(user: AnyUser) -> bool:
     """Only a real administrator (or superuser, who holds all roles) may use the preview tool."""
     return Role.ADMINISTRATOR in real_roles(user)
 
 
-def effective_roles(request):
+def effective_roles(request: HttpRequest) -> set[str]:
     """The role set this request is treated as: the preview override (only if the real user may
     preview), otherwise the real roles. Re-verifies `can_preview` against real roles every call."""
     if PREVIEW_SESSION_KEY in request.session and can_preview(request.user):
@@ -56,23 +78,23 @@ def effective_roles(request):
     return real_roles(request.user)
 
 
-def has_active_role(user, *roles):
+def has_active_role(user: AnyUser, *roles: str) -> bool:
     """Backward-compatible, REAL-roles-only check (does not honor preview). Prefer `request_has_role`
     in views so preview is respected."""
     return not real_roles(user).isdisjoint(roles)
 
 
-def request_has_role(request, *roles):
+def request_has_role(request: HttpRequest, *roles: str) -> bool:
     """Request-aware role check that honors the preview override."""
     return not effective_roles(request).isdisjoint(roles)
 
 
-def role_required(*roles):
+def role_required(*roles: str) -> Callable[[View], View]:
     """View decorator: require one of `roles` in the *effective* role set (honors preview)."""
 
-    def decorator(view):
+    def decorator(view: View) -> View:
         @wraps(view)
-        def wrapped(request, *args, **kwargs):
+        def wrapped(request: HttpRequest, *args: object, **kwargs: object) -> HttpResponse:
             if not request.user.is_authenticated:
                 return redirect_to_login(request.get_full_path())
             if effective_roles(request).isdisjoint(roles):
@@ -84,12 +106,12 @@ def role_required(*roles):
     return decorator
 
 
-def require_can_preview(view):
+def require_can_preview(view: View) -> View:
     """Gate the preview switcher on the REAL admin role, so previewing 'beboer' cannot lock an admin
     out of ending the preview."""
 
     @wraps(view)
-    def wrapped(request, *args, **kwargs):
+    def wrapped(request: HttpRequest, *args: object, **kwargs: object) -> HttpResponse:
         if not request.user.is_authenticated:
             return redirect_to_login(request.get_full_path())
         if not can_preview(request.user):

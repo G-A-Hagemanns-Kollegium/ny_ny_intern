@@ -5,13 +5,14 @@ with `|safe` in the template. URLs match the legacy slugs (incl. multi-segment) 
 """
 
 from django.db.models import Q
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 
 from .models import Event, NewsItem, Page
 
 
-def _section_nav(current):
+def _section_nav(current: Page) -> tuple[str, list]:
     """Sibling pages in the same top-level section (derived from the slug prefix) for the sidebar.
 
     Returns (section_title, links). Empty when the page stands alone (no siblings to list).
@@ -23,11 +24,11 @@ def _section_nav(current):
     if len(pages) < 2:
         return "", []
     section_title = next((p.header for p in pages if p.slug == section), current.header)
-    links = [{"url": "/" + p.slug, "header": p.header, "current": p.id == current.id} for p in pages]
+    links = [{"url": "/" + (p.slug or ""), "header": p.header, "current": p.id == current.id} for p in pages]
     return section_title, links
 
 
-def _render(request, page):
+def _render(request: HttpRequest, page: Page) -> HttpResponse:
     section_title, section_links = _section_nav(page)
     return render(
         request,
@@ -44,7 +45,7 @@ def _render(request, page):
 HOME_HERO = "/public/image/upload/images/72352712_3043170802378120_6023122459278966784_n.jpg"
 
 
-def home(request):
+def home(request: HttpRequest) -> HttpResponse:
     # `/` is the canonical front page (legacy default_controller was page/show/1, "velkommen").
     page = Page.objects.filter(id=1).first()  # reuse its body as the intro text
     today = timezone.localdate()
@@ -60,7 +61,7 @@ def home(request):
     )
 
 
-def events_news(request):
+def events_news(request: HttpRequest) -> HttpResponse:
     """Public "Nyheder & Begivenheder" page (F-007/F-008): upcoming + past events and the news archive."""
     today = timezone.localdate()
     return render(
@@ -75,5 +76,5 @@ def events_news(request):
     )
 
 
-def page(request, url_path):
+def page(request: HttpRequest, url_path: str) -> HttpResponse:
     return _render(request, get_object_or_404(Page, slug=url_path.strip("/")))
