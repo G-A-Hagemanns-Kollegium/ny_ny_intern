@@ -10,6 +10,34 @@ def month_index(year: int, month: int) -> int:
     return year * 12 + (month - 1)
 
 
+# 0-indexed Danish month names, for turning an absolute month index back into a readable label.
+_DA_MONTHS = (
+    "januar",
+    "februar",
+    "marts",
+    "april",
+    "maj",
+    "juni",
+    "juli",
+    "august",
+    "september",
+    "oktober",
+    "november",
+    "december",
+)
+
+
+def month_label(index: int) -> str:
+    """Human-readable 'Måned ÅÅÅÅ' for an absolute 0-indexed month index (inverse of month_index)."""
+    year, month0 = divmod(index, 12)
+    return f"{_DA_MONTHS[month0].capitalize()} {year}"
+
+
+def month_choices() -> list[tuple[int, str]]:
+    """(month_number, Danish name) pairs 1..12, for <select> month pickers."""
+    return [(i, name.capitalize()) for i, name in enumerate(_DA_MONTHS, start=1)]
+
+
 def compute_k(
     move_in_index: int, done_studying_index: int, target_index: int, orlov_months: int = 0
 ) -> float:
