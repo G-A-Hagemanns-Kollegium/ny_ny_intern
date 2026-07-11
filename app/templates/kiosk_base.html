@@ -1,0 +1,23 @@
+{% load static %}
+<!doctype html>
+<html lang="da">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Ølkælderen{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'dist/app.css' %}">
+  <script src="{% static 'dist/app.js' %}" defer></script>
+</head>
+<!-- Chromeless full-screen layout for the till (no header/sidebar) so the kiosk fills the screen. -->
+<body class="min-h-screen bg-gray-50 text-gray-900">
+  <div class="max-w-6xl mx-auto px-4 py-4">
+    {% if messages %}
+      {% for m in messages %}
+        <p class="card {% if m.tags == 'error' %}border-red-400{% else %}border-emerald-400{% endif %}">{{ m }}</p>
+      {% endfor %}
+    {% endif %}
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>

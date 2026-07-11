@@ -41,13 +41,18 @@ def _is_kiosk(request: HttpRequest) -> bool:
 def shop(request: HttpRequest) -> HttpResponse:
     if not _is_kiosk(request):
         raise PermissionDenied("Tillen er kun tilgængelig fra kollegiets netværk.")
+    products = Product.objects.filter(active=True).order_by("-highlighted", "name")
+    shoppers = Shopper.objects.filter(active=True).select_related("resident").order_by("resident__first_name")
+    # Rendered into the page as JSON for the Alpine kiosk island (see frontend/src/main.ts).
+    product_data = [
+        {"id": p.pk, "name": p.name, "price_ore": p.price_ore, "img": p.image.url if p.image else ""}
+        for p in products
+    ]
+    shopper_data = [{"id": s.pk, "rid": s.resident_id, "name": s.resident.full_name} for s in shoppers]
     return render(
         request,
         "oelkaelder/shop.html",
-        {
-            "products": Product.objects.filter(active=True).order_by("name"),
-            "shoppers": Shopper.objects.filter(active=True).select_related("resident"),
-        },
+        {"product_data": product_data, "shopper_data": shopper_data},
     )
 
 
@@ -105,7 +110,10 @@ def my_balance(request: HttpRequest) -> HttpResponse:
 def admin(request: HttpRequest) -> HttpResponse:
     shoppers = Shopper.objects.filter(active=True).select_related("resident")
     rows = sorted(((s, s.balance_ore) for s in shoppers), key=lambda t: t[1])
-    return render(request, "oelkaelder/admin.html", {"rows": rows})
+    deposits = (
+        Deposit.objects.filter(is_valid=True).select_related("shopper__resident").order_by("-created_at")[:15]
+    )
+    return render(request, "oelkaelder/admin.html", {"rows": rows, "deposits": deposits})
 
 
 @require_POST
@@ -119,3 +127,78 @@ def add_deposit(request: HttpRequest, pk: int) -> HttpResponseRedirect:
     except ValueError as e:
         messages.error(request, str(e))
     return redirect("oelkaelder:admin")
+
+
+@require_POST
+@role_required("oelkaelder")
+def void_deposit(request: HttpRequest, pk: int) -> HttpResponseRedirect:
+    """Soft-delete a mistaken deposit (is_valid=False) — the balance is derived, so it just drops out."""
+    deposit = get_object_or_404(Deposit, pk=pk, is_valid=True)
+    deposit.is_valid = False
+    deposit.save(update_fields=["is_valid"])
+    messages.success(request, "Indbetaling annulleret.")
+    return redirect("oelkaelder:admin")
+
+
+# ---- product & price management (ØK role) ----
+def _kr_to_ore(value: str) -> int:
+    ore = round(float((value or "0").replace(",", ".")) * 100)
+    if ore <= 0:
+        raise ValueError("Prisen skal være positiv.")
+    return ore
+
+
+@role_required("oelkaelder")
+def products(request: HttpRequest) -> HttpResponse:
+    """Manage the kiosk assortment: name, price, in/out of the till, featured, and image."""
+    return render(
+        request,
+        "oelkaelder/products.html",
+        {"products": Product.objects.order_by("-active", "-highlighted", "name")},
+    )
+
+
+@require_POST
+@role_required("oelkaelder")
+def product_create(request: HttpRequest) -> HttpResponseRedirect:
+    name = (request.POST.get("name") or "").strip()
+    if not name:
+        messages.error(request, "Produktet skal have et navn.")
+        return redirect("oelkaelder:products")
+    try:
+        price_ore = _kr_to_ore(request.POST.get("price_kr", ""))
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect("oelkaelder:products")
+    Product.objects.create(
+        name=name,
+        price_ore=price_ore,
+        active="active" in request.POST,
+        highlighted="highlighted" in request.POST,
+        image=request.FILES.get("image") or "",
+    )
+    messages.success(request, f"«{name}» oprettet.")
+    return redirect("oelkaelder:products")
+
+
+@require_POST
+@role_required("oelkaelder")
+def product_update(request: HttpRequest, pk: int) -> HttpResponseRedirect:
+    product = get_object_or_404(Product, pk=pk)
+    name = (request.POST.get("name") or "").strip()
+    if not name:
+        messages.error(request, "Produktet skal have et navn.")
+        return redirect("oelkaelder:products")
+    try:
+        product.price_ore = _kr_to_ore(request.POST.get("price_kr", ""))
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect("oelkaelder:products")
+    product.name = name
+    product.active = "active" in request.POST
+    product.highlighted = "highlighted" in request.POST
+    if request.FILES.get("image"):
+        product.image = request.FILES["image"]
+    product.save()
+    messages.success(request, f"«{name}» opdateret.")
+    return redirect("oelkaelder:products")
