@@ -19,7 +19,7 @@ class Room(models.Model):
     class Meta:
         ordering = ["number"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Værelse {self.number:03d}"
 
 
@@ -27,7 +27,7 @@ class Workgroup(models.Model):  # intern_alumne_workgroup (the monthly chore/emb
     legacy_id = models.PositiveIntegerField(unique=True, null=True, blank=True)
     name = models.CharField(max_length=100, unique=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
 
@@ -35,5 +35,5 @@ class Cleaning(models.Model):  # intern_alumne_cleaning
     legacy_id = models.PositiveIntegerField(unique=True, null=True, blank=True)
     name = models.CharField(max_length=100, unique=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name

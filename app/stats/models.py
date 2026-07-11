@@ -16,7 +16,7 @@ class DailyVisitCount(models.Model):  # gahk_counterdato
     class Meta:
         ordering = ["-date"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.date}: {self.count}"
 
 
@@ -26,5 +26,5 @@ class VisitTally(models.Model):  # gahk_counter, but IP is HMAC-hashed (no raw I
     first_seen = models.DateTimeField(default=timezone.now)
     last_seen = models.DateTimeField(default=timezone.now)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.ip_hash[:8]}… ×{self.count}"

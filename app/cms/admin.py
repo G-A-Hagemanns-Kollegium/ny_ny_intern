@@ -12,6 +12,7 @@ depth.
 
 from django import forms
 from django.contrib import admin
+from django.http import HttpRequest
 
 from residents.permissions import has_active_role
 
@@ -22,49 +23,49 @@ from .sanitize import clean_html
 class PageAdminForm(forms.ModelForm):
     class Meta:
         model = Page
-        fields = "__all__"
+        fields = ["slug", "menu_category", "header", "body", "background_image"]
 
-    def clean_body(self):
+    def clean_body(self) -> str | None:
         return clean_html(self.cleaned_data.get("body", ""))
 
 
 class NewsItemAdminForm(forms.ModelForm):
     class Meta:
         model = NewsItem
-        fields = "__all__"
+        fields = ["title", "body", "published_at"]
 
-    def clean_body(self):
+    def clean_body(self) -> str | None:
         return clean_html(self.cleaned_data.get("body", ""))
 
 
 class EventAdminForm(forms.ModelForm):
     class Meta:
         model = Event
-        fields = "__all__"
+        fields = ["title", "description", "starts_on"]
 
-    def clean_description(self):
+    def clean_description(self) -> str | None:
         return clean_html(self.cleaned_data.get("description", ""))
 
 
 class AdministratorContentAdmin(admin.ModelAdmin):
     """Base admin whose every access check requires the real `administrator` role (or superuser)."""
 
-    def _may(self, request):
+    def _may(self, request: HttpRequest) -> bool:
         return has_active_role(request.user, "administrator")
 
-    def has_module_permission(self, request):
+    def has_module_permission(self, request: HttpRequest) -> bool:
         return self._may(request)
 
-    def has_view_permission(self, request, obj=None):
+    def has_view_permission(self, request: HttpRequest, obj: object | None = None) -> bool:
         return self._may(request)
 
-    def has_add_permission(self, request):
+    def has_add_permission(self, request: HttpRequest) -> bool:
         return self._may(request)
 
-    def has_change_permission(self, request, obj=None):
+    def has_change_permission(self, request: HttpRequest, obj: object | None = None) -> bool:
         return self._may(request)
 
-    def has_delete_permission(self, request, obj=None):
+    def has_delete_permission(self, request: HttpRequest, obj: object | None = None) -> bool:
         return self._may(request)
 
 

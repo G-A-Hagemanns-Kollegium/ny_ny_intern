@@ -8,20 +8,22 @@ Route reference: /admin/preview/set (siteadmin:preview_set), /nyintern/ak/admin 
 /optagelse/listansoegninger (admissions list, role indstilling).
 """
 
+from collections.abc import Callable
+
 import pytest
 from django.test import Client
 
-from residents.models import Role
+from residents.models import Resident, Role
 
 
-def _client(user):
+def _client(user: Resident) -> Client:
     c = Client()
-    c.force_login(user)
+    c.force_login(user=user)
     return c
 
 
 @pytest.mark.django_db
-def test_admin_preview_as_ak_restricts(make_resident):
+def test_admin_preview_as_ak_restricts(make_resident: Callable) -> None:
     admin = make_resident(email="admin@gahk.dk", roles=[Role.ADMINISTRATOR])
     c = _client(admin)
     assert c.get("/optagelse/listansoegninger").status_code == 200  # baseline: all-access
@@ -31,7 +33,7 @@ def test_admin_preview_as_ak_restricts(make_resident):
 
 
 @pytest.mark.django_db
-def test_admin_preview_beboer_loses_officer_access(make_resident):
+def test_admin_preview_beboer_loses_officer_access(make_resident: Callable) -> None:
     admin = make_resident(email="admin@gahk.dk", roles=[Role.ADMINISTRATOR])
     c = _client(admin)
     c.post("/admin/preview/set", {"mode": "resident"})
@@ -42,7 +44,7 @@ def test_admin_preview_beboer_loses_officer_access(make_resident):
 
 
 @pytest.mark.django_db
-def test_forged_preview_key_ignored_for_non_admin(make_resident):
+def test_forged_preview_key_ignored_for_non_admin(make_resident: Callable) -> None:
     ak = make_resident(email="ak@gahk.dk", roles=[Role.AK])
     c = _client(ak)
     s = c.session
@@ -53,7 +55,7 @@ def test_forged_preview_key_ignored_for_non_admin(make_resident):
 
 
 @pytest.mark.django_db
-def test_non_admin_cannot_use_switcher(make_resident):
+def test_non_admin_cannot_use_switcher(make_resident: Callable) -> None:
     ak = make_resident(email="ak@gahk.dk", roles=[Role.AK])
     c = _client(ak)
     assert c.post("/admin/preview/set", {"mode": "admin"}).status_code == 403
@@ -61,7 +63,7 @@ def test_non_admin_cannot_use_switcher(make_resident):
 
 
 @pytest.mark.django_db
-def test_nav_changes_under_preview(make_resident):
+def test_nav_changes_under_preview(make_resident: Callable) -> None:
     admin = make_resident(email="admin@gahk.dk", roles=[Role.ADMINISTRATOR])
     c = _client(admin)
     c.post("/admin/preview/set", {"mode": "role", "role": "inspektion"})
@@ -75,7 +77,7 @@ def test_nav_changes_under_preview(make_resident):
 
 
 @pytest.mark.django_db
-def test_clearing_preview_restores_admin(make_resident):
+def test_clearing_preview_restores_admin(make_resident: Callable) -> None:
     admin = make_resident(email="admin@gahk.dk", roles=[Role.ADMINISTRATOR])
     c = _client(admin)
     c.post("/admin/preview/set", {"mode": "resident"})
@@ -86,7 +88,7 @@ def test_clearing_preview_restores_admin(make_resident):
 
 
 @pytest.mark.django_db
-def test_logout_clears_preview(make_resident):
+def test_logout_clears_preview(make_resident: Callable) -> None:
     admin = make_resident(email="admin@gahk.dk", roles=[Role.ADMINISTRATOR])
     c = _client(admin)
     c.post("/admin/preview/set", {"mode": "role", "role": "ak"})
@@ -97,7 +99,7 @@ def test_logout_clears_preview(make_resident):
 
 
 @pytest.mark.django_db
-def test_superuser_preview_restricts(make_resident):
+def test_superuser_preview_restricts(make_resident: Callable) -> None:
     su = make_resident(email="su@gahk.dk", is_superuser=True)
     c = _client(su)
     assert c.get("/optagelse/listansoegninger").status_code == 200  # superuser = all-access
@@ -108,7 +110,7 @@ def test_superuser_preview_restricts(make_resident):
 
 
 @pytest.mark.django_db
-def test_plain_resident_and_anon_have_no_admin_nav(make_resident):
+def test_plain_resident_and_anon_have_no_admin_nav(make_resident: Callable) -> None:
     beboer = make_resident(email="b@gahk.dk")
     html = _client(beboer).get("/nyintern/").content.decode()
     for label in ("AK-oversigt", "Ansøgninger", "Site-admin", "Ølkælder-admin", "Værelsestjek"):

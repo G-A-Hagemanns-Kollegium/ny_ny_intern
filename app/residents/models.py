@@ -34,10 +34,10 @@ WORKGROUP_ROLE = {
 WORKGROUP_ROLE_VALUES = frozenset(WORKGROUP_ROLE.values())
 
 
-class ResidentManager(BaseUserManager):
+class ResidentManager(BaseUserManager["Resident"]):
     use_in_migrations = True
 
-    def create_user(self, email, password=None, **extra):
+    def create_user(self, email: str, password: str | None = None, **extra: object) -> "Resident":
         if not email:
             raise ValueError("Residents must have an email address")
         user = self.model(email=self.normalize_email(email), **extra)
@@ -45,7 +45,7 @@ class ResidentManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, email, password=None, **extra):
+    def create_superuser(self, email: str, password: str | None = None, **extra: object) -> "Resident":
         extra.setdefault("is_staff", True)
         extra.setdefault("is_superuser", True)
         extra.setdefault("is_active", True)
@@ -83,14 +83,14 @@ class Resident(AbstractBaseUser, PermissionsMixin):
     class Meta:
         ordering = ["first_name", "last_name"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.full_name} <{self.email}>"
 
     @property
-    def full_name(self):
+    def full_name(self) -> str:
         return f"{self.first_name} {self.last_name}".strip()
 
-    def has_role(self, role, period=None):
+    def has_role(self, role: str, period: tuple[int, int] | None = None) -> bool:
         year, month = period or active_period()
         return self.role_assignments.filter(role=role, year=year, month=month).exists()
 
@@ -112,7 +112,7 @@ class Residency(models.Model):
         indexes = [models.Index(fields=["year", "month"])]
         verbose_name_plural = "residencies"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.resident.full_name} — {self.year}-{self.month:02d}"
 
 
@@ -130,11 +130,11 @@ class RoleAssignment(models.Model):
         ]
         indexes = [models.Index(fields=["role", "year", "month"])]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.resident.full_name} = {self.get_role_display()} ({self.year}-{self.month:02d})"
 
 
-def active_period():
+def active_period() -> tuple[int, int]:
     """The (year, month) currently *in effect*: the most recent published residency list that has
     already started. A list indstilling is preparing for a future month does NOT become active until
     that month arrives. Falls back to the calendar month when no (past-or-current) list exists.
@@ -154,7 +154,7 @@ def active_period():
     return now.year, now.month
 
 
-def next_period(period=None):
+def next_period(period: tuple[int, int] | None = None) -> tuple[int, int]:
     """The month after `period` (defaults to the active period), as (year, month)."""
     year, month = period or active_period()
     return (year + 1, 1) if month == 12 else (year, month + 1)

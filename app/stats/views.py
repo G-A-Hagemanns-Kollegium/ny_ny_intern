@@ -3,6 +3,7 @@ figures are correctly year-scoped (legacy bug used all-time)."""
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
 
@@ -11,7 +12,7 @@ from stats.models import DailyVisitCount
 
 
 @login_required
-def stats(request):
+def stats(request: HttpRequest) -> HttpResponse:
     now = timezone.localtime()
     by_type = dict(Application.objects.values_list("type").annotate(c=Count("id")).values_list("type", "c"))
     # this-year "heard about us" for tours — year-scoped (the donut the legacy got wrong)

@@ -5,6 +5,8 @@ gahk_dk.sql
 .venv/
 __pycache__/
 *.pyc
+.mypy_cache/
+.ruff_cache/
 app/.env
 app/db.sqlite3
 app/staticfiles/

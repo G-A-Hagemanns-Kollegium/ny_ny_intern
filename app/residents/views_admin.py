@@ -2,6 +2,7 @@
 mass-mailer are structurally gone; this provides the legitimate admin screens, chiefly assigning the
 monthly embedsgruppe roles."""
 
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
@@ -10,12 +11,12 @@ from .permissions import PREVIEW_SESSION_KEY, require_can_preview, role_required
 
 
 @role_required("administrator")
-def home(request):
+def home(request: HttpRequest) -> HttpResponse:
     return render(request, "siteadmin/home.html")
 
 
 @role_required("administrator")
-def roles(request):
+def roles(request: HttpRequest) -> HttpResponse:
     year, month = active_period()
     if request.method == "POST":
         rid = request.POST.get("resident")
@@ -34,7 +35,7 @@ def roles(request):
         .distinct()
         .order_by("first_name", "last_name")
     )
-    role_map = {}
+    role_map: dict[int, list[str]] = {}
     for ra in RoleAssignment.objects.filter(year=year, month=month):
         role_map.setdefault(ra.resident_id, []).append(ra.role)
     rows = [(r, role_map.get(r.id, [])) for r in residents]
@@ -48,7 +49,7 @@ def roles(request):
 # ---- Role preview ("view site as role") — gated on the REAL admin role (require_can_preview) so an
 # admin previewing "beboer" can still end the preview. ----
 @require_can_preview
-def preview(request):
+def preview(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "siteadmin/preview.html",
@@ -58,7 +59,7 @@ def preview(request):
 
 @require_POST
 @require_can_preview
-def preview_set(request):
+def preview_set(request: HttpRequest) -> HttpResponseRedirect:
     mode = request.POST.get("mode")
     if mode == "clear":
         request.session.pop(PREVIEW_SESSION_KEY, None)

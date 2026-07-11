@@ -1,0 +1,6 @@
+# Require issues to go through one of the forms above (no blank issues).
+blank_issues_enabled: false
+contact_links:
+  - name: Netværksgruppen (IT)
+    url: mailto:it@gahk.dk
+    about: For account/login help or anything not suited to a public issue.

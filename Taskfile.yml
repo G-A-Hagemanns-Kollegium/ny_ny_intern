@@ -70,15 +70,53 @@ tasks:
     dir: '{{.APP}}'
     cmds: ['{{.PY}} manage.py createsuperuser']
 
+  seed:
+    desc: Fill the DB with realistic fake data for dev/demo (wipes existing demo data; prints logins)
+    dir: '{{.APP}}'
+    cmds:
+      - '{{.PY}} manage.py migrate'
+      - '{{.PY}} manage.py seed_demo --fresh {{.CLI_ARGS}}'
+
   test:
     desc: Run the pytest suite
     dir: '{{.APP}}'
+    cmds: ['{{.PY}} -m pytest {{.CLI_ARGS}}']
+
+  # `task test` reads app/.env, which is tuned for real dev/ETL and so diverges from CI in two ways
+  # that break the suite when run from the host:
+  #   - DATABASE_URL points at the *in-Docker* Postgres hostname (only resolvable inside the network)
+  #   - TURNSTILE_SECRET_KEY is set, so the admissions form tests hit real Cloudflare verification
+  # These variants override both so the host run matches CI:
+  #   test:pg     -> the compose Postgres via its host port (needs `task db:up`); matches CI exactly.
+  #   test:sqlite -> a throwaway local SQLite file; no Docker needed, but misses Postgres-only behaviour.
+  test:pg:
+    desc: 'Run pytest against the local Postgres container (task db:up first); CI parity'
+    dir: '{{.APP}}'
+    env:
+      DATABASE_URL: 'postgres://gahk:gahk@localhost:5432/gahk'
+      TURNSTILE_SECRET_KEY: ''
+    cmds: ['{{.PY}} -m pytest {{.CLI_ARGS}}']
+
+  test:sqlite:
+    desc: 'Run pytest against a throwaway local SQLite DB (no Docker needed)'
+    dir: '{{.APP}}'
+    env:
+      DATABASE_URL: 'sqlite:///test-db.sqlite3'
+      TURNSTILE_SECRET_KEY: ''
     cmds: ['{{.PY}} -m pytest {{.CLI_ARGS}}']
 
   lint:
     desc: Lint + format-check with ruff
     dir: '{{.APP}}'
     cmds: ['uv run ruff check .', 'uv run ruff format --check .']
+
+  typecheck:
+    desc: Static type-check with mypy (+ django-stubs). Runs from the repo root (config in pyproject.toml).
+    cmds: ['uv run mypy app']
+
+  hooks:
+    desc: Install the prek git pre-commit hooks (ruff + mypy run on commit)
+    cmds: ['uv run prek install']
 
   etl:verify:
     desc: Diff legacy MariaDB counts vs migrated Postgres counts

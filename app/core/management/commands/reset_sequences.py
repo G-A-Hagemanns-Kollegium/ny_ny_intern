@@ -15,7 +15,7 @@ GAHK_APPS = ["core", "residents", "admissions", "cms", "ak", "rooms", "oelkaelde
 class Command(BaseCommand):
     help = "Reset DB sequences to max(pk)+1 after preserved-PK ETL imports."
 
-    def handle(self, *args, **opts):
+    def handle(self, *args, **opts) -> None:  # noqa: ANN002, ANN003
         models = [m for app in GAHK_APPS for m in apps.get_app_config(app).get_models()]
         statements = connection.ops.sequence_reset_sql(no_style(), models)
         with connection.cursor() as cur:

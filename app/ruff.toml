@@ -2,9 +2,24 @@ line-length = 110
 target-version = "py312"
 
 [lint]
-select = ["E", "F", "I", "UP", "B"]
-ignore = ["E501"]  # long lines tolerated (comments/URLs)
+select = [
+    "E", "F", "I", "UP", "B", "C4", "DTZ", "PIE", "RET", "FURB", "ICN", "ISC", "TID", "PGH", "RUF",
+    "S", "DJ", "PTH", "PL", "Q", "ANN",
+]
+ignore = [
+    "E501",     # long lines tolerated (comments/URLs)
+    "RUF012",   # mutable class defaults: Django Meta/field churn, wants ClassVar everywhere
+    "RUF001",   # ambiguous unicode in strings: false positives on Danish text (æ/ø/å, en-dash)
+    "RUF002",   # ambiguous unicode in docstrings: same
+    "RUF003",   # ambiguous unicode in comments: same
+    "DJ008",    # __str__ on every model: noise on ledger/child tables (Deposit, shares, …)
+    # pylint (PL) — keep the error/warning checks, drop the opinionated/noisy refactor metrics:
+    "PLR2004",  # magic-value-comparison: too noisy (every == 200 / == 2)
+    "PLC0415",  # import-outside-top-level: we import lazily on purpose (Faker, optional deps)
+    "PLW2901",  # redefined-loop-name: flags the idiomatic `x = normalize(x)` in-loop pattern
+    "PLR0911", "PLR0912", "PLR0913", "PLR0914", "PLR0915", "PLR0916", "PLR0917",  # complexity metrics
+]
 
 [lint.per-file-ignores]
-"*/migrations/*" = ["E", "F", "UP", "B"]
-"tests/*" = ["B", "F811"]
+"*/migrations/*" = ["E", "F", "UP", "B", "C4", "DTZ", "PIE", "RET", "FURB", "RUF", "S", "DJ", "PTH", "PL", "Q"]
+"tests/*" = ["B", "F811", "DTZ", "S"]  # tests use assert + literal demo passwords (S101/S105/S106/S107)

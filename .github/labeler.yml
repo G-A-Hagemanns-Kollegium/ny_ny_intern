@@ -1,0 +1,59 @@
+# Path-based PR labels, applied by .github/workflows/labeler.yml (actions/labeler v5).
+# Each top-level key is a label name; a PR gets the label if it touches any matching file.
+# Labels are created on first use if they don't exist yet.
+
+"area:residents":
+  - changed-files:
+      - any-glob-to-any-file: ["app/residents/**", "app/templates/residents/**", "app/templates/alumneliste/**"]
+
+"area:admissions":
+  - changed-files:
+      - any-glob-to-any-file: ["app/admissions/**", "app/templates/optagelse/**"]
+
+"area:ak":
+  - changed-files:
+      - any-glob-to-any-file: ["app/ak/**", "app/templates/ak/**"]
+
+"area:oelkaelder":
+  - changed-files:
+      - any-glob-to-any-file: ["app/oelkaelder/**", "app/templates/oelkaelder/**"]
+
+"area:rooms":
+  - changed-files:
+      - any-glob-to-any-file: ["app/rooms/**", "app/templates/vaerelsestjek/**", "app/templates/soegvaerelse/**"]
+
+"area:cms":
+  - changed-files:
+      - any-glob-to-any-file: ["app/cms/**", "app/templates/cms/**"]
+
+"area:stats":
+  - changed-files:
+      - any-glob-to-any-file: ["app/stats/**", "app/templates/statistik/**"]
+
+"area:core":
+  - changed-files:
+      - any-glob-to-any-file: ["app/core/**", "app/config/**"]
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file: ["app/tests/**", "**/tests.py"]
+
+frontend:
+  - changed-files:
+      - any-glob-to-any-file: ["frontend/**", "app/static/**", "**/*.css", "**/*.ts"]
+
+infra:
+  - changed-files:
+      - any-glob-to-any-file: ["Dockerfile", "docker-compose*.yml", "Taskfile.yml", "DEPLOY.md", ".dockerignore"]
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: [".github/**"]
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file: ["**/*.md"]
+
+legacy:
+  - changed-files:
+      - any-glob-to-any-file: ["legacy_site/**"]

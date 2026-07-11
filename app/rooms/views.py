@@ -6,20 +6,23 @@ Only the current condition is kept. (Per-criterion image *upload* is a later ref
 legacy image path references are shown read-only.)
 """
 
+from typing import cast
+
 from django.conf import settings
 from django.contrib import messages
 from django.db import transaction
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from core.models import Room
-from residents.permissions import role_required
+from residents.permissions import current_resident, role_required
 
 from .models import RoomCondition, RoomConditionScore, RoomCriterion
 
 
 @role_required("inspektion")
-def overview(request):
+def overview(request: HttpRequest) -> HttpResponse:
     rooms = Room.objects.order_by("number")
     current = {c.room_id: c for c in RoomCondition.objects.filter(is_current=True)}
     rows = [(r, current.get(r.id)) for r in rooms]
@@ -27,13 +30,13 @@ def overview(request):
 
 
 @role_required("ak")
-def akoverview(request):
+def akoverview(request: HttpRequest) -> HttpResponse:
     conditions = RoomCondition.objects.filter(is_current=True).select_related("room").order_by("room__number")
     return render(request, "vaerelsestjek/akoverview.html", {"conditions": conditions})
 
 
 @role_required("inspektion")
-def room(request, room_id):
+def room(request: HttpRequest, room_id: int) -> HttpResponse:
     rm = get_object_or_404(Room, number=room_id)
     cond = RoomCondition.objects.filter(room=rm, is_current=True).first()
     scores = cond.scores.select_related("criterion").order_by("criterion__name") if cond else []
@@ -41,8 +44,9 @@ def room(request, room_id):
 
 
 @role_required("inspektion")
-def besvar(request, room_id):
+def besvar(request: HttpRequest, room_id: int) -> HttpResponse:
     rm = get_object_or_404(Room, number=room_id)
+    resident = current_resident(request)
     criteria = list(RoomCriterion.objects.order_by("name"))
 
     if request.method == "POST":
@@ -50,8 +54,8 @@ def besvar(request, room_id):
             RoomCondition.objects.filter(room=rm, is_current=True).update(is_current=False)
             cond = RoomCondition.objects.create(
                 room=rm,
-                resident=request.user,
-                recorded_by_name=request.user.full_name,
+                resident=resident,
+                recorded_by_name=resident.full_name,
                 recorded_at=timezone.now(),
                 is_current=True,
             )
@@ -63,7 +67,7 @@ def besvar(request, room_id):
                     if not (photo.content_type or "").startswith("image/"):
                         messages.warning(request, f"{crit.name}: filen er ikke et billede og blev ikke gemt.")
                         photo = None
-                    elif photo.size > settings.ROOM_PHOTO_MAX_MB * 1024 * 1024:
+                    elif cast("int", photo.size) > settings.ROOM_PHOTO_MAX_MB * 1024 * 1024:
                         messages.warning(
                             request,
                             f"{crit.name}: billedet var for stort (over {settings.ROOM_PHOTO_MAX_MB} MB) "

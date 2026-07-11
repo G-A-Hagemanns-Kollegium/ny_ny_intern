@@ -1,0 +1,25 @@
+# Code owners for ny_ny_intern.
+# GitHub auto-requests review from the owner(s) of every file a PR touches.
+# Order matters: the LAST matching pattern wins, so keep the catch-all first
+# and add more specific overrides below it.
+#
+# Owners can be users (@handle) or org teams (@G-A-Hagemanns-Kollegium/<team>).
+# A team must exist and have write access to the repo, or GitHub ignores the line.
+
+# Default owner: the Netværk team.
+# NOTE: teams are referenced by SLUG (not display name), and GitHub silently ignores
+# an invalid team. Confirm the slug in the team URL:
+#   https://github.com/orgs/G-A-Hagemanns-Kollegium/teams/<slug>
+# "Netværk" should slugify to "netvaerk" — fix the line below if the URL differs.
+# The team must have write access to this repo, or the rule is ignored.
+*                       @G-A-Hagemanns-Kollegium/netvaerk
+
+# --- Per-area overrides (optional) ---
+# Uncomment and narrow to route reviews as the team specializes.
+# The LAST matching line wins, so these override the catch-all above.
+#
+# /app/residents/       @osquera
+# /app/admissions/      @magnusgp
+# /app/oelkaelder/      @boldalt
+# /app/rooms/           @osquera
+# /app/cms/             @magnusgp

@@ -28,11 +28,21 @@
   </div>
 
   <div class="card">
+    <h2>Begivenheder på GAHK</h2>
+    {% if calendar_embed_url %}
+      <iframe src="{{ calendar_embed_url }}" title="GAHK fælleskalender"
+              class="w-full max-w-md h-[500px] border border-gray-300 rounded"
+              frameborder="0" scrolling="no" loading="lazy"></iframe>
+    {% else %}
+      <p class="muted">Kalenderen er ikke konfigureret (sæt GOOGLE_CALENDAR_USER).</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
     <h2>Praktisk</h2>
     <p><strong>WiFi-kodeord:</strong> {{ wifi_password|default:"(sæt WIFI_PASSWORD i .env)" }}</p>
     <p><strong>Fælleskalender (Google):</strong>
       {{ calendar_user|default:"(sæt GOOGLE_CALENDAR_USER)" }}{% if calendar_password %} / {{ calendar_password }}{% endif %}</p>
-    <p class="muted">Vist til indloggede beboere (ikke længere IP-baseret); værdier kommer fra miljøet, ikke kildekoden.</p>
   </div>
 
   <form method="post" action="/nyintern/admin/logout">

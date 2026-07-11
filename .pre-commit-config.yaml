@@ -1,0 +1,32 @@
+# Pre-commit hooks, run via `prek` (a fast, pre-commit-compatible runner).
+#   Install the git hook once:   task hooks     (= uv run prek install)
+#   Run against everything:      uv run prek run --all-files
+#
+# Hooks are `local`/`system` and shell out to `uv run …`, so they use the exact tool versions
+# pinned in uv.lock (no separate hook environments, no version drift vs CI).
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check (--fix)
+        entry: uv run ruff check --fix --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      # mypy needs the whole project (django-stubs resolves ORM attributes across modules), so it
+      # ignores the changed-file list and always type-checks `app`. Adds a few seconds to each commit;
+      # move to `stages: [pre-push]` if that becomes annoying.
+      - id: mypy
+        name: mypy (django-stubs)
+        entry: uv run mypy app
+        language: system
+        pass_filenames: false
+        always_run: true

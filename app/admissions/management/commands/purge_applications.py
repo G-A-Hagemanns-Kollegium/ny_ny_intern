@@ -5,6 +5,7 @@ so the migrated history (and the stats charts) stay intact until you choose to e
 Use --dry-run to preview.
 """
 
+import argparse
 from datetime import timedelta
 
 from django.core.management.base import BaseCommand
@@ -16,10 +17,10 @@ from admissions.models import Application
 class Command(BaseCommand):
     help = "Delete applications older than 1 year (retention policy, F-001)."
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--dry-run", action="store_true")
 
-    def handle(self, *args, **opts):
+    def handle(self, *args, **opts) -> None:  # noqa: ANN002, ANN003
         cutoff = timezone.now() - timedelta(days=365)
         qs = Application.objects.filter(submitted_at__lt=cutoff)
         n = qs.count()
