@@ -16,10 +16,31 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from core.models import Room
+from residents.models import Residency, next_period
 from residents.permissions import current_resident, request_has_role, role_required
 
-from .kvotient import compute_k, month_index
+from .kvotient import compute_k, month_choices, month_index, month_label
 from .models import KvotientApplication, KvotientOrlov, KvotientPriority, RoomOffer
+
+
+def allocate_round(month: int) -> dict[int, KvotientApplication]:
+    """Global greedy room allocation for a round (all offers in `month`), ported from the legacy
+    wonRoomAlgorithm: walk every applicant's room priorities in K order (highest K first, then
+    apply-time, then priority) and give each applicant their highest-priority still-free room; each
+    resident wins at most one room. Returns {room_id: winning application}."""
+    offered_room_ids = set(RoomOffer.objects.filter(month=month).values_list("room_id", flat=True))
+    prios = (
+        KvotientPriority.objects.filter(room_id__in=offered_room_ids, application__move_month=month)
+        .select_related("application", "application__resident", "room")
+        .order_by("-application__k", "application__apply_datetime", "priority")
+    )
+    winners: dict[int, KvotientApplication] = {}
+    won_residents: set[int] = set()
+    for p in prios:
+        if p.room_id not in winners and p.application.resident_id not in won_residents:
+            winners[p.room_id] = p.application
+            won_residents.add(p.application.resident_id)
+    return winners
 
 
 @login_required
@@ -27,23 +48,29 @@ def soeg(request: HttpRequest) -> HttpResponse:
     resident = current_resident(request)
     offers = RoomOffer.objects.select_related("room").order_by("month", "room__number")
     offered_rooms = [o.room for o in offers]
+    target = month_index(*next_period())  # the lottery always allocates the upcoming month
+    today = timezone.localdate()
+    ctx = {
+        "offered_rooms": offered_rooms,
+        "target_month": target,
+        "months": month_choices(),
+        "study_years": range(today.year, today.year + 9),
+    }
     if request.method == "POST":
         try:
-            ty, tm = int(request.POST["target_year"]), int(request.POST["target_month"])
             dy, dm = int(request.POST["done_year"]), int(request.POST["done_month"])
         except (KeyError, ValueError):
             messages.error(request, "Udfyld måneder korrekt.")
-            return render(request, "soegvaerelse/apply.html", {"offered_rooms": offered_rooms})
+            return render(request, "soegvaerelse/apply.html", ctx)
         orlov_months = int(request.POST.get("orlov_months") or 0)
         room_ids = [int(r) for r in request.POST.getlist("priority") if r]
         if not room_ids:
             messages.error(request, "Vælg mindst én prioritet.")
-            return render(request, "soegvaerelse/apply.html", {"offered_rooms": offered_rooms})
+            return render(request, "soegvaerelse/apply.html", ctx)
         if not resident.move_in_date:
             messages.error(request, "Din indflytningsdato mangler — kontakt indstillingen.")
-            return render(request, "soegvaerelse/apply.html", {"offered_rooms": offered_rooms})
+            return render(request, "soegvaerelse/apply.html", ctx)
 
-        target = month_index(ty, tm)
         move_in = month_index(resident.move_in_date.year, resident.move_in_date.month)
         done = month_index(dy, dm)
         k = compute_k(move_in, done, target, orlov_months)
@@ -64,7 +91,7 @@ def soeg(request: HttpRequest) -> HttpResponse:
                 )
         messages.success(request, f"Ansøgning sendt (K={k}).")
         return redirect("soegvaerelse:my")
-    return render(request, "soegvaerelse/apply.html", {"offered_rooms": offered_rooms})
+    return render(request, "soegvaerelse/apply.html", ctx)
 
 
 @login_required
@@ -84,12 +111,17 @@ def detail(request: HttpRequest, pk: int) -> HttpResponse:
 
 @role_required("indstilling")
 def admin(request: HttpRequest) -> HttpResponse:
+    offers = list(RoomOffer.objects.select_related("room").order_by("month", "room__number"))
+    alloc = {m: allocate_round(m) for m in {o.month for o in offers}}
+    # (offer, current leading application) pairs — the live projected winner per room.
+    offer_rows = [(o, alloc[o.month].get(o.room_id)) for o in offers]
     return render(
         request,
         "soegvaerelse/admin.html",
         {
-            "offers": RoomOffer.objects.select_related("room").order_by("month", "room__number"),
+            "offer_rows": offer_rows,
             "rooms": Room.objects.order_by("number"),
+            "target_month": month_index(*next_period()),
         },
     )
 
@@ -97,13 +129,13 @@ def admin(request: HttpRequest) -> HttpResponse:
 @require_POST
 @role_required("indstilling")
 def create_offer(request: HttpRequest) -> HttpResponseRedirect:
+    target = month_index(*next_period())  # offers are always for the upcoming month
     try:
         room = Room.objects.get(number=int(request.POST["room"]))
-        target = month_index(int(request.POST["year"]), int(request.POST["month"]))
         RoomOffer.objects.get_or_create(room=room, month=target)
-        messages.success(request, f"Tilbud oprettet: {room} ({target}).")
+        messages.success(request, f"Tilbud oprettet: {room} ({month_label(target)}).")
     except (KeyError, ValueError, Room.DoesNotExist):
-        messages.error(request, "Ugyldigt værelse eller måned.")
+        messages.error(request, "Ugyldigt værelse.")
     return redirect("soegvaerelse:admin")
 
 
@@ -115,7 +147,12 @@ def applicants(request: HttpRequest, offer_id: int) -> HttpResponse:
         .select_related("application", "application__resident")
         .order_by("-application__k", "application__apply_datetime", "priority")
     )
-    return render(request, "soegvaerelse/applicants.html", {"offer": offer, "prios": prios})
+    winner = allocate_round(offer.month).get(offer.room_id)
+    return render(
+        request,
+        "soegvaerelse/applicants.html",
+        {"offer": offer, "prios": prios, "winner_app_id": winner.pk if winner else None},
+    )
 
 
 @require_POST
@@ -132,4 +169,28 @@ def close_offer(request: HttpRequest, offer_id: int) -> HttpResponseRedirect:
         KvotientApplication.objects.filter(id__in=app_ids).delete()  # cascades priorities + orlov
         offer.delete()
     messages.success(request, f"Tilbud lukket; {len(app_ids)} ansøgning(er) i måneden ryddet.")
+    return redirect("soegvaerelse:admin")
+
+
+@require_POST
+@role_required("indstilling")
+def end_round(request: HttpRequest) -> HttpResponseRedirect:
+    """Finish the round: allocate every offered room to its winner (highest-K, global greedy), move
+    each winner into that room on the target month's list (Residency), then clear the round."""
+    months = set(RoomOffer.objects.values_list("month", flat=True))
+    if not months:
+        messages.error(request, "Ingen aktive tilbud at afslutte.")
+        return redirect("soegvaerelse:admin")
+    assigned = 0
+    with transaction.atomic():
+        for month in months:
+            year, month0 = divmod(month, 12)  # inverse of month_index -> (year, month-1)
+            for room_id, app in allocate_round(month).items():
+                Residency.objects.update_or_create(
+                    resident_id=app.resident_id, year=year, month=month0 + 1, defaults={"room_id": room_id}
+                )
+                assigned += 1
+            KvotientApplication.objects.filter(move_month=month).delete()  # cascades priorities + orlov
+            RoomOffer.objects.filter(month=month).delete()
+    messages.success(request, f"Runden er afsluttet — {assigned} værelse(r) tildelt.")
     return redirect("soegvaerelse:admin")

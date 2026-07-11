@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load room_extras %}
 {% block title %}Søg værelse — GAHK Intern{% endblock %}
 {% block content %}
   <h1>Søg værelse</h1>
@@ -7,15 +8,18 @@
   {% else %}
   <form method="post" class="card max-w-xl">
     {% csrf_token %}
-    <label>Ønsket måned (år / måned)</label>
+    <p><strong>Ønsket måned:</strong> {{ target_month|maaned }}
+      <span class="muted">(næste måned — fastsættes automatisk)</span></p>
+    <label>Færdig med studie</label>
     <div class="flex gap-2">
-      <input type="number" name="target_year" placeholder="2026" required>
-      <input type="number" name="target_month" placeholder="8" min="1" max="12" required>
-    </div>
-    <label>Færdig med studie (år / måned)</label>
-    <div class="flex gap-2">
-      <input type="number" name="done_year" placeholder="2028" required>
-      <input type="number" name="done_month" placeholder="6" min="1" max="12" required>
+      <select name="done_month" required>
+        <option value="">— Måned —</option>
+        {% for num, name in months %}<option value="{{ num }}">{{ name }}</option>{% endfor %}
+      </select>
+      <select name="done_year" required>
+        <option value="">— År —</option>
+        {% for y in study_years %}<option value="{{ y }}">{{ y }}</option>{% endfor %}
+      </select>
     </div>
     <label>Orlov (antal måneder, valgfrit)</label>
     <input type="number" name="orlov_months" value="0" min="0">

@@ -26,6 +26,8 @@ class Room(models.Model):
 class Workgroup(models.Model):  # intern_alumne_workgroup (the monthly chore/embedsgruppe label)
     legacy_id = models.PositiveIntegerField(unique=True, null=True, blank=True)
     name = models.CharField(max_length=100, unique=True)
+    # Exact number of members a next-month list must give this group (legacy `w_amount`); 0 = no limit.
+    size = models.PositiveSmallIntegerField(default=0)
 
     def __str__(self) -> str:
         return self.name
@@ -34,6 +36,8 @@ class Workgroup(models.Model):  # intern_alumne_workgroup (the monthly chore/emb
 class Cleaning(models.Model):  # intern_alumne_cleaning
     legacy_id = models.PositiveIntegerField(unique=True, null=True, blank=True)
     name = models.CharField(max_length=100, unique=True)
+    # Exact number of members a next-month list must give this group (legacy `c_amount`); 0 = no limit.
+    size = models.PositiveSmallIntegerField(default=0)
 
     def __str__(self) -> str:
         return self.name
