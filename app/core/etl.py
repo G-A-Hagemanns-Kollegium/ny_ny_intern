@@ -5,6 +5,8 @@ PyMySQL. Connecting with charset utf8mb4 lets MariaDB transcode each column from
 (latin1 / utf8mb3) to proper Unicode on read.
 """
 
+from __future__ import annotations  # PyMySQL's Connection isn't subscriptable at runtime; defer annots
+
 import contextlib
 import datetime
 import os
