@@ -1,11 +1,14 @@
 """Ølkælder money operations (F-003).
 
 The purchase path is the security-critical one. Fixes vs legacy:
-  * **server-side pricing** — line prices come from Product.price_ore, never the client;
+  * **server-side pricing** — line prices are recomputed from the Product, never trusted from the client
+    (for betalingshop the chosen step must be one of the product's own price_steps);
   * **atomic** — the whole transaction (txn + items + shares) is one DB transaction;
   * **exact split** — largest-remainder so the per-shopper shares sum to the item total (in øre).
 Balances are derived (see Shopper.balance_ore), so there is no mutable saldo to corrupt.
 """
+
+from typing import Any
 
 from django.db import transaction
 from django.utils import timezone
@@ -18,23 +21,50 @@ def largest_remainder(total: int, n: int) -> list[int]:
     return [base + 1 if i < rem else base for i in range(n)]
 
 
+def _line_ore(product: Product, line: dict[str, Any]) -> tuple[int, int]:
+    """Return (quantity_stored, price_ore) for one basket line, priced authoritatively from the product.
+
+    Mirrors the legacy Oelkaelder_model::addItem. `mode`:
+      * fixed  → price_ore x qty
+      * step   → the tapped step (must be one of the product's price_steps) x qty
+      * weight → weight_price_ore x grams / 100 (per-100g rate; no weight products in current data)
+    Returns (0, 0) for a non-positive line so the caller skips it.
+    """
+    mode = line.get("mode", "fixed")
+    if mode == "weight":
+        grams = int(line.get("grams", 0))
+        if grams <= 0:
+            return 0, 0
+        if not product.weight_price_ore:
+            raise ValueError(f"{product.name} sælges ikke efter vægt.")
+        return grams, round(product.weight_price_ore * grams / 100)
+    if mode == "step":
+        step_ore = int(line.get("step_ore", 0))
+        if step_ore not in product.price_steps_ore():
+            raise ValueError(f"Ugyldig pris for {product.name}.")
+        qty = int(line.get("qty", 1))
+        return (qty, step_ore * qty) if qty > 0 else (0, 0)
+    qty = int(line.get("qty", 0))  # fixed
+    return (qty, product.price_ore * qty) if qty > 0 else (0, 0)
+
+
 @transaction.atomic
-def record_purchase(shopper_ids: list[int], quantities: dict[int, int]) -> Transaction:
-    """quantities: {product_id: qty}. Returns the created Transaction. Raises ValueError on bad input."""
+def record_purchase(shopper_ids: list[int], lines: list[dict[str, Any]]) -> Transaction:
+    """lines: [{"product": id, "mode": "fixed|step|weight", "qty"/"grams"/"step_ore": ...}].
+    Returns the created Transaction. Raises ValueError on bad input."""
     shoppers = list(Shopper.objects.filter(id__in=shopper_ids, active=True))
     if not shoppers:
         raise ValueError("Vælg mindst én aktiv shopper.")
 
     txn = Transaction.objects.create(created_at=timezone.now())
     total = 0
-    for pid, qty in quantities.items():
-        qty = int(qty)
-        if qty <= 0:
+    for line in lines:
+        product = Product.objects.get(id=int(line["product"]), active=True)  # priced from DB, not client
+        quantity, price = _line_ore(product, line)
+        if price <= 0:
             continue
-        product = Product.objects.get(id=pid, active=True)  # price from DB, not the client
-        line = product.price_ore * qty
-        TransactionItem.objects.create(transaction=txn, product=product, quantity=qty, price_ore=line)
-        total += line
+        TransactionItem.objects.create(transaction=txn, product=product, quantity=quantity, price_ore=price)
+        total += price
 
     if total <= 0:
         raise ValueError("Tom kurv.")  # rolls back the transaction

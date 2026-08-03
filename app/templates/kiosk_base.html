@@ -4,123 +4,107 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Ølkælderen{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>{% block title %}Ølkælder - digital stregliste{% endblock %}</title>
   {% comment %}
-    Self-contained styles ONLY. The till runs on an iPad (iOS 10.3 / WebKit 602) that cannot parse
-    Tailwind v4's output (oklch colours, @layer, @property). We therefore load neither the compiled
-    CSS nor JS bundle here; everything the kiosk needs is hand-written, iOS-10-safe CSS + inline ES5.
+    The till runs on an iPad (iOS 10.3 / WebKit 602) that cannot parse Tailwind v4 (oklch, @layer,
+    @property). We load neither the compiled CSS nor JS bundle; this is a faithful reproduction of the
+    legacy Angular kiosk styling (recovered from legacy_site/public/misc/oel/) - float-based, vw units,
+    all iOS-10-safe.
   {% endcomment %}
   <style>
-    * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; }
-    body {
-      background: #f3f4f6; color: #111827;
-      font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
-      -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
-    }
-    .wrap { padding: 12px 16px 24px; }
-    h1 { font-size: 26px; font-weight: 700; margin: 0 0 12px; }
-    h2 { font-size: 18px; font-weight: 600; margin: 0 0 8px; }
-    .muted { color: #6b7280; }
-    .sub { font-size: 13px; font-weight: 400; }
-
-    .banner {
-      border: 1px solid #34d399; background: #ecfdf5; color: #065f46;
-      border-radius: 10px; padding: 12px 14px; margin: 0 0 12px; font-size: 16px;
-    }
-    .banner--error { border-color: #f87171; background: #fef2f2; color: #991b1b; }
-
-    /* Two columns for landscape tablet: varer (wide) + købere/kurv (narrow). No flex `gap`
-       (unsupported before Safari 14.1) — spacing is done with margins/padding throughout. */
-    .cols { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; }
-    .col { box-sizing: border-box; }
-    .col-products { -webkit-flex: 3 1 380px; flex: 3 1 380px; padding-right: 16px; }
-    .col-cart { -webkit-flex: 2 1 280px; flex: 2 1 280px; }
-
-    /* Scrollable tile grids with momentum scrolling on iOS. */
-    .scroll { overflow: auto; -webkit-overflow-scrolling: touch; }
-    .scroll-products { max-height: 76vh; }
-    .scroll-shoppers { max-height: 42vh; }
-
-    .tiles { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; margin: -6px; }
-    .tile {
-      box-sizing: border-box; position: relative; margin: 6px;
-      display: -webkit-flex; display: flex;
-      -webkit-flex-direction: column; flex-direction: column;
-      min-height: 168px; border: 1px solid #e5e7eb; border-radius: 14px;
-      background: #ffffff; padding: 12px; cursor: pointer;
-      -webkit-user-select: none; user-select: none;
-      -webkit-tap-highlight-color: rgba(0,0,0,0);
-      -webkit-transition: -webkit-transform .05s ease; transition: transform .05s ease;
-    }
-    .tile-product { width: calc(33.333% - 12px); }
-    .tile-shopper { width: calc(50% - 12px); min-height: 64px; text-align: left; font: inherit; color: #1f2937; }
-    .tile:active { -webkit-transform: scale(.98); transform: scale(.98); }
-    .tile.is-selected { border-color: #059669; -webkit-box-shadow: 0 0 0 2px #059669; box-shadow: 0 0 0 2px #059669; }
-    .tile-shopper.is-selected { background: #ecfdf5; color: #065f46; }
-
-    .tile img { height: 92px; width: 100%; object-fit: contain; margin-bottom: 8px; pointer-events: none; }
-    .tile-name { font-weight: 600; line-height: 1.15; }
-    .tile-price { color: #6b7280; font-size: 14px; }
-    .tile-rid { color: #6b7280; font-size: 12px; display: block; }
-
-    .badge {
-      position: absolute; top: 8px; right: 8px; min-width: 28px; height: 28px; padding: 0 6px;
-      border-radius: 14px; background: #059669; color: #fff; font-size: 14px; font-weight: 700;
-      display: -webkit-flex; display: flex;
-      -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center;
-    }
-
-    .stepper {
-      margin-top: auto; padding-top: 12px;
-      display: -webkit-flex; display: flex;
-      -webkit-align-items: center; align-items: center; -webkit-justify-content: space-between; justify-content: space-between;
-    }
-    .qty { font-size: 18px; font-weight: 600; width: 32px; text-align: center; }
-    .btn-step {
-      width: 56px; height: 56px; border: 0; border-radius: 10px; font-size: 26px; line-height: 1;
-      background: #f3f4f6; color: #111827; -webkit-tap-highlight-color: rgba(0,0,0,0); cursor: pointer;
-    }
-    .btn-step:active { background: #e5e7eb; }
-    .btn-step--add { background: #059669; color: #fff; }
-    .btn-step--add:active { background: #047857; }
-
-    .search {
-      width: 100%; padding: 12px 14px; font-size: 16px; margin-bottom: 8px;
-      border: 1px solid #d1d5db; border-radius: 10px; -webkit-appearance: none; appearance: none;
-    }
-
-    .card {
-      position: -webkit-sticky; position: sticky; bottom: 8px; margin-top: 16px;
-      border: 1px solid #e5e7eb; border-radius: 14px; background: #ffffff; padding: 14px;
-      -webkit-box-shadow: 0 -2px 10px rgba(0,0,0,.06); box-shadow: 0 -2px 10px rgba(0,0,0,.06);
-    }
-    .row {
-      display: -webkit-flex; display: flex;
-      -webkit-justify-content: space-between; justify-content: space-between;
-    }
-    .row-total { font-size: 20px; }
-    .row-split { color: #6b7280; margin-top: 4px; }
-    .btn-buy {
-      width: 100%; margin-top: 12px; padding: 16px; font-size: 20px; border: 0; border-radius: 10px;
-      background: #059669; color: #fff; cursor: pointer; -webkit-tap-highlight-color: rgba(0,0,0,0);
-    }
-    .btn-buy:active { background: #047857; }
-    .btn-buy[disabled] { opacity: .4; }
+    * { -webkit-user-select: none; user-select: none; box-sizing: border-box; }
+    html, body { font-family: "Open Sans", -apple-system, "Helvetica Neue", Arial, sans-serif; height: 100%; margin: 0; padding: 0; color: #333; }
+    h1 { font-weight: 700; font-size: 20px; margin: 0 0 6px; }
+    h2 { font-weight: 700; font-size: 14px; margin: 0 0 10px; color: #555; }
+    p { font-size: 13px; }
     .hidden { display: none !important; }
+
+    /* ---- left: product grid ---- */
+    article { width: 75%; min-height: 100%; position: absolute; left: 0; top: 0; padding: 1.5%; background: #f3f3f3; }
+    article ul { margin: 0; padding: 0; list-style: none; }
+    article ul li { width: 31.33%; position: relative; background: #fff; float: left; margin: 1%; padding: 0; border-radius: 4px; overflow: hidden; cursor: pointer; }
+    article ul li img { width: 100%; height: 22vw; object-fit: cover; display: block; }
+    article ul li .produktnavn { color: #333; padding: 2px 8px 4px; float: left; font-size: .85em; line-height: 1.9em; max-width: 65%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    article ul li .pris { color: #333; padding-right: 8px; line-height: 1.9em; float: right; font-weight: 700; font-size: .85em; }
+    article ul li .produktoverlay { width: 100%; height: 22vw; background: rgba(0,0,0,.7); position: absolute; top: 0; left: 0; text-align: center; color: #fff; font-size: 7em; font-weight: 700; line-height: 22vw; }
+    /* betalingshop: 4 tap quadrants over the image */
+    article ul li .quad { width: 50%; height: 11vw; position: absolute; padding: 8px; color: #fff; }
+    article ul li .quad .number { font-size: 1.3em; font-weight: 700; text-shadow: 0 0 5px #000; }
+    article ul li .quad1 { top: 0; left: 0; border-right: 1px dashed #fff; border-bottom: 1px dashed #fff; }
+    article ul li .quad2 { top: 0; right: 0; text-align: right; border-bottom: 1px dashed #fff; }
+    article ul li .quad3 { top: 11vw; left: 0; border-right: 1px dashed #fff; }
+    article ul li .quad4 { top: 11vw; right: 0; text-align: right; }
+
+    /* ---- right: rail (basket + keypad + split) ---- */
+    aside.rail { width: 25%; height: 100%; position: fixed; right: 0; top: 0; background: #fff; padding: 1%; overflow-y: auto; -webkit-overflow-scrolling: touch; z-index: 10; }
+    aside.rail .logo img { width: 60%; display: block; margin: 4px auto 10px; }
+    .basket { padding: 8px 0; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; font-weight: 700; }
+    #basket-list { list-style: none; padding: 8px 0; margin: 0; font-size: 13px; font-weight: 400; }
+    #basket-list li { line-height: 24px; position: relative; clear: both; padding: 3px 0; overflow: hidden; }
+    #basket-list .antal { float: left; width: 16%; }
+    #basket-list .produkt { float: left; width: 44%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #basket-list .linje-pris { float: left; width: 22%; text-align: right; }
+    #basket-list .slet { padding: 0 8px; background: #a93333; color: #fff; float: right; cursor: pointer; border-radius: 3px; }
+    #total { font-weight: 700; padding: 8px 2px; font-size: 1.05em; }
+    #buttonCheckOut { padding: 12px; background: #33a936; color: #fff; text-align: center; cursor: pointer; border-radius: 4px; font-weight: 700; }
+    #buttonCheckOut.disabled { background: #ccc; }
+
+    /* keypad */
+    .medlem { margin-top: 16px; text-align: center; }
+    .medlem #shopper-id { font-weight: 700; font-size: 1.4em; display: inline-block; min-height: 1.4em; }
+    .medlem ul { width: 84%; margin: 8px auto 0; padding: 0; list-style: none; }
+    .medlem ul li { background: #f3f3f3; width: 29.33%; height: 5.4vw; line-height: 5.4vw; margin: 2%; font-weight: 700; font-size: 1.3em; text-align: center; float: left; clear: none; border-radius: 50%; cursor: pointer; }
+    .medlem ul li.neutral { background: #fff; }
+
+    /* split (fordel på) list in the rail */
+    #andre { padding: 6px 0; }
+    #andre .split-line { line-height: 30px; clear: both; overflow: hidden; border-bottom: 1px solid #eee; }
+    #andre .alumnenavn { float: left; width: 70%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #andre .fjern { padding: 0 8px; background: #a93333; color: #fff; float: right; cursor: pointer; border-radius: 3px; }
+
+    /* ---- full-screen "Aktive brugere" ---- */
+    #alumneliste { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,.98); z-index: 70; overflow: auto; -webkit-overflow-scrolling: touch; padding: 2% 2% 40px; }
+    #alumneliste.show { display: block; }
+    #alumneliste .bar { overflow: hidden; margin-bottom: 8px; }
+    #alumneliste .liste { font-weight: 700; font-size: 20px; float: left; line-height: 40px; }
+    #alumneliste .luk { float: right; font-size: 1.8em; line-height: 40px; cursor: pointer; padding: 0 8px; }
+    #confirm-split { display: none; float: right; margin-right: 16px; padding: 8px 16px; background: #337ea9; color: #fff; border-radius: 4px; cursor: pointer; }
+    #confirm-split.show { display: block; }
+    #alumneliste-checkout { list-style: none; margin: 0; padding: 0; }
+    #alumneliste-checkout li { line-height: 40px; clear: both; overflow: hidden; padding: 6px 4px; border-bottom: 1px solid #eee; }
+    #alumneliste-checkout .alumnumName { float: left; width: 46%; font-size: 1.25em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #alumneliste-checkout .balance { float: left; width: 18%; color: #888; }
+    #alumneliste-checkout .vaelg { padding: 4px 14px; background: #33a936; color: #fff; float: right; margin-left: 6px; cursor: pointer; border-radius: 3px; }
+    #alumneliste-checkout .fordel { padding: 4px 14px; background: #337ea9; color: #fff; float: right; margin-left: 6px; cursor: pointer; border-radius: 3px; }
+    #alumneliste-checkout li.picked { background: #eef6fb; }
+    #alumneliste-checkout li.inaktiv { color: #ccc; }
+    #alumneliste-checkout li.inaktiv .vaelg, #alumneliste-checkout li.inaktiv .fordel { background: #ddd; }
+
+    /* ---- confirmation modal ---- */
+    #checkout { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,.9); z-index: 80; }
+    #checkout.show { display: block; }
+    #checkout .box { display: none; position: fixed; width: 600px; max-width: 90%; top: 180px; left: 50%; -webkit-transform: translateX(-50%); transform: translateX(-50%); background: #fff; padding: 24px; text-align: center; box-shadow: 0 0 20px 0 #c7c7c7; border-radius: 6px; }
+    #checkout .box.show { display: block; }
+    #checkout .count { font-weight: 700; font-size: 1.3em; }
+    .buttoncheckout { width: 45%; margin: 18px 2% 0; font-size: 1.15em; line-height: 44px; text-align: center; display: inline-block; cursor: pointer; border-radius: 4px; }
+    #fortryd { background: #a93333; color: #fff; }
+    #godkend { background: #33a936; color: #fff; }
+    #okwrongnumber { background: #337ea9; color: #fff; width: 60%; }
+
+    /* flash messages */
+    .banner { position: fixed; top: 0; left: 0; right: 25%; z-index: 90; border: 1px solid #34d399; background: #ecfdf5; color: #065f46; padding: 10px 14px; margin: 0; font-size: 15px; text-align: center; }
+    .banner--error { border-color: #f87171; background: #fef2f2; color: #991b1b; }
   </style>
 </head>
-<!-- Chromeless full-screen layout for the till (no header/sidebar) so the kiosk fills the screen. -->
 <body>
-  <div class="wrap">
-    {% if messages %}
-      {% for m in messages %}
-        <p class="banner {% if m.tags == 'error' %}banner--error{% endif %}">{{ m }}</p>
-      {% endfor %}
-    {% endif %}
-    {% block content %}{% endblock %}
-  </div>
+  {% if messages %}
+    {% for m in messages %}
+      <p class="banner {% if m.tags == 'error' %}banner--error{% endif %}">{{ m }}</p>
+    {% endfor %}
+  {% endif %}
+  {% block content %}{% endblock %}
   {% block script %}{% endblock %}
 </body>
 </html>
