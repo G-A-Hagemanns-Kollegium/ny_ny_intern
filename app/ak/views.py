@@ -1,6 +1,7 @@
 """AK views (F-009). Members see their own balance/log; AK officers (role `ak`) see everyone and can
 add/adjust crosses for anyone. Balance is the SUM of ledger entries."""
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
@@ -25,6 +26,34 @@ def my_ak(request: HttpRequest) -> HttpResponse:
             "entries": user.ak_entries.all()[:100],
         },
     )
+
+
+@require_POST
+@login_required
+def add_self_entry(request: HttpRequest) -> HttpResponseRedirect:
+    """A resident logs their own AK labour: a positive number of krydser + a required description
+    (mirrors the legacy 'addtolog' on one's own log). AK officers review/adjust via the overview."""
+    resident = current_resident(request)
+    reason = (request.POST.get("reason") or "").strip()
+    try:
+        krydser = int(request.POST.get("krydser", "0"))
+    except ValueError:
+        krydser = 0
+    if krydser < 1:
+        messages.error(request, "Antal krydser skal være et positivt heltal.")
+    elif not reason:
+        messages.error(request, "Skriv en beskrivelse af det udførte arbejde.")
+    else:
+        AkEntry.objects.create(
+            resident=resident,
+            delta=krydser,
+            kind=AkEntry.Kind.LABOUR,
+            reason=reason,
+            created_by=resident,
+            created_at=timezone.now(),
+        )
+        messages.success(request, f"{krydser} kryds registreret.")
+    return redirect("ak:index")
 
 
 @role_required("ak")

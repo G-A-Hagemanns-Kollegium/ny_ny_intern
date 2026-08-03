@@ -6,6 +6,7 @@ app_name = "ak"
 
 urlpatterns = [
     path("", views.my_ak, name="index"),
+    path("tilfoej", views.add_self_entry, name="add_self"),
     path("admin", views.overview, name="overview"),
     path("log/<int:pk>", views.resident_log, name="log"),
     path("log/<int:pk>/add", views.add_entry, name="add"),
