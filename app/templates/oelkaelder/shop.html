@@ -1,84 +1,197 @@
 {% extends "kiosk_base.html" %}
+{% load oel_extras %}
 {% block title %}Ølkælderen — Tillen{% endblock %}
 {% block content %}
-  {{ product_data|json_script:"kiosk-products" }}
-  {{ shopper_data|json_script:"kiosk-shoppers" }}
+  {% comment %}
+    Tiles are server-rendered (no client templating): the till's iPad runs iOS 10.3, so the page must
+    work with plain HTML + ES5. The inline script below only enhances these nodes (cart, totals).
+  {% endcomment %}
+  <h1>Ølkælderen</h1>
+  <div class="cols">
 
-  <div x-data="kiosk" class="select-none">
-    <h1 class="text-2xl font-bold mb-3">Ølkælderen</h1>
-    <div class="grid gap-4 lg:grid-cols-[3fr_2fr]">
-
-      <!-- Varer: tap a tile to add one; steppers adjust -->
-      <section>
-        <h2 class="text-lg font-semibold mb-2">Varer</h2>
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[78vh] overflow-auto pr-1 pb-1">
-          <template x-for="p in products" :key="p.id">
-            <div @click="add(p.id)"
-                 class="relative flex flex-col min-h-40 border border-gray-200 rounded-xl p-3 bg-white
-                        cursor-pointer touch-manipulation transition active:scale-[.98]"
-                 :class="qty(p.id) > 0 ? 'ring-2 ring-emerald-500' : ''">
-              <span x-show="qty(p.id) > 0"
-                    class="absolute top-2 right-2 min-w-7 h-7 px-1 grid place-items-center rounded-full
-                           bg-emerald-600 text-white text-sm font-bold" x-text="qty(p.id)"></span>
-              <template x-if="p.img">
-                <img :src="p.img" alt="" class="h-24 w-full object-contain mb-2 pointer-events-none">
-              </template>
-              <span class="font-medium leading-tight" x-text="p.name"></span>
-              <span class="muted text-sm" x-text="kr(p.price_ore)"></span>
-              <div class="mt-auto flex items-center justify-between pt-3">
-                <button type="button" @click.stop="sub(p.id)"
-                        class="w-14 h-14 grid place-items-center text-2xl rounded-lg bg-gray-100 text-gray-900
-                               active:bg-gray-200 touch-manipulation">−</button>
-                <span class="text-lg font-semibold w-8 text-center" x-text="qty(p.id)"></span>
-                <button type="button" @click.stop="add(p.id)"
-                        class="w-14 h-14 grid place-items-center text-2xl rounded-lg bg-emerald-600 text-white
-                               active:bg-emerald-700 touch-manipulation">+</button>
+    <!-- Varer: tap a tile to add one; steppers adjust -->
+    <section class="col col-products">
+      <h2>Varer</h2>
+      <div class="scroll scroll-products">
+        <div class="tiles" id="products">
+          {% for p in products %}
+            <div class="tile tile-product" data-id="{{ p.pk }}" data-price="{{ p.price_ore }}">
+              <span class="badge hidden" data-badge>0</span>
+              {% if p.image %}<img src="{{ p.image.url }}" alt="">{% endif %}
+              <span class="tile-name">{{ p.name }}</span>
+              <span class="tile-price">{{ p.price_ore|kr }}</span>
+              <div class="stepper">
+                <button type="button" class="btn-step" data-sub>&minus;</button>
+                <span class="qty" data-qty>0</span>
+                <button type="button" class="btn-step btn-step--add" data-add>+</button>
               </div>
             </div>
-          </template>
+          {% endfor %}
         </div>
-      </section>
+      </div>
+    </section>
 
-      <!-- Købere + kurv -->
-      <section>
-        <h2 class="text-lg font-semibold mb-2">Hvem køber?
-          <span class="muted font-normal text-sm">(deles ligeligt)</span></h2>
-        <input type="search" x-model="filter" placeholder="Søg navn eller nr…" class="mb-2 text-base py-3">
-        <div class="grid grid-cols-2 gap-3 max-h-96 overflow-auto pr-1 pb-1">
-          <template x-for="s in shownShoppers" :key="s.id">
-            <button type="button" @click="toggle(s.id)"
-                    :class="isChosen(s.id) ? 'ring-2 ring-emerald-600 bg-emerald-50 text-emerald-900' : 'bg-white text-gray-800'"
-                    class="min-h-16 border border-gray-200 rounded-xl p-3 text-left touch-manipulation
-                           transition active:scale-[.98]">
-              <span class="block text-base font-medium leading-tight" x-text="s.name"></span>
-              <span class="muted text-xs" x-text="'#' + s.rid"></span>
+    <!-- Købere + kurv -->
+    <section class="col col-cart">
+      <h2>Hvem køber? <span class="muted sub">(deles ligeligt)</span></h2>
+      <input type="search" class="search" id="filter" placeholder="Søg navn eller nr…" autocomplete="off">
+      <div class="scroll scroll-shoppers">
+        <div class="tiles" id="shoppers">
+          {% for s in shoppers %}
+            <button type="button" class="tile tile-shopper"
+                    data-id="{{ s.pk }}" data-rid="{{ s.resident_id }}"
+                    data-name="{{ s.resident.full_name|lower }}">
+              <span class="tile-name">{{ s.resident.full_name }}</span>
+              <span class="tile-rid">#{{ s.resident_id }}</span>
             </button>
-          </template>
+          {% endfor %}
         </div>
+      </div>
 
-        <div class="card mt-4 sticky bottom-2">
-          <div class="flex justify-between text-xl">
-            <span>I alt</span><strong x-text="kr(totalOre)"></strong>
-          </div>
-          <div class="flex justify-between muted mt-1" x-show="chosen.length > 0">
-            <span x-text="'Pr. person (' + chosen.length + ')'"></span>
-            <span x-text="kr(perPersonOre)"></span>
-          </div>
-          <form method="post" action="{% url 'oelkaelder:purchase' %}">
-            {% csrf_token %}
-            <template x-for="id in chosen" :key="'s' + id">
-              <input type="hidden" name="shopper" :value="id">
-            </template>
-            <template x-for="p in products" :key="'q' + p.id">
-              <input type="hidden" :name="'qty_' + p.id" :value="qty(p.id)">
-            </template>
-            <button type="submit" :disabled="!canSubmit"
-                    class="w-full mt-3 py-4 text-xl rounded-lg bg-emerald-600 text-white touch-manipulation
-                           active:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed"
-                    x-text="canSubmit ? ('Registrér køb — ' + kr(totalOre)) : 'Vælg vare og køber'"></button>
-          </form>
+      <div class="card">
+        <div class="row row-total"><span>I alt</span><strong id="total">0,00 kr</strong></div>
+        <div class="row row-split hidden" id="split-row">
+          <span id="split-label">Pr. person</span><span id="split">0,00 kr</span>
         </div>
-      </section>
-    </div>
+        <form method="post" action="{% url 'oelkaelder:purchase' %}" id="buy-form">
+          {% csrf_token %}
+          <div id="hidden-fields"></div>
+          <button type="submit" class="btn-buy" id="buy" disabled>Vælg vare og køber</button>
+        </form>
+      </div>
+    </section>
   </div>
+{% endblock %}
+
+{% block script %}
+<script>
+/* Ølkælder till — vanilla ES5 (no Alpine/Tailwind) so it runs on the till's iOS 10.3 Safari.
+   Ports the kiosk island from frontend/src/main.ts: cart (id->qty), chosen shoppers, filter, totals. */
+(function () {
+  var productsEl = document.getElementById("products");
+  var shoppersEl = document.getElementById("shoppers");
+  var filterEl = document.getElementById("filter");
+  var totalEl = document.getElementById("total");
+  var splitRow = document.getElementById("split-row");
+  var splitLabel = document.getElementById("split-label");
+  var splitEl = document.getElementById("split");
+  var buyBtn = document.getElementById("buy");
+  var hiddenFields = document.getElementById("hidden-fields");
+  var form = document.getElementById("buy-form");
+
+  var cart = {};   // productId -> qty
+  var chosen = []; // selected shopper ids
+
+  function kr(ore) {
+    return (Math.round(ore) / 100).toFixed(2).replace(".", ",") + " kr";
+  }
+  function setText(el, text) {
+    // The server-rendered nodes always have a single text child.
+    if (el.firstChild) { el.firstChild.data = text; } else { el.appendChild(document.createTextNode(text)); }
+  }
+  function ancestorWithAttr(el, attr) {
+    while (el && el.nodeType === 1) {
+      if (el.hasAttribute(attr)) { return el; }
+      el = el.parentNode;
+    }
+    return null;
+  }
+  function qtyOf(id) { return cart[id] || 0; }
+
+  function paintProduct(tile) {
+    var id = tile.getAttribute("data-id");
+    var q = qtyOf(id);
+    var badge = tile.querySelector("[data-badge]");
+    setText(tile.querySelector("[data-qty]"), "" + q);
+    setText(badge, "" + q);
+    if (q > 0) { badge.classList.remove("hidden"); tile.classList.add("is-selected"); }
+    else { badge.classList.add("hidden"); tile.classList.remove("is-selected"); }
+  }
+
+  function totalOre() {
+    var tiles = productsEl.querySelectorAll("[data-id]");
+    var sum = 0;
+    for (var i = 0; i < tiles.length; i++) {
+      var id = tiles[i].getAttribute("data-id");
+      sum += qtyOf(id) * parseInt(tiles[i].getAttribute("data-price"), 10);
+    }
+    return sum;
+  }
+
+  function refreshTotals() {
+    var total = totalOre();
+    setText(totalEl, kr(total));
+    if (chosen.length > 0) {
+      setText(splitLabel, "Pr. person (" + chosen.length + ")");
+      setText(splitEl, kr(Math.round(total / chosen.length)));
+      splitRow.classList.remove("hidden");
+    } else {
+      splitRow.classList.add("hidden");
+    }
+    var canSubmit = chosen.length > 0 && total > 0;
+    buyBtn.disabled = !canSubmit;
+    setText(buyBtn, canSubmit ? ("Registrér køb — " + kr(total)) : "Vælg vare og køber");
+  }
+
+  // Products: tapping the tile (or +) adds one; − subtracts.
+  productsEl.addEventListener("click", function (e) {
+    var tile = ancestorWithAttr(e.target, "data-id");
+    if (!tile) { return; }
+    var id = tile.getAttribute("data-id");
+    if (ancestorWithAttr(e.target, "data-sub")) {
+      var q = qtyOf(id) - 1;
+      if (q <= 0) { delete cart[id]; } else { cart[id] = q; }
+    } else {
+      cart[id] = qtyOf(id) + 1;
+    }
+    paintProduct(tile);
+    refreshTotals();
+  });
+
+  // Shoppers: toggle selection.
+  shoppersEl.addEventListener("click", function (e) {
+    var tile = ancestorWithAttr(e.target, "data-id");
+    if (!tile) { return; }
+    var id = tile.getAttribute("data-id");
+    var i = chosen.indexOf(id);
+    if (i < 0) { chosen.push(id); tile.classList.add("is-selected"); }
+    else { chosen.splice(i, 1); tile.classList.remove("is-selected"); }
+    refreshTotals();
+  });
+
+  // Filter shoppers by name or resident id.
+  filterEl.addEventListener("input", function () {
+    var f = filterEl.value.toLowerCase().replace(/^\s+|\s+$/g, "");
+    var tiles = shoppersEl.querySelectorAll("[data-id]");
+    for (var i = 0; i < tiles.length; i++) {
+      var name = tiles[i].getAttribute("data-name") || "";
+      var rid = tiles[i].getAttribute("data-rid") || "";
+      if (name.indexOf(f) >= 0 || rid.indexOf(f) >= 0) { tiles[i].classList.remove("hidden"); }
+      else { tiles[i].classList.add("hidden"); }
+    }
+  });
+
+  // Build the POST body `purchase` expects: repeated `shopper` + one `qty_<id>` per chosen product.
+  form.addEventListener("submit", function (e) {
+    if (buyBtn.disabled) { e.preventDefault(); return; }
+    hiddenFields.innerHTML = "";
+    for (var i = 0; i < chosen.length; i++) {
+      hiddenFields.appendChild(makeInput("shopper", chosen[i]));
+    }
+    for (var id in cart) {
+      if (cart.hasOwnProperty(id) && cart[id] > 0) {
+        hiddenFields.appendChild(makeInput("qty_" + id, cart[id]));
+      }
+    }
+  });
+
+  function makeInput(name, value) {
+    var el = document.createElement("input");
+    el.type = "hidden"; el.name = name; el.value = "" + value;
+    return el;
+  }
+
+  refreshTotals();
+})();
+</script>
 {% endblock %}
