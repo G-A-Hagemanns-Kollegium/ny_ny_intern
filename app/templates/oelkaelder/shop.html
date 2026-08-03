@@ -1,6 +1,6 @@
 {% extends "kiosk_base.html" %}
 {% load oel_extras %}
-{% block title %}Ølkælderen — Tillen{% endblock %}
+{% block title %}Ølkælderen - Tillen{% endblock %}
 {% block content %}
   {% comment %}
     Tiles are server-rendered (no client templating): the till's iPad runs iOS 10.3, so the page must
@@ -130,7 +130,7 @@
     }
     var canSubmit = chosen.length > 0 && total > 0;
     buyBtn.disabled = !canSubmit;
-    setText(buyBtn, canSubmit ? ("Registrér køb — " + kr(total)) : "Vælg vare og køber");
+    setText(buyBtn, canSubmit ? ("Registrér køb - " + kr(total)) : "Vælg vare og køber");
   }
 
   // Products: tapping the tile (or +) adds one; − subtracts.

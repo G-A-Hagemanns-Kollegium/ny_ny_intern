@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Ansøgninger — GAHK Intern{% endblock %}
+{% block title %}Ansøgninger - GAHK Intern{% endblock %}
 {% block content_width %}max-w-5xl{% endblock %}
 {% block content %}
   <h1>Ansøgninger</h1>
@@ -30,7 +30,7 @@
           <td class="px-3 py-2">
             <a href="{% url 'admissions:show' a.pk %}" class="text-emerald-700 hover:underline font-medium">{{ a.full_name }}</a>
           </td>
-          <td class="px-3 py-2 text-gray-700">{{ a.university|default:a.occupation|default:"—" }}</td>
+          <td class="px-3 py-2 text-gray-700">{{ a.university|default:a.occupation|default:"-" }}</td>
           <td class="px-3 py-2 whitespace-nowrap">
             {% if a.received_by %}
               <span class="text-gray-800">✓ {{ a.received_by.first_name }} {{ a.received_by.last_name|slice:":1" }}.</span>
