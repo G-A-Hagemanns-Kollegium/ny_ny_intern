@@ -8,7 +8,28 @@
   {% endcomment %}
   <h1>Ølkælderen</h1>
   <div class="cols">
+  {% comment %}
+    Tiles are server-rendered (no client templating): the till's iPad runs iOS 10.3, so the page must
+    work with plain HTML + ES5. The inline script below only enhances these nodes (cart, totals).
+  {% endcomment %}
+  <h1>Ølkælderen</h1>
+  <div class="cols">
 
+    <!-- Varer: tap a tile to add one; steppers adjust -->
+    <section class="col col-products">
+      <h2>Varer</h2>
+      <div class="scroll scroll-products">
+        <div class="tiles" id="products">
+          {% for p in products %}
+            <div class="tile tile-product" data-id="{{ p.pk }}" data-price="{{ p.price_ore }}">
+              <span class="badge hidden" data-badge>0</span>
+              {% if p.image %}<img src="{{ p.image.url }}" alt="">{% endif %}
+              <span class="tile-name">{{ p.name }}</span>
+              <span class="tile-price">{{ p.price_ore|kr }}</span>
+              <div class="stepper">
+                <button type="button" class="btn-step" data-sub>&minus;</button>
+                <span class="qty" data-qty>0</span>
+                <button type="button" class="btn-step btn-step--add" data-add>+</button>
     <!-- Varer: tap a tile to add one; steppers adjust -->
     <section class="col col-products">
       <h2>Varer</h2>
@@ -30,6 +51,10 @@
         </div>
       </div>
     </section>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
 
     <!-- Købere + kurv -->
     <section class="col col-cart">
@@ -43,7 +68,20 @@
                     data-name="{{ s.resident.full_name|lower }}">
               <span class="tile-name">{{ s.resident.full_name }}</span>
               <span class="tile-rid">#{{ s.resident_id }}</span>
+    <!-- Købere + kurv -->
+    <section class="col col-cart">
+      <h2>Hvem køber? <span class="muted sub">(deles ligeligt)</span></h2>
+      <input type="search" class="search" id="filter" placeholder="Søg navn eller nr…" autocomplete="off">
+      <div class="scroll scroll-shoppers">
+        <div class="tiles" id="shoppers">
+          {% for s in shoppers %}
+            <button type="button" class="tile tile-shopper"
+                    data-id="{{ s.pk }}" data-rid="{{ s.resident_id }}"
+                    data-name="{{ s.resident.full_name|lower }}">
+              <span class="tile-name">{{ s.resident.full_name }}</span>
+              <span class="tile-rid">#{{ s.resident_id }}</span>
             </button>
+          {% endfor %}
           {% endfor %}
         </div>
       </div>
