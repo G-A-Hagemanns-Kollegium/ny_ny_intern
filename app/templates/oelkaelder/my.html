@@ -9,6 +9,16 @@
     <p class="muted">Du er ikke registreret som shopper i ølkælderen.</p>
   {% endfor %}
 
+  <div class="card mt-4" style="max-width:32rem">
+    <h2>Indbetaling</h2>
+    <p>Overfør penge til Øl-Kælderens konto for at sætte din saldo op:</p>
+    <p class="mt-2">
+      Reg.nr. <strong>{{ bank_reg }}</strong><br>
+      Konto nr. <strong>{{ bank_account }}</strong>
+    </p>
+    <p class="muted mt-2">Skriv dit navn i beskeden, så beløbet kan tilføjes din konto. Der kan gå lidt tid, før indbetalingen registreres.</p>
+  </div>
+
   {% if accounts %}
     <h2 class="mt-6">Kontoudtog</h2>
     <div class="card overflow-x-auto">
