@@ -148,6 +148,11 @@ EMAIL_USE_SSL = EMAIL_PORT == 465
 EMAIL_USE_TLS = not EMAIL_USE_SSL
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "autosvar@gahk.dk")
 INDSTILLING_EMAIL = os.environ.get("INDSTILLING_EMAIL", "indstillingen@gahk.dk")
+# Sender for the ølkælder debt-warning mails (legacy used bierkeller@gahk.dk).
+OELKAELDER_FROM_EMAIL = os.environ.get("OELKAELDER_FROM_EMAIL", "bierkeller@gahk.dk")
+# Ølkælder bank account shown on the member's saldo page (where to transfer money to top up).
+OELKAELDER_BANK_REG = os.environ.get("OELKAELDER_BANK_REG", "9070")
+OELKAELDER_BANK_ACCOUNT = os.environ.get("OELKAELDER_BANK_ACCOUNT", "1642635456")
 
 # Front-page visit counter: server-side secret for HMAC-hashing visitor IPs (F-002/F-011).
 VISIT_COUNTER_HMAC_KEY = os.environ.get("VISIT_COUNTER_HMAC_KEY", "dev-hmac-key")

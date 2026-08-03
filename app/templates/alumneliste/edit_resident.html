@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Rediger {{ resident.full_name }} - GAHK Intern{% endblock %}
+{% block content %}
+  <h1>Rediger beboer</h1>
+  <p class="muted mb-4">{{ resident.full_name }} - værelse, embedsgruppe og rengøring ændres pr. måned på <a href="{% url 'next_month_list' %}">næste måneds liste</a>.</p>
+
+  <form method="post" class="card" style="max-width:640px">
+    {% csrf_token %}
+    {% for field in form %}
+      <div class="mb-3">
+        <label for="{{ field.id_for_label }}" class="font-semibold block mb-1">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}<p class="text-red-600 text-sm mt-1">{{ field.errors|striptags }}</p>{% endif %}
+      </div>
+    {% endfor %}
+    <div class="flex items-center gap-3 mt-4">
+      <button type="submit" class="btn">Gem ændringer</button>
+      <a href="{% url 'directory' %}">Annullér</a>
+    </div>
+  </form>
+{% endblock %}

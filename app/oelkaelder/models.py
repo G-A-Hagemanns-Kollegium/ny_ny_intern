@@ -26,6 +26,30 @@ class Product(models.Model):  # intern_oelkaelder_product
     def __str__(self) -> str:
         return self.name
 
+    def price_steps_ore(self) -> list[int]:
+        """Normalize `price_steps` to a list of øre ints. Legacy stored it as a `"50;100;500;1000"`
+        string; the JSONField may hold that string or an actual list."""
+        raw = self.price_steps
+        if not raw:
+            return []
+        parts = raw.replace(",", ";").split(";") if isinstance(raw, str) else list(raw)
+        out: list[int] = []
+        for p in parts:
+            try:
+                out.append(int(p))
+            except (TypeError, ValueError):
+                continue
+        return out
+
+    @property
+    def pricing_mode(self) -> str:
+        """`step` (betalingshop, 4 price quadrants) > `weight` (per-gram) > `fixed` (single price)."""
+        if self.price_steps_ore():
+            return "step"
+        if self.weight_price_ore:
+            return "weight"
+        return "fixed"
+
 
 class Shopper(models.Model):  # intern_shopper (+ intern_oelkaelder_saldo.active)
     resident = models.ForeignKey(
@@ -38,12 +62,14 @@ class Shopper(models.Model):  # intern_shopper (+ intern_oelkaelder_saldo.active
 
     @property
     def balance_ore(self) -> int:
-        """Derived balance = valid deposits - this shopper's share of valid transactions."""
+        """Derived balance = valid deposits - purchase shares + valid adjustments (e.g. interest).
+        Negative = the shopper owes money."""
         deposits = self.deposits.filter(is_valid=True).aggregate(s=Sum("amount_ore"))["s"] or 0
         spent = (
             self.purchase_shares.filter(transaction__is_valid=True).aggregate(s=Sum("share_ore"))["s"] or 0
         )
-        return deposits - spent
+        adjustments = self.adjustments.filter(is_valid=True).aggregate(s=Sum("amount_ore"))["s"] or 0
+        return deposits - spent + adjustments
 
 
 class Deposit(models.Model):  # intern_oelkaelder_deposit
@@ -89,3 +115,31 @@ class LogEntry(models.Model):  # intern_oelkaelder_log (audit trail)
 
     class Meta:
         ordering = ["-created_at"]
+
+
+class Adjustment(models.Model):
+    """A signed correction to a shopper's balance (part of the derived ledger). Negative = a charge
+    that increases their debt (e.g. monthly interest); positive = a credit. Soft-deletable."""
+
+    class Kind(models.TextChoices):
+        INTEREST = "interest", "Rente"
+        MANUAL = "manual", "Manuel justering"
+
+    shopper = models.ForeignKey(Shopper, on_delete=models.CASCADE, related_name="adjustments")
+    amount_ore = models.IntegerField()  # signed; negative = charge (more debt)
+    kind = models.CharField(max_length=20, choices=Kind.choices, default=Kind.MANUAL)
+    reason = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    is_valid = models.BooleanField(default=True)
+
+
+class InterestPolicy(models.Model):
+    """Single-row config (pk=1) for the monthly debt interest ØK applies via the admin button."""
+
+    active = models.BooleanField(default=False)
+    rate_percent = models.DecimalField(max_digits=5, decimal_places=2, default=5)  # % of the debt
+    threshold_ore = models.IntegerField(default=-10000)  # only debt below this is charged (-100 kr)
+
+    @classmethod
+    def get(cls) -> "InterestPolicy":
+        return cls.objects.get_or_create(pk=1)[0]

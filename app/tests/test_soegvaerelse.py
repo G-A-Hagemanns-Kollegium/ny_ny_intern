@@ -106,3 +106,68 @@ def test_end_round_assigns_winner_to_room_and_clears(make_resident: Callable) ->
     assert Residency.objects.filter(resident=winner, room=room, year=ny, month=nm).exists()
     assert not RoomOffer.objects.exists()  # round cleared
     assert not KvotientApplication.objects.exists()
+
+
+@pytest.mark.django_db
+def test_end_round_carries_non_participants_forward(make_resident: Callable) -> None:
+    """Regression: ending a round must carry residents who weren't part of it into the target month.
+
+    Previously end_round wrote only the winners, so when the target month became active every other
+    resident vanished from the list."""
+    from residents.models import active_period
+
+    cy, cm = active_period()  # empty DB -> current calendar month
+    r1 = Room.objects.create(legacy_index=30, number=30, floor="stuen", side="mod gaden")
+    r2 = Room.objects.create(legacy_index=31, number=31, floor="stuen", side="mod gaden")
+    bystander = make_resident(email="bystander@gahk.dk")
+    Residency.objects.create(resident=bystander, room=r1, year=cy, month=cm)
+    Residency.objects.create(resident=make_resident(email="leaver@gahk.dk"), room=r2, year=cy, month=cm)
+
+    ny, nm = next_period((cy, cm))
+    m = month_index(ny, nm)
+    winner = make_resident(email="win2@gahk.dk")
+    app = _application(winner, m, k=9.0)
+    KvotientPriority.objects.create(application=app, room=r2, priority=1, month=m)
+    RoomOffer.objects.create(room=r2, month=m)
+
+    ind = make_resident(email="ind3@gahk.dk", roles=("indstilling",))
+    c = Client()
+    c.force_login(ind)
+    c.post(reverse("soegvaerelse:end_round"))
+
+    # the bystander (not in the round) is carried forward — the bug was that they disappeared
+    assert Residency.objects.filter(resident=bystander, room=r1, year=ny, month=nm).exists()
+    # the winner is placed into the offered room on the target month
+    assert Residency.objects.filter(resident=winner, room=r2, year=ny, month=nm).exists()
+
+
+@pytest.mark.django_db
+def test_end_round_winner_keeps_embedsgruppe_and_cleaning(make_resident: Callable) -> None:
+    """Regression: a winner carried to next month keeps their embedsgruppe/rengøring (only the room
+    changes) - they used to be wiped to blank."""
+    from core.models import Cleaning, Workgroup
+    from residents.models import active_period
+
+    cy, cm = active_period()
+    old = Room.objects.create(legacy_index=40, number=40, floor="stuen", side="mod gaden")
+    won = Room.objects.create(legacy_index=41, number=41, floor="stuen", side="mod gaden")
+    wg = Workgroup.objects.create(name="Haven")
+    cl = Cleaning.objects.create(name="Trappe")
+    winner = make_resident(email="w@gahk.dk")
+    Residency.objects.create(resident=winner, room=old, workgroup=wg, cleaning=cl, year=cy, month=cm)
+
+    ny, nm = next_period((cy, cm))
+    m = month_index(ny, nm)
+    app = _application(winner, m, k=9.0)
+    KvotientPriority.objects.create(application=app, room=won, priority=1, month=m)
+    RoomOffer.objects.create(room=won, month=m)
+
+    ind = make_resident(email="ind4@gahk.dk", roles=("indstilling",))
+    c = Client()
+    c.force_login(ind)
+    c.post(reverse("soegvaerelse:end_round"))
+
+    res = Residency.objects.get(resident=winner, year=ny, month=nm)
+    assert res.room_id == won.id  # moved into the won room
+    assert res.workgroup_id == wg.id  # embedsgruppe preserved
+    assert res.cleaning_id == cl.id  # rengøring preserved

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} - Ølkælder{% endblock %}
+{% block content %}
+  <div class="flex items-center justify-between">
+    <h1>{{ title }}</h1>
+    <a href="{% url 'oelkaelder:admin' %}">‹ Tilbage</a>
+  </div>
+  <p class="muted">{{ start|date:"Y-m-d" }} – {{ end|date:"Y-m-d" }}
+    · <a href="?start={{ start|date:'Y-m-d' }}&amp;end={{ end|date:'Y-m-d' }}&amp;format=csv">CSV</a>
+    · <a href="?start={{ start|date:'Y-m-d' }}&amp;end={{ end|date:'Y-m-d' }}&amp;format=xlsx">Excel</a>
+  </p>
+
+  <table cellpadding="6" style="width:100%; border-collapse:collapse">
+    <thead><tr style="text-align:left; border-bottom:1px solid #e6e8ec">
+      {% for h in headers %}<th>{{ h }}</th>{% endfor %}
+    </tr></thead>
+    <tbody>
+    {% for row in data %}
+      <tr style="border-bottom:1px solid #f0f1f4">{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
+    {% empty %}<tr><td colspan="{{ headers|length }}" class="muted">Ingen data i perioden.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
