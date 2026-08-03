@@ -170,7 +170,7 @@ tasks:
     cmds: ['npm run watch']
 
   build:
-    desc: Production build — frontend bundle + collectstatic (hashed/compressed)
+    desc: Production build - frontend bundle + collectstatic (hashed/compressed)
     dir: '{{.APP}}'
     env:
       DJANGO_DEBUG: '0'

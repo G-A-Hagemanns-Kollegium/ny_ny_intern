@@ -17,6 +17,7 @@ class Role(models.TextChoices):
     KOKKENGRUPPE = "kokkengruppe", "Køkkengruppen"
     AK = "ak", "AK"
     OELKAELDER = "oelkaelder", "Ølkælderen"
+    REGNSKAB = "regnskab", "Regnskab"
     ADMINISTRATOR = "administrator", "Administrator"
     # NOTE: legacy `editpage` is intentionally omitted — there is no runtime CMS editing (F-006/F-007).
 
@@ -30,6 +31,7 @@ WORKGROUP_ROLE = {
     "Køkkengruppen": Role.KOKKENGRUPPE,
     "AK-gruppen": Role.AK,
     "Ølkælderen": Role.OELKAELDER,
+    "Regnskabsgruppen": Role.REGNSKAB,  # legacy intern_alumne_workgroup name (id 23)
 }
 WORKGROUP_ROLE_VALUES = frozenset(WORKGROUP_ROLE.values())
 
@@ -158,3 +160,9 @@ def next_period(period: tuple[int, int] | None = None) -> tuple[int, int]:
     """The month after `period` (defaults to the active period), as (year, month)."""
     year, month = period or active_period()
     return (year + 1, 1) if month == 12 else (year, month + 1)
+
+
+def prev_period(period: tuple[int, int] | None = None) -> tuple[int, int]:
+    """The month before `period` (defaults to the active period), as (year, month)."""
+    year, month = period or active_period()
+    return (year - 1, 12) if month == 1 else (year, month - 1)

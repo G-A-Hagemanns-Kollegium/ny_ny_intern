@@ -173,6 +173,7 @@ class Command(BaseCommand):
             ("formand@gahk.dk", "Frederik", "Formand", {}),
             ("ak@gahk.dk", "Astrid", "Krydsen", {}),
             ("oel@gahk.dk", "Ole", "Ølmand", {}),
+            ("regnskab@gahk.dk", "Regina", "Regnskab", {}),
             ("beboer@gahk.dk", "Bente", "Beboer", {}),
         ]
         for email, first, last, extra in fixtures:
@@ -258,6 +259,9 @@ class Command(BaseCommand):
                         "cleaning": self.rng.choice(cleanings),
                     },
                 )
+        # Make one resident a "leaver" (present last month, gone this month) so the regnskab page has data.
+        if residents:
+            Residency.objects.filter(resident=residents[-1], year=self.year, month=self.month).delete()
 
     # --------------------------------------------------------------- roles
     def _seed_roles(self, residents: list[Resident]) -> None:
@@ -267,6 +271,7 @@ class Command(BaseCommand):
             "formand@gahk.dk": [Role.ADMINISTRATOR],
             "ak@gahk.dk": [Role.AK],
             "oel@gahk.dk": [Role.OELKAELDER],
+            "regnskab@gahk.dk": [Role.REGNSKAB],
         }
         assigned = set()
         for email, roles in fixed.items():
@@ -278,7 +283,14 @@ class Command(BaseCommand):
 
         # Sprinkle the remaining privileged roles across other residents for the current month.
         pool = [r for r in residents if r.email not in fixed and not r.email.startswith(("admin", "beboer"))]
-        for role in [Role.INDSTILLING, Role.INSPEKTION, Role.KOKKENGRUPPE, Role.AK, Role.OELKAELDER]:
+        for role in [
+            Role.INDSTILLING,
+            Role.INSPEKTION,
+            Role.KOKKENGRUPPE,
+            Role.AK,
+            Role.OELKAELDER,
+            Role.REGNSKAB,
+        ]:
             for r in self.rng.sample(pool, k=min(3, len(pool))):
                 RoleAssignment.objects.get_or_create(resident=r, role=role, year=self.year, month=self.month)
                 assigned.add(r.pk)

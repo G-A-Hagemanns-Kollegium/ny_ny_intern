@@ -21,7 +21,7 @@
 
 <!-- Describe how you verified the change. Note which DB backend you ran against. -->
 
-- [ ] `task test:pg` (Postgres, CI parity) — requires `task db:up`
+- [ ] `task test:pg` (Postgres, CI parity), requires `task db:up`
 - [ ] `task test:sqlite` (no Docker)
 - [ ] `task lint`
 - [ ] Manually exercised the affected flow (describe below)
