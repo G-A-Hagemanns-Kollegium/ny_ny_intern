@@ -12,13 +12,14 @@ from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Q, QuerySet
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.encoding import force_bytes
-from django.utils.http import urlsafe_base64_encode
+from django.utils.http import url_has_allowed_host_and_scheme, urlsafe_base64_encode
 
 from core.models import Cleaning, Room, Workgroup
 
+from .forms import ResidentEditForm
 from .models import (
     WORKGROUP_ROLE,
     WORKGROUP_ROLE_VALUES,
@@ -161,6 +162,26 @@ def directory_rows(request: HttpRequest) -> HttpResponse:
     return render(
         request, "alumneliste/_rows.html", {"rows": _directory_rows(year, month, request.GET.get("q", ""))}
     )
+
+
+@role_required("indstilling")
+def edit_resident(request: HttpRequest, pk: int) -> HttpResponse | HttpResponseRedirect:
+    """Indstilling edits a resident's core data (name, e-mail, phone, dates, studie, fylgje). Room,
+    embedsgruppe and rengøring are per-month and stay on the next-month list editor."""
+    resident = get_object_or_404(Resident, pk=pk)
+    if request.method == "POST":
+        form = ResidentEditForm(request.POST, instance=resident)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"{resident.full_name} er opdateret.")
+            nxt = request.GET.get("next", "")
+            if nxt and url_has_allowed_host_and_scheme(nxt, allowed_hosts={request.get_host()}):
+                return redirect(nxt)  # back to the filtered alumneliste
+            return redirect("directory")
+        messages.error(request, "Ret fejlene og prøv igen.")
+    else:
+        form = ResidentEditForm(instance=resident)
+    return render(request, "alumneliste/edit_resident.html", {"form": form, "resident": resident})
 
 
 def _iso(d: date | None) -> str:
