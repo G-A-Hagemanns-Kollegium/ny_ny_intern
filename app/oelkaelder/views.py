@@ -43,17 +43,9 @@ def shop(request: HttpRequest) -> HttpResponse:
         raise PermissionDenied("Tillen er kun tilgængelig fra kollegiets netværk.")
     products = Product.objects.filter(active=True).order_by("-highlighted", "name")
     shoppers = Shopper.objects.filter(active=True).select_related("resident").order_by("resident__first_name")
-    # Rendered into the page as JSON for the Alpine kiosk island (see frontend/src/main.ts).
-    product_data = [
-        {"id": p.pk, "name": p.name, "price_ore": p.price_ore, "img": p.image.url if p.image else ""}
-        for p in products
-    ]
-    shopper_data = [{"id": s.pk, "rid": s.resident_id, "name": s.resident.full_name} for s in shoppers]
-    return render(
-        request,
-        "oelkaelder/shop.html",
-        {"product_data": product_data, "shopper_data": shopper_data},
-    )
+    # Tiles are server-rendered (the till's iPad runs iOS 10.3 and cannot use the Alpine/Tailwind
+    # bundle); the template's inline ES5 only enhances them. See app/templates/oelkaelder/shop.html.
+    return render(request, "oelkaelder/shop.html", {"products": products, "shoppers": shoppers})
 
 
 @require_POST

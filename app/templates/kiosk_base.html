@@ -6,18 +6,121 @@
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Ølkælderen{% endblock %}</title>
-  <link rel="stylesheet" href="{% static 'dist/app.css' %}">
-  <script src="{% static 'dist/app.js' %}" defer></script>
+  {% comment %}
+    Self-contained styles ONLY. The till runs on an iPad (iOS 10.3 / WebKit 602) that cannot parse
+    Tailwind v4's output (oklch colours, @layer, @property). We therefore load neither the compiled
+    CSS nor JS bundle here; everything the kiosk needs is hand-written, iOS-10-safe CSS + inline ES5.
+  {% endcomment %}
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: #f3f4f6; color: #111827;
+      font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+      -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
+    }
+    .wrap { padding: 12px 16px 24px; }
+    h1 { font-size: 26px; font-weight: 700; margin: 0 0 12px; }
+    h2 { font-size: 18px; font-weight: 600; margin: 0 0 8px; }
+    .muted { color: #6b7280; }
+    .sub { font-size: 13px; font-weight: 400; }
+
+    .banner {
+      border: 1px solid #34d399; background: #ecfdf5; color: #065f46;
+      border-radius: 10px; padding: 12px 14px; margin: 0 0 12px; font-size: 16px;
+    }
+    .banner--error { border-color: #f87171; background: #fef2f2; color: #991b1b; }
+
+    /* Two columns for landscape tablet: varer (wide) + købere/kurv (narrow). No flex `gap`
+       (unsupported before Safari 14.1) — spacing is done with margins/padding throughout. */
+    .cols { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; }
+    .col { box-sizing: border-box; }
+    .col-products { -webkit-flex: 3 1 380px; flex: 3 1 380px; padding-right: 16px; }
+    .col-cart { -webkit-flex: 2 1 280px; flex: 2 1 280px; }
+
+    /* Scrollable tile grids with momentum scrolling on iOS. */
+    .scroll { overflow: auto; -webkit-overflow-scrolling: touch; }
+    .scroll-products { max-height: 76vh; }
+    .scroll-shoppers { max-height: 42vh; }
+
+    .tiles { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; margin: -6px; }
+    .tile {
+      box-sizing: border-box; position: relative; margin: 6px;
+      display: -webkit-flex; display: flex;
+      -webkit-flex-direction: column; flex-direction: column;
+      min-height: 168px; border: 1px solid #e5e7eb; border-radius: 14px;
+      background: #ffffff; padding: 12px; cursor: pointer;
+      -webkit-user-select: none; user-select: none;
+      -webkit-tap-highlight-color: rgba(0,0,0,0);
+      -webkit-transition: -webkit-transform .05s ease; transition: transform .05s ease;
+    }
+    .tile-product { width: calc(33.333% - 12px); }
+    .tile-shopper { width: calc(50% - 12px); min-height: 64px; text-align: left; font: inherit; color: #1f2937; }
+    .tile:active { -webkit-transform: scale(.98); transform: scale(.98); }
+    .tile.is-selected { border-color: #059669; -webkit-box-shadow: 0 0 0 2px #059669; box-shadow: 0 0 0 2px #059669; }
+    .tile-shopper.is-selected { background: #ecfdf5; color: #065f46; }
+
+    .tile img { height: 92px; width: 100%; object-fit: contain; margin-bottom: 8px; pointer-events: none; }
+    .tile-name { font-weight: 600; line-height: 1.15; }
+    .tile-price { color: #6b7280; font-size: 14px; }
+    .tile-rid { color: #6b7280; font-size: 12px; display: block; }
+
+    .badge {
+      position: absolute; top: 8px; right: 8px; min-width: 28px; height: 28px; padding: 0 6px;
+      border-radius: 14px; background: #059669; color: #fff; font-size: 14px; font-weight: 700;
+      display: -webkit-flex; display: flex;
+      -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center;
+    }
+
+    .stepper {
+      margin-top: auto; padding-top: 12px;
+      display: -webkit-flex; display: flex;
+      -webkit-align-items: center; align-items: center; -webkit-justify-content: space-between; justify-content: space-between;
+    }
+    .qty { font-size: 18px; font-weight: 600; width: 32px; text-align: center; }
+    .btn-step {
+      width: 56px; height: 56px; border: 0; border-radius: 10px; font-size: 26px; line-height: 1;
+      background: #f3f4f6; color: #111827; -webkit-tap-highlight-color: rgba(0,0,0,0); cursor: pointer;
+    }
+    .btn-step:active { background: #e5e7eb; }
+    .btn-step--add { background: #059669; color: #fff; }
+    .btn-step--add:active { background: #047857; }
+
+    .search {
+      width: 100%; padding: 12px 14px; font-size: 16px; margin-bottom: 8px;
+      border: 1px solid #d1d5db; border-radius: 10px; -webkit-appearance: none; appearance: none;
+    }
+
+    .card {
+      position: -webkit-sticky; position: sticky; bottom: 8px; margin-top: 16px;
+      border: 1px solid #e5e7eb; border-radius: 14px; background: #ffffff; padding: 14px;
+      -webkit-box-shadow: 0 -2px 10px rgba(0,0,0,.06); box-shadow: 0 -2px 10px rgba(0,0,0,.06);
+    }
+    .row {
+      display: -webkit-flex; display: flex;
+      -webkit-justify-content: space-between; justify-content: space-between;
+    }
+    .row-total { font-size: 20px; }
+    .row-split { color: #6b7280; margin-top: 4px; }
+    .btn-buy {
+      width: 100%; margin-top: 12px; padding: 16px; font-size: 20px; border: 0; border-radius: 10px;
+      background: #059669; color: #fff; cursor: pointer; -webkit-tap-highlight-color: rgba(0,0,0,0);
+    }
+    .btn-buy:active { background: #047857; }
+    .btn-buy[disabled] { opacity: .4; }
+    .hidden { display: none !important; }
+  </style>
 </head>
 <!-- Chromeless full-screen layout for the till (no header/sidebar) so the kiosk fills the screen. -->
-<body class="min-h-screen bg-gray-50 text-gray-900">
-  <div class="max-w-6xl mx-auto px-4 py-4">
+<body>
+  <div class="wrap">
     {% if messages %}
       {% for m in messages %}
-        <p class="card {% if m.tags == 'error' %}border-red-400{% else %}border-emerald-400{% endif %}">{{ m }}</p>
+        <p class="banner {% if m.tags == 'error' %}banner--error{% endif %}">{{ m }}</p>
       {% endfor %}
     {% endif %}
     {% block content %}{% endblock %}
   </div>
+  {% block script %}{% endblock %}
 </body>
 </html>
