@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% load ui_extras %}
-{% block title %}{{ resident.full_name }} — AK{% endblock %}
+{% block title %}{{ resident.full_name }} - AK{% endblock %}
 {% block content %}
   <h1>{{ resident.full_name }}</h1>
   <p>Saldo: <strong class="{{ balance|sign_class }}">{{ balance }}</strong></p>

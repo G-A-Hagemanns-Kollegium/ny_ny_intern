@@ -164,6 +164,12 @@ OELKAELDER_KIOSK_IPS = [ip for ip in os.environ.get("OELKAELDER_KIOSK_IPS", "").
 # preview container (e.g. http://localhost:8899) during local development.
 WIKI_URL = os.environ.get("WIKI_URL", "/wiki/")
 
+# Where residents report bugs / request features. Defaults to the project's GitHub issue chooser;
+# override FEEDBACK_URL if the repo moves or a different tracker is used.
+FEEDBACK_URL = os.environ.get(
+    "FEEDBACK_URL", "https://github.com/G-A-Hagemanns-Kollegium/ny_ny_intern/issues/new/choose"
+)
+
 # Room-inspection photo uploads (F-005): server-side hard cap. Images are also downscaled client-side
 # before upload, so this is mainly a backstop against oversized/crafted uploads.
 ROOM_PHOTO_MAX_MB = int(os.environ.get("ROOM_PHOTO_MAX_MB", "5"))

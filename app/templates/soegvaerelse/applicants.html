@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% load room_extras %}
-{% block title %}Ansøgere — Værelse {{ offer.room.number }}{% endblock %}
+{% block title %}Ansøgere - Værelse {{ offer.room.number }}{% endblock %}
 {% block content %}
   <h1>Ansøgere til værelse {{ offer.room.number|stringformat:"03d" }} ({{ offer.month|maaned }})</h1>
   <p class="muted mb-3">Rangeret efter K (højest først), derefter ansøgningstidspunkt og prioritet.</p>

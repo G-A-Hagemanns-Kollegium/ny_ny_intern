@@ -44,6 +44,7 @@ def _nav_intern(roles: Collection[str]) -> list[tuple[str, str]]:
         ("/nyintern/oelkaelder/min-saldo", "Ølkælder"),
         ("/nyintern/statistik/", "Statistik"),
         (settings.WIKI_URL, "Wiki"),
+        (settings.FEEDBACK_URL, "Fejl & ønsker"),
     ]
     if "inspektion" in roles:
         items.append(("/nyintern/vaerelsestjek/", "Værelsestjek"))
@@ -51,6 +52,8 @@ def _nav_intern(roles: Collection[str]) -> list[tuple[str, str]]:
         items.append(("/nyintern/ak/admin", "AK-oversigt"))
     if "oelkaelder" in roles:
         items.append(("/nyintern/oelkaelder/admin", "Ølkælder-admin"))
+    if "regnskab" in roles:
+        items.append(("/nyintern/regnskab/", "Regnskab"))
     if "indstilling" in roles:
         items.append(("/nyintern/soegvaerelse/admin", "Værelsesudbud"))
         items.append(("/optagelse/listansoegninger", "Ansøgninger"))

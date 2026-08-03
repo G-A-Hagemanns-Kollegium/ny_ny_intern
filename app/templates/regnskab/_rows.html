@@ -1,0 +1,18 @@
+{% load oel_extras %}
+{% for row in rows %}
+  <tr style="border-bottom:1px solid #f0f1f4">
+    <td>
+      {{ row.resident.full_name }}
+      <br><span class="muted text-xs">{{ row.resident.email }}</span>
+    </td>
+    <td class="whitespace-nowrap">{% if row.room %}{{ row.room|stringformat:"03d" }}{% else %}-{% endif %}</td>
+    <td class="whitespace-nowrap {% if row.ak_krydser < 0 %}text-red-600 font-semibold{% endif %}">
+      {{ row.ak_krydser }} krydser
+    </td>
+    <td class="whitespace-nowrap {% if row.oek_ore < 0 %}text-red-600 font-semibold{% endif %}">
+      {{ row.oek_ore|kr }}
+    </td>
+  </tr>
+{% empty %}
+  <tr><td colspan="4" class="muted">Ingen.</td></tr>
+{% endfor %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Regnskab - GAHK Intern{% endblock %}
+{% block content %}
+  <h1>Regnskab</h1>
+  <p class="muted mb-4">
+    Se hvad en fraflyttet beboer skylder kollegiet. Negative tal er markeret rødt.
+  </p>
+
+  <h2>Fraflyttere</h2>
+  <form method="get" class="flex flex-wrap items-center gap-2 mb-2">
+    <label for="period" class="font-semibold">Måned:</label>
+    <select id="period" name="period" onchange="this.form.submit()" class="w-auto!">
+      {% for p in periods %}
+        <option value="{{ p.value }}" {% if p.selected %}selected{% endif %}>{{ p.label }}</option>
+      {% endfor %}
+    </select>
+    <noscript><button type="submit" class="btn">Vis</button></noscript>
+  </form>
+  <p class="muted text-sm mb-3">Beboere der stod på listen i <strong>{{ prior_label }}</strong> men ikke i <strong>{{ period_label }}</strong>.</p>
+
+  <div class="overflow-x-auto mb-8">
+    <table cellpadding="6" class="text-sm" style="width:100%; border-collapse:collapse">
+      <thead><tr style="text-align:left; border-bottom:1px solid #e6e8ec; white-space:nowrap">
+        <th>Navn</th><th>Værelse ({{ prior_label }})</th><th>AK</th><th>Ølkælder</th>
+      </tr></thead>
+      <tbody>{% include "regnskab/_rows.html" with rows=leavers %}</tbody>
+    </table>
+  </div>
+
+  <h2>Slå en beboer op</h2>
+  <form method="get" class="flex flex-wrap items-center gap-2 mb-3">
+    <input type="hidden" name="period" value="{{ period_value }}">
+    <input type="search" name="q" value="{{ q }}" placeholder="Søg navn eller e-mail…"
+           style="flex:1; min-width:14rem; padding:.5rem">
+    <button type="submit" class="btn">Søg</button>
+  </form>
+
+  {% if q %}
+    <div class="overflow-x-auto">
+      <table cellpadding="6" class="text-sm" style="width:100%; border-collapse:collapse">
+        <thead><tr style="text-align:left; border-bottom:1px solid #e6e8ec; white-space:nowrap">
+          <th>Navn</th><th>Værelse</th><th>AK</th><th>Ølkælder</th>
+        </tr></thead>
+        <tbody>{% include "regnskab/_rows.html" with rows=results %}</tbody>
+      </table>
+    </div>
+  {% endif %}
+{% endblock %}
