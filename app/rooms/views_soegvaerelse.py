@@ -68,7 +68,7 @@ def soeg(request: HttpRequest) -> HttpResponse:
             messages.error(request, "Vælg mindst én prioritet.")
             return render(request, "soegvaerelse/apply.html", ctx)
         if not resident.move_in_date:
-            messages.error(request, "Din indflytningsdato mangler — kontakt indstillingen.")
+            messages.error(request, "Din indflytningsdato mangler - kontakt indstillingen.")
             return render(request, "soegvaerelse/apply.html", ctx)
 
         move_in = month_index(resident.move_in_date.year, resident.move_in_date.month)
@@ -192,5 +192,5 @@ def end_round(request: HttpRequest) -> HttpResponseRedirect:
                 assigned += 1
             KvotientApplication.objects.filter(move_month=month).delete()  # cascades priorities + orlov
             RoomOffer.objects.filter(month=month).delete()
-    messages.success(request, f"Runden er afsluttet — {assigned} værelse(r) tildelt.")
+    messages.success(request, f"Runden er afsluttet. {assigned} værelse(r) tildelt.")
     return redirect("soegvaerelse:admin")

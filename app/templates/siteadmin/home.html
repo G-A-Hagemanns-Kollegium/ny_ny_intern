@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Admin — GAHK{% endblock %}
+{% block title %}Admin - GAHK{% endblock %}
 {% block content %}
   <h1>Administration</h1>
   <div class="card">
     <ul class="list-disc ml-5">
-      <li><a href="{% url 'siteadmin:roles' %}">Roller / embedsgrupper</a> — tildel månedens roller</li>
-      <li><a href="{% url 'siteadmin:preview' %}">Vis siden som rolle</a> — se hvordan siden ser ud for hver embedsgruppe</li>
+      <li><a href="{% url 'siteadmin:roles' %}">Roller / embedsgrupper</a> - tildel månedens roller</li>
+      <li><a href="{% url 'siteadmin:preview' %}">Vis siden som rolle</a> -se hvordan siden ser ud for hver embedsgruppe</li>
       <li><a href="/optagelse/listansoegninger">Ansøgninger</a></li>
       <li><a href="/nyintern/statistik/">Statistik</a></li>
       <li><a href="/django-admin/">Django admin</a> (avanceret)</li>

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ app.full_name }} — Ansøgning{% endblock %}
+{% block title %}{{ app.full_name }} - Ansøgning{% endblock %}
 {% block content %}
   <h1>{{ app.full_name }}</h1>
   <p class="muted">{{ app.get_type_display }} · {{ app.submitted_at|date:"Y-m-d H:i" }}</p>
