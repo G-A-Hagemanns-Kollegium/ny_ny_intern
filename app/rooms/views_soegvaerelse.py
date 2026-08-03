@@ -16,7 +16,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from core.models import Room
-from residents.models import Residency, next_period
+from residents.models import Residency, RoleAssignment, next_period, prev_period
 from residents.permissions import current_resident, request_has_role, role_required
 
 from .kvotient import compute_k, month_choices, month_index, month_label
@@ -172,11 +172,39 @@ def close_offer(request: HttpRequest, offer_id: int) -> HttpResponseRedirect:
     return redirect("soegvaerelse:admin")
 
 
+def _carry_roster_forward(sy: int, sm: int, ty: int, tm: int) -> None:
+    """Copy every resident on the (sy, sm) list who is not already on (ty, tm) forward — same room,
+    embedsgruppe, rengøring and roles. Non-destructive: residents already on the target list (e.g. an
+    already-copied next-month list) are left untouched."""
+    existing = set(Residency.objects.filter(year=ty, month=tm).values_list("resident_id", flat=True))
+    for r in Residency.objects.filter(year=sy, month=sm):
+        if r.resident_id in existing:
+            continue
+        Residency.objects.create(
+            resident_id=r.resident_id,
+            room_id=r.room_id,
+            workgroup_id=r.workgroup_id,
+            cleaning_id=r.cleaning_id,
+            year=ty,
+            month=tm,
+        )
+        for ra in RoleAssignment.objects.filter(resident_id=r.resident_id, year=sy, month=sm):
+            RoleAssignment.objects.get_or_create(resident_id=r.resident_id, role=ra.role, year=ty, month=tm)
+        existing.add(r.resident_id)
+
+
 @require_POST
 @role_required("indstilling")
 def end_round(request: HttpRequest) -> HttpResponseRedirect:
-    """Finish the round: allocate every offered room to its winner (highest-K, global greedy), move
-    each winner into that room on the target month's list (Residency), then clear the round."""
+    """Finish the round: carry the current roster forward to each offered month, then move every
+    winner (highest-K, global greedy) into their won room, then clear the round.
+
+    The carry-forward is essential. An offer's month is (typically) next month; when that month
+    becomes current, active_period() switches to it. If end_round wrote *only* the winners, every
+    resident who was not in the round would vanish from the list. So we first copy everyone who isn't
+    already on the target list forward (rooms, groups and roles), then place the winners on top. A
+    winner moving into a room still shown as occupied by its previous (departing) resident surfaces as
+    a room clash in the next-month editor, where indstilling removes the leaver as usual."""
     months = set(RoomOffer.objects.values_list("month", flat=True))
     if not months:
         messages.error(request, "Ingen aktive tilbud at afslutte.")
@@ -184,10 +212,13 @@ def end_round(request: HttpRequest) -> HttpResponseRedirect:
     assigned = 0
     with transaction.atomic():
         for month in months:
-            year, month0 = divmod(month, 12)  # inverse of month_index -> (year, month-1)
+            year, month0 = divmod(month, 12)  # inverse of month_index -> target (year, month)
+            target_month = month0 + 1
+            sy, sm = prev_period((year, target_month))  # the roster that carries forward
+            _carry_roster_forward(sy, sm, year, target_month)
             for room_id, app in allocate_round(month).items():
                 Residency.objects.update_or_create(
-                    resident_id=app.resident_id, year=year, month=month0 + 1, defaults={"room_id": room_id}
+                    resident_id=app.resident_id, year=year, month=target_month, defaults={"room_id": room_id}
                 )
                 assigned += 1
             KvotientApplication.objects.filter(move_month=month).delete()  # cascades priorities + orlov
