@@ -47,7 +47,8 @@
         {% if user.is_authenticated %}
           <span class="uppercase text-[11px] tracking-wide text-gray-400 mt-1 mb-1">Intern</span>
           {% for url, label in nav_intern %}
-            <a href="{{ url }}" class="px-2 py-1.5 rounded text-gray-700 no-underline hover:bg-gray-100">{{ label }}</a>
+            <a href="{{ url }}"{% if '://' in url %} target="_blank" rel="noopener"{% endif %}
+               class="px-2 py-1.5 rounded text-gray-700 no-underline hover:bg-gray-100">{{ label }}</a>
           {% endfor %}
         {% endif %}
       </nav>
