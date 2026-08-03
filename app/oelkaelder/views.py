@@ -1,6 +1,7 @@
 """Ølkælder views (F-003). Kiosk (LAN-IP gated, no login) for the till; member balance view;
 ølkælder-admin screens for deposits/balances."""
 
+import json
 from datetime import datetime
 from typing import TypedDict
 
@@ -53,16 +54,14 @@ def purchase(request: HttpRequest) -> HttpResponseRedirect:
     if not _is_kiosk(request):
         raise PermissionDenied
     shopper_ids = [int(x) for x in request.POST.getlist("shopper")]
-    quantities = {}
-    for p in Product.objects.filter(active=True):
-        q = request.POST.get(f"qty_{p.id}", "")
-        if q.isdigit() and int(q) > 0:
-            quantities[p.id] = int(q)
     try:
-        txn = record_purchase(shopper_ids, quantities)
+        lines = json.loads(request.POST.get("basket", "[]"))
+        if not isinstance(lines, list):
+            raise ValueError("Ugyldig kurv.")
+        txn = record_purchase(shopper_ids, lines)
         messages.success(request, f"Køb registreret (#{txn.id}).")
-    except ValueError as e:
-        messages.error(request, str(e))
+    except (ValueError, KeyError, TypeError, json.JSONDecodeError, Product.DoesNotExist) as e:
+        messages.error(request, str(e) or "Ugyldigt køb.")
     return redirect("oelkaelder:shop")
 
 

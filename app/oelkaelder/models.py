@@ -26,6 +26,30 @@ class Product(models.Model):  # intern_oelkaelder_product
     def __str__(self) -> str:
         return self.name
 
+    def price_steps_ore(self) -> list[int]:
+        """Normalize `price_steps` to a list of øre ints. Legacy stored it as a `"50;100;500;1000"`
+        string; the JSONField may hold that string or an actual list."""
+        raw = self.price_steps
+        if not raw:
+            return []
+        parts = raw.replace(",", ";").split(";") if isinstance(raw, str) else list(raw)
+        out: list[int] = []
+        for p in parts:
+            try:
+                out.append(int(p))
+            except (TypeError, ValueError):
+                continue
+        return out
+
+    @property
+    def pricing_mode(self) -> str:
+        """`step` (betalingshop, 4 price quadrants) > `weight` (per-gram) > `fixed` (single price)."""
+        if self.price_steps_ore():
+            return "step"
+        if self.weight_price_ore:
+            return "weight"
+        return "fixed"
+
 
 class Shopper(models.Model):  # intern_shopper (+ intern_oelkaelder_saldo.active)
     resident = models.ForeignKey(

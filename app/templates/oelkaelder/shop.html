@@ -1,235 +1,311 @@
 {% extends "kiosk_base.html" %}
-{% load oel_extras %}
-{% block title %}Ølkælderen - Tillen{% endblock %}
+{% load static oel_extras %}
+{% block title %}Ølkælder - digital stregliste{% endblock %}
 {% block content %}
   {% comment %}
-    Tiles are server-rendered (no client templating): the till's iPad runs iOS 10.3, so the page must
-    work with plain HTML + ES5. The inline script below only enhances these nodes (cart, totals).
+    Faithful reproduction of the legacy Angular till (legacy_site/public/misc/oel/). Server-rendered DOM
+    + inline ES5 (no Alpine/Tailwind) so it runs on the till's iOS 10.3 iPad. Prices are recomputed
+    server-side in the purchase view; the client only sends product ids, modes and quantities.
   {% endcomment %}
-  <h1>Ølkælderen</h1>
-  <div class="cols">
-  {% comment %}
-    Tiles are server-rendered (no client templating): the till's iPad runs iOS 10.3, so the page must
-    work with plain HTML + ES5. The inline script below only enhances these nodes (cart, totals).
-  {% endcomment %}
-  <h1>Ølkælderen</h1>
-  <div class="cols">
 
-    <!-- Varer: tap a tile to add one; steppers adjust -->
-    <section class="col col-products">
-      <h2>Varer</h2>
-      <div class="scroll scroll-products">
-        <div class="tiles" id="products">
-          {% for p in products %}
-            <div class="tile tile-product" data-id="{{ p.pk }}" data-price="{{ p.price_ore }}">
-              <span class="badge hidden" data-badge>0</span>
-              {% if p.image %}<img src="{{ p.image.url }}" alt="">{% endif %}
-              <span class="tile-name">{{ p.name }}</span>
-              <span class="tile-price">{{ p.price_ore|kr }}</span>
-              <div class="stepper">
-                <button type="button" class="btn-step" data-sub>&minus;</button>
-                <span class="qty" data-qty>0</span>
-                <button type="button" class="btn-step btn-step--add" data-add>+</button>
-    <!-- Varer: tap a tile to add one; steppers adjust -->
-    <section class="col col-products">
-      <h2>Varer</h2>
-      <div class="scroll scroll-products">
-        <div class="tiles" id="products">
-          {% for p in products %}
-            <div class="tile tile-product" data-id="{{ p.pk }}" data-price="{{ p.price_ore }}">
-              <span class="badge hidden" data-badge>0</span>
-              {% if p.image %}<img src="{{ p.image.url }}" alt="">{% endif %}
-              <span class="tile-name">{{ p.name }}</span>
-              <span class="tile-price">{{ p.price_ore|kr }}</span>
-              <div class="stepper">
-                <button type="button" class="btn-step" data-sub>&minus;</button>
-                <span class="qty" data-qty>0</span>
-                <button type="button" class="btn-step btn-step--add" data-add>+</button>
+  <!-- LEFT: product grid -->
+  <article>
+    <ul id="product-item-list">
+      {% for p in products %}
+        <li class="product" data-id="{{ p.pk }}" data-mode="{{ p.pricing_mode }}"
+            data-price="{{ p.price_ore }}" data-weight="{{ p.weight_price_ore|default:0 }}"
+            data-name="{{ p.name }}">
+          {% if p.image %}
+            <img src="{{ p.image.url }}" alt="{{ p.name }}">
+          {% else %}
+            <img src="{% static 'legacy/image/elements/lamassu.svg' %}" alt="">
+          {% endif %}
+          {% if p.pricing_mode == 'step' %}
+            {% for step in p.price_steps_ore %}
+              <div class="quad quad{{ forloop.counter }}" data-step="{{ step }}">
+                <span class="number">{{ step|kr }}</span>
               </div>
-            </div>
-          {% endfor %}
-        </div>
-      </div>
-    </section>
-          {% endfor %}
-        </div>
-      </div>
-    </section>
+            {% endfor %}
+            <div class="produktnavn">{{ p.name }}</div>
+          {% else %}
+            <div class="produktoverlay hidden" data-overlay>0</div>
+            <div class="produktnavn">{{ p.name }}</div>
+            <span class="pris">
+              {% if p.pricing_mode == 'weight' %}{{ p.weight_price_ore|kr }}/100g{% else %}{{ p.price_ore|kr }}{% endif %}
+            </span>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  </article>
 
-    <!-- Købere + kurv -->
-    <section class="col col-cart">
-      <h2>Hvem køber? <span class="muted sub">(deles ligeligt)</span></h2>
-      <input type="search" class="search" id="filter" placeholder="Søg navn eller nr…" autocomplete="off">
-      <div class="scroll scroll-shoppers">
-        <div class="tiles" id="shoppers">
-          {% for s in shoppers %}
-            <button type="button" class="tile tile-shopper"
-                    data-id="{{ s.pk }}" data-rid="{{ s.resident_id }}"
-                    data-name="{{ s.resident.full_name|lower }}">
-              <span class="tile-name">{{ s.resident.full_name }}</span>
-              <span class="tile-rid">#{{ s.resident_id }}</span>
-    <!-- Købere + kurv -->
-    <section class="col col-cart">
-      <h2>Hvem køber? <span class="muted sub">(deles ligeligt)</span></h2>
-      <input type="search" class="search" id="filter" placeholder="Søg navn eller nr…" autocomplete="off">
-      <div class="scroll scroll-shoppers">
-        <div class="tiles" id="shoppers">
-          {% for s in shoppers %}
-            <button type="button" class="tile tile-shopper"
-                    data-id="{{ s.pk }}" data-rid="{{ s.resident_id }}"
-                    data-name="{{ s.resident.full_name|lower }}">
-              <span class="tile-name">{{ s.resident.full_name }}</span>
-              <span class="tile-rid">#{{ s.resident_id }}</span>
-            </button>
-          {% endfor %}
-          {% endfor %}
-        </div>
-      </div>
+  <!-- RIGHT: rail -->
+  <aside class="rail">
+    <div class="logo"><img src="{% static 'legacy/image/elements/logo.png' %}" alt="GAHK"></div>
 
-      <div class="card">
-        <div class="row row-total"><span>I alt</span><strong id="total">0,00 kr</strong></div>
-        <div class="row row-split hidden" id="split-row">
-          <span id="split-label">Pr. person</span><span id="split">0,00 kr</span>
-        </div>
-        <form method="post" action="{% url 'oelkaelder:purchase' %}" id="buy-form">
-          {% csrf_token %}
-          <div id="hidden-fields"></div>
-          <button type="submit" class="btn-buy" id="buy" disabled>Vælg vare og køber</button>
-        </form>
-      </div>
-    </section>
+    <div class="basket">Dine indtastninger:</div>
+    <ul id="basket-list"></ul>
+    <div id="total">Total 0,00 kr</div>
+    <div id="buttonCheckOut" class="disabled">Check ud</div>
+
+    <div class="medlem">
+      Check ud: <span id="shopper-id"></span>
+      <ul id="checkout-nos">
+        <li data-key="1">1</li><li data-key="2">2</li><li data-key="3">3</li>
+        <li data-key="4">4</li><li data-key="5">5</li><li data-key="6">6</li>
+        <li data-key="7">7</li><li data-key="8">8</li><li data-key="9">9</li>
+        <li class="neutral" data-key="del">&#9003;</li><li data-key="0">0</li><li class="neutral" data-key=""></li>
+      </ul>
+    </div>
+
+    <div id="andre"></div>
+  </aside>
+
+  <!-- FULL-SCREEN: active users -->
+  <aside id="alumneliste">
+    <div class="bar">
+      <span class="liste">Aktive brugere</span>
+      <span class="luk" id="closeAlumneliste">&#10005;</span>
+      <span id="confirm-split">Bekræft delt køb (<span id="split-count">0</span>)</span>
+    </div>
+    <p>Vælg køber, eller "fordel på" flere for at dele købet ligeligt.</p>
+    <ul id="alumneliste-checkout">
+      {% for s in shoppers %}
+        <li class="shopper {% if s.balance_ore <= -10000 %}inaktiv{% endif %}"
+            data-id="{{ s.pk }}" data-rid="{{ s.resident_id }}" data-name="{{ s.resident.full_name }}">
+          <div class="alumnumName">{{ s.resident.full_name }} <small>#{{ s.resident_id }}</small></div>
+          <div class="balance">{{ s.balance_ore|kr }}</div>
+          <div class="fordel" data-act="fordel">fordel på</div>
+          <div class="vaelg" data-act="vaelg">vælg</div>
+        </li>
+      {% endfor %}
+    </ul>
+  </aside>
+
+  <!-- confirmation / error modal -->
+  <div id="checkout">
+    <div class="box" id="confirmation">
+      <h1>Tak for din registrering</h1>
+      <h2 id="confirmationname"></h2>
+      <p>Registrerer om <span class="count" id="countdown">5</span> sek.</p>
+      <div class="buttoncheckout" id="fortryd">Fortryd</div>
+      <div class="buttoncheckout" id="godkend">Godkend nu</div>
+    </div>
+    <div class="box" id="wrongnumber">
+      <h1>Forkert nummer</h1>
+      <p>Det indtastede alumne-ID findes ikke. Prøv igen, eller vælg fra listen.</p>
+      <div class="buttoncheckout" id="okwrongnumber">OK</div>
+    </div>
   </div>
+
+  <form method="post" action="{% url 'oelkaelder:purchase' %}" id="buy-form" class="hidden">
+    {% csrf_token %}
+    <div id="hidden-fields"></div>
+  </form>
 {% endblock %}
 
 {% block script %}
 <script>
-/* Ølkælder till — vanilla ES5 (no Alpine/Tailwind) so it runs on the till's iOS 10.3 Safari.
-   Ports the kiosk island from frontend/src/main.ts: cart (id->qty), chosen shoppers, filter, totals. */
+/* Legacy ølkælder till, ported to vanilla ES5 (iOS 10.3 Safari). Mirrors the recovered Angular
+   component: tap products -> basket -> pick buyer(s) via keypad or list -> 5s countdown -> POST. */
 (function () {
-  var productsEl = document.getElementById("products");
-  var shoppersEl = document.getElementById("shoppers");
-  var filterEl = document.getElementById("filter");
-  var totalEl = document.getElementById("total");
-  var splitRow = document.getElementById("split-row");
-  var splitLabel = document.getElementById("split-label");
-  var splitEl = document.getElementById("split");
-  var buyBtn = document.getElementById("buy");
-  var hiddenFields = document.getElementById("hidden-fields");
-  var form = document.getElementById("buy-form");
+  "use strict";
+  var basket = [];   // {productId, name, mode, unitOre, stepOre, qty, grams}
+  var chosen = [];   // {pk, name} selected buyers (>1 = split)
+  var countdownTimer = null, countdownLeft = 5;
 
-  var cart = {};   // productId -> qty
-  var chosen = []; // selected shopper ids
+  var $ = function (id) { return document.getElementById(id); };
+  function kr(ore) { return (Math.round(ore) / 100).toFixed(2).replace(".", ",") + " kr"; }
+  function show(el) { el.classList.add("show"); }
+  function hide(el) { el.classList.remove("show"); }
+  function ancestor(el, cls) {
+    while (el && el.nodeType === 1) { if (el.classList && el.classList.contains(cls)) { return el; } el = el.parentNode; }
+    return null;
+  }
+  function lineOre(it) {
+    if (it.mode === "weight") { return Math.round(it.unitOre * it.grams / 100); }
+    if (it.mode === "step") { return it.stepOre * it.qty; }
+    return it.unitOre * it.qty;
+  }
 
-  function kr(ore) {
-    return (Math.round(ore) / 100).toFixed(2).replace(".", ",") + " kr";
+  // ---- basket ----
+  function addProduct(li, stepOre) {
+    var id = li.getAttribute("data-id"), mode = li.getAttribute("data-mode");
+    if (mode === "weight") {
+      var w = findLine(id, null);
+      if (w) { w.grams += 100; } else {
+        basket.push({ productId: id, name: li.getAttribute("data-name"), mode: "weight",
+                      unitOre: parseInt(li.getAttribute("data-weight"), 10), grams: 100, qty: 0, stepOre: 0 });
+      }
+    } else if (mode === "step") {
+      var s = findLine(id, stepOre);
+      if (s) { s.qty += 1; } else {
+        basket.push({ productId: id, name: li.getAttribute("data-name"), mode: "step",
+                      stepOre: stepOre, qty: 1, unitOre: 0, grams: 0 });
+      }
+    } else {
+      var f = findLine(id, null);
+      if (f) { f.qty += 1; } else {
+        basket.push({ productId: id, name: li.getAttribute("data-name"), mode: "fixed",
+                      unitOre: parseInt(li.getAttribute("data-price"), 10), qty: 1, grams: 0, stepOre: 0 });
+      }
+    }
+    renderBasket();
   }
-  function setText(el, text) {
-    // The server-rendered nodes always have a single text child.
-    if (el.firstChild) { el.firstChild.data = text; } else { el.appendChild(document.createTextNode(text)); }
-  }
-  function ancestorWithAttr(el, attr) {
-    while (el && el.nodeType === 1) {
-      if (el.hasAttribute(attr)) { return el; }
-      el = el.parentNode;
+  function findLine(id, stepOre) {
+    for (var i = 0; i < basket.length; i++) {
+      if (basket[i].productId === id && (stepOre === null || basket[i].stepOre === stepOre)) { return basket[i]; }
     }
     return null;
   }
-  function qtyOf(id) { return cart[id] || 0; }
+  function removeLine(idx) { basket.splice(idx, 1); renderBasket(); }
 
-  function paintProduct(tile) {
-    var id = tile.getAttribute("data-id");
-    var q = qtyOf(id);
-    var badge = tile.querySelector("[data-badge]");
-    setText(tile.querySelector("[data-qty]"), "" + q);
-    setText(badge, "" + q);
-    if (q > 0) { badge.classList.remove("hidden"); tile.classList.add("is-selected"); }
-    else { badge.classList.add("hidden"); tile.classList.remove("is-selected"); }
+  function renderBasket() {
+    var ul = $("basket-list"); ul.innerHTML = ""; var total = 0;
+    for (var i = 0; i < basket.length; i++) {
+      var it = basket[i], lt = lineOre(it); total += lt;
+      var qtyLabel = it.mode === "weight" ? (it.grams + " g") : (it.qty + " x");
+      var li = document.createElement("li");
+      li.innerHTML = '<span class="antal">' + qtyLabel + '</span>' +
+                     '<span class="produkt">' + esc(it.name) + '</span>' +
+                     '<span class="linje-pris">' + kr(lt) + '</span>' +
+                     '<span class="slet" data-idx="' + i + '">slet</span>';
+      ul.appendChild(li);
+    }
+    $("total").firstChild ? ($("total").firstChild.data = "Total " + kr(total)) : ($("total").textContent = "Total " + kr(total));
+    var btn = $("buttonCheckOut");
+    if (total > 0) { btn.classList.remove("disabled"); } else { btn.classList.add("disabled"); }
+    paintOverlays();
   }
-
-  function totalOre() {
-    var tiles = productsEl.querySelectorAll("[data-id]");
-    var sum = 0;
+  function paintOverlays() {
+    var tiles = document.querySelectorAll("#product-item-list .product");
     for (var i = 0; i < tiles.length; i++) {
-      var id = tiles[i].getAttribute("data-id");
-      sum += qtyOf(id) * parseInt(tiles[i].getAttribute("data-price"), 10);
-    }
-    return sum;
-  }
-
-  function refreshTotals() {
-    var total = totalOre();
-    setText(totalEl, kr(total));
-    if (chosen.length > 0) {
-      setText(splitLabel, "Pr. person (" + chosen.length + ")");
-      setText(splitEl, kr(Math.round(total / chosen.length)));
-      splitRow.classList.remove("hidden");
-    } else {
-      splitRow.classList.add("hidden");
-    }
-    var canSubmit = chosen.length > 0 && total > 0;
-    buyBtn.disabled = !canSubmit;
-    setText(buyBtn, canSubmit ? ("Registrér køb - " + kr(total)) : "Vælg vare og køber");
-  }
-
-  // Products: tapping the tile (or +) adds one; − subtracts.
-  productsEl.addEventListener("click", function (e) {
-    var tile = ancestorWithAttr(e.target, "data-id");
-    if (!tile) { return; }
-    var id = tile.getAttribute("data-id");
-    if (ancestorWithAttr(e.target, "data-sub")) {
-      var q = qtyOf(id) - 1;
-      if (q <= 0) { delete cart[id]; } else { cart[id] = q; }
-    } else {
-      cart[id] = qtyOf(id) + 1;
-    }
-    paintProduct(tile);
-    refreshTotals();
-  });
-
-  // Shoppers: toggle selection.
-  shoppersEl.addEventListener("click", function (e) {
-    var tile = ancestorWithAttr(e.target, "data-id");
-    if (!tile) { return; }
-    var id = tile.getAttribute("data-id");
-    var i = chosen.indexOf(id);
-    if (i < 0) { chosen.push(id); tile.classList.add("is-selected"); }
-    else { chosen.splice(i, 1); tile.classList.remove("is-selected"); }
-    refreshTotals();
-  });
-
-  // Filter shoppers by name or resident id.
-  filterEl.addEventListener("input", function () {
-    var f = filterEl.value.toLowerCase().replace(/^\s+|\s+$/g, "");
-    var tiles = shoppersEl.querySelectorAll("[data-id]");
-    for (var i = 0; i < tiles.length; i++) {
-      var name = tiles[i].getAttribute("data-name") || "";
-      var rid = tiles[i].getAttribute("data-rid") || "";
-      if (name.indexOf(f) >= 0 || rid.indexOf(f) >= 0) { tiles[i].classList.remove("hidden"); }
-      else { tiles[i].classList.add("hidden"); }
-    }
-  });
-
-  // Build the POST body `purchase` expects: repeated `shopper` + one `qty_<id>` per chosen product.
-  form.addEventListener("submit", function (e) {
-    if (buyBtn.disabled) { e.preventDefault(); return; }
-    hiddenFields.innerHTML = "";
-    for (var i = 0; i < chosen.length; i++) {
-      hiddenFields.appendChild(makeInput("shopper", chosen[i]));
-    }
-    for (var id in cart) {
-      if (cart.hasOwnProperty(id) && cart[id] > 0) {
-        hiddenFields.appendChild(makeInput("qty_" + id, cart[id]));
+      var ov = tiles[i].querySelector("[data-overlay]");
+      if (!ov) { continue; }
+      var id = tiles[i].getAttribute("data-id"), n = 0;
+      for (var j = 0; j < basket.length; j++) {
+        if (basket[j].productId === id) { n += basket[j].mode === "weight" ? 1 : basket[j].qty; }
       }
+      if (n > 0) { ov.firstChild.data = "" + n; ov.classList.remove("hidden"); }
+      else { ov.classList.add("hidden"); }
+    }
+  }
+  function esc(s) { var d = document.createElement("div"); d.appendChild(document.createTextNode(s)); return d.innerHTML; }
+
+  // ---- product taps ----
+  $("product-item-list").addEventListener("click", function (e) {
+    var li = ancestor(e.target, "product"); if (!li) { return; }
+    var quad = ancestor(e.target, "quad");
+    if (quad) { addProduct(li, parseInt(quad.getAttribute("data-step"), 10)); }
+    else if (li.getAttribute("data-mode") !== "step") { addProduct(li, 0); }
+  });
+  $("basket-list").addEventListener("click", function (e) {
+    if (e.target.classList.contains("slet")) { removeLine(parseInt(e.target.getAttribute("data-idx"), 10)); }
+  });
+
+  // ---- buyer selection ----
+  $("buttonCheckOut").addEventListener("click", function () {
+    if (basket.length === 0) { return; }
+    chosen = []; renderSplit(); show($("alumneliste"));
+  });
+  $("closeAlumneliste").addEventListener("click", function () { hide($("alumneliste")); });
+
+  $("alumneliste-checkout").addEventListener("click", function (e) {
+    var act = e.target.getAttribute("data-act"); if (!act) { return; }
+    var li = ancestor(e.target, "shopper"); if (!li || li.classList.contains("inaktiv")) { return; }
+    var s = { pk: li.getAttribute("data-id"), name: li.getAttribute("data-name") };
+    if (act === "vaelg") { chosen = [s]; goConfirm(); }
+    else { toggleSplit(s, li); }
+  });
+  function toggleSplit(s, li) {
+    var idx = indexOfPk(s.pk);
+    if (idx < 0) { chosen.push(s); li.classList.add("picked"); }
+    else { chosen.splice(idx, 1); li.classList.remove("picked"); }
+    renderSplit();
+  }
+  function indexOfPk(pk) { for (var i = 0; i < chosen.length; i++) { if (chosen[i].pk === pk) { return i; } } return -1; }
+  function renderSplit() {
+    $("split-count").firstChild.data = "" + chosen.length;
+    var cs = $("confirm-split"); if (chosen.length > 0) { show(cs); } else { hide(cs); }
+    var box = $("andre"); box.innerHTML = "";
+    for (var i = 0; i < chosen.length; i++) {
+      var row = document.createElement("div");
+      row.className = "split-line";
+      row.innerHTML = '<span class="alumnenavn">' + esc(chosen[i].name) + '</span>' +
+                      '<span class="fjern" data-pk="' + chosen[i].pk + '">slet</span>';
+      box.appendChild(row);
+    }
+  }
+  $("andre").addEventListener("click", function (e) {
+    if (!e.target.classList.contains("fjern")) { return; }
+    var pk = e.target.getAttribute("data-pk"), idx = indexOfPk(pk);
+    if (idx >= 0) { chosen.splice(idx, 1); }
+    var li = document.querySelector('#alumneliste-checkout li[data-id="' + pk + '"]');
+    if (li) { li.classList.remove("picked"); }
+    renderSplit();
+  });
+  $("confirm-split").addEventListener("click", function () { if (chosen.length > 0) { goConfirm(); } });
+
+  // keypad: 3 digits -> match a shopper by resident id
+  var alumneNumber = "";
+  $("checkout-nos").addEventListener("click", function (e) {
+    var key = e.target.getAttribute("data-key"); if (key === null || key === "") { return; }
+    if (key === "del") { alumneNumber = alumneNumber.slice(0, -1); }
+    else if (alumneNumber.length < 3) { alumneNumber += key; }
+    $("shopper-id").firstChild ? ($("shopper-id").firstChild.data = alumneNumber) : ($("shopper-id").textContent = alumneNumber);
+    if (alumneNumber.length === 3) {
+      if (basket.length === 0) { alumneNumber = ""; $("shopper-id").textContent = ""; return; }
+      var li = document.querySelector('#alumneliste-checkout li[data-rid="' + alumneNumber + '"]');
+      alumneNumber = ""; $("shopper-id").textContent = "";
+      if (li && !li.classList.contains("inaktiv")) {
+        chosen = [{ pk: li.getAttribute("data-id"), name: li.getAttribute("data-name") }]; goConfirm();
+      } else { show($("checkout")); showBox("wrongnumber"); }
     }
   });
 
-  function makeInput(name, value) {
-    var el = document.createElement("input");
-    el.type = "hidden"; el.name = name; el.value = "" + value;
-    return el;
+  // ---- confirmation + countdown ----
+  function showBox(id) {
+    var boxes = document.querySelectorAll("#checkout .box");
+    for (var i = 0; i < boxes.length; i++) { hide(boxes[i]); }
+    show($(id));
   }
+  function goConfirm() {
+    hide($("alumneliste"));
+    $("confirmationname").firstChild ? ($("confirmationname").firstChild.data = chosen.length === 1 ? chosen[0].name : "Delt køb")
+                                     : ($("confirmationname").textContent = chosen.length === 1 ? chosen[0].name : "Delt køb");
+    show($("checkout")); showBox("confirmation");
+    countdownLeft = 5; $("countdown").textContent = "5";
+    countdownTimer = window.setInterval(function () {
+      countdownLeft -= 1;
+      $("countdown").textContent = "" + countdownLeft;
+      if (countdownLeft <= 0) { submitPurchase(); }
+    }, 1000);
+  }
+  function stopCountdown() { if (countdownTimer) { window.clearInterval(countdownTimer); countdownTimer = null; } }
+  $("godkend").addEventListener("click", submitPurchase);
+  $("fortryd").addEventListener("click", function () {
+    stopCountdown(); hide($("checkout")); chosen = []; renderSplit();
+  });
+  $("okwrongnumber").addEventListener("click", function () { hide($("checkout")); });
 
-  refreshTotals();
+  function submitPurchase() {
+    stopCountdown();
+    if (chosen.length === 0 || basket.length === 0) { return; }
+    var hf = $("hidden-fields"); hf.innerHTML = "";
+    for (var i = 0; i < chosen.length; i++) { hf.appendChild(makeInput("shopper", chosen[i].pk)); }
+    var lines = [];
+    for (var j = 0; j < basket.length; j++) {
+      var it = basket[j];
+      if (it.mode === "weight") { lines.push({ product: it.productId, mode: "weight", grams: it.grams }); }
+      else if (it.mode === "step") { lines.push({ product: it.productId, mode: "step", step_ore: it.stepOre, qty: it.qty }); }
+      else { lines.push({ product: it.productId, mode: "fixed", qty: it.qty }); }
+    }
+    hf.appendChild(makeInput("basket", JSON.stringify(lines)));
+    $("buy-form").submit();
+  }
+  function makeInput(name, value) {
+    var el = document.createElement("input"); el.type = "hidden"; el.name = name; el.value = "" + value; return el;
+  }
 })();
 </script>
 {% endblock %}
