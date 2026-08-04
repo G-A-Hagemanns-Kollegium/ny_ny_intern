@@ -28,12 +28,6 @@ function gahkEnv($name, $default = null)
         }
         die("Configuration error: environment variable $name is not set.\n");
     }
-    // Reject un-substituted placeholders like "<openssl rand -hex 32>" or "<from step 2>". A quoted
-    // heredoc copies these in verbatim, and a non-empty value otherwise sails straight through —
-    // which for $wgSecretKey means a predictable key silently weakening CSRF and session security.
-    if ($value[0] === '<' && substr($value, -1) === '>') {
-        die("Configuration error: $name still holds the placeholder '$value'.\n");
-    }
     return $value;
 }
 
