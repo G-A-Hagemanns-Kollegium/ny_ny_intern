@@ -14,3 +14,5 @@ app/static/dist/
 frontend/node_modules/
 
 *.sql
+
+CUTOVER.md
