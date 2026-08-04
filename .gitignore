@@ -14,5 +14,7 @@ app/static/dist/
 frontend/node_modules/
 
 *.sql
+# pg_dump custom-format output (gahk-clean.dump) — the whole clean DB, real resident data.
+*.dump
 
 CUTOVER.md
