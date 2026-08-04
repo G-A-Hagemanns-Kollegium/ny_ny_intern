@@ -374,3 +374,27 @@ def test_public_window_has_no_internal_tools() -> None:
     html = Client().get("/").content.decode()
     for label in ("Alumneliste", "AK-krydser", "Ølkælder-admin"):
         assert label not in html
+
+
+@pytest.mark.django_db
+def test_slashless_legacy_urls_redirect_instead_of_404() -> None:
+    """The catch-all CMS pattern matches slashless paths owned by real apps, which suppresses
+    Django's APPEND_SLASH. Those URLs are live on the PHP site (/optagelse returns 200) and
+    bookmarked by residents (/nyintern), so they must 301 rather than 404 after the cutover."""
+    from cms.models import Page
+
+    c = Client()
+    for path in ("/optagelse", "/nyintern", "/begivenheder"):
+        r = c.get(path)
+        assert r.status_code == 301, f"{path} should redirect, got {r.status_code}"
+        assert r.headers["Location"] == f"{path}/"
+
+    # The query string survives the redirect.
+    r = c.get("/optagelse?type=fremleje")
+    assert r.status_code == 301
+    assert r.headers["Location"] == "/optagelse/?type=fremleje"
+
+    # A real CMS page still renders directly, and a genuinely unknown slug still 404s.
+    Page.objects.create(header="Faciliteter", slug="faciliteter", body="<p>hej</p>")
+    assert c.get("/faciliteter").status_code == 200
+    assert c.get("/findes-ikke").status_code == 404
