@@ -1,5 +1,6 @@
 import csv
 import io
+import logging
 import os
 from datetime import date
 from urllib.parse import urlencode
@@ -31,6 +32,8 @@ from .models import (
     next_period,
 )
 from .permissions import effective_roles, role_required
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -296,28 +299,34 @@ def _pick[T](mapping: dict[int, T], raw: str | None) -> T | None:
     return mapping.get(int(raw)) if raw and raw.isdigit() else None
 
 
-def _send_welcome_email(request: HttpRequest, resident: Resident) -> None:
+def _send_welcome_email(request: HttpRequest, resident: Resident) -> bool:
     """Welcome a newly created resident with a link to set their password (F-014). Best-effort — a
-    mail failure must not undo the creation."""
+    mail failure must not undo the creation — but it is logged and reported, never swallowed: the
+    caller reports delivery to the user, and a wrong DEFAULT_FROM_EMAIL (one.com refuses senders the
+    SMTP account is not an alias of) must not look like success. Returns whether the mail went out."""
     uid = urlsafe_base64_encode(force_bytes(resident.pk))
     token = default_token_generator.make_token(resident)
     set_link = request.build_absolute_uri(
         reverse("password_reset_confirm", kwargs={"uidb64": uid, "token": token})
     )
     reset_link = request.build_absolute_uri(reverse("password_reset"))
-    send_mail(
-        "Velkommen til GAHK Intern",
-        (
-            f"Kære {resident.first_name}\n\n"
-            f"Du er blevet oprettet på GAHKs interne netværk med e-mailen {resident.email}.\n\n"
-            f"Sæt dit kodeord her:\n{set_link}\n\n"
-            f"Hvis linket er udløbet, kan du anmode om et nyt på:\n{reset_link}\n\n"
-            f"Mvh. Indstillingen"
-        ),
-        settings.DEFAULT_FROM_EMAIL,
-        [resident.email],
-        fail_silently=True,
-    )
+    try:
+        send_mail(
+            "Velkommen til GAHK Intern",
+            (
+                f"Kære {resident.first_name}\n\n"
+                f"Du er blevet oprettet på GAHKs interne netværk med e-mailen {resident.email}.\n\n"
+                f"Sæt dit kodeord her:\n{set_link}\n\n"
+                f"Hvis linket er udløbet, kan du anmode om et nyt på:\n{reset_link}\n\n"
+                f"Mvh. Indstillingen"
+            ),
+            settings.DEFAULT_FROM_EMAIL,
+            [resident.email],
+        )
+    except Exception:
+        logger.exception("Failed sending welcome email to resident %s", resident.pk)
+        return False
+    return True
 
 
 def _room_taken(room: Room, year: int, month: int, exclude_resident_id: int | None = None) -> bool:
@@ -474,10 +483,15 @@ def next_month_list(request: HttpRequest) -> HttpResponse | HttpResponseRedirect
                         month=nm,
                     )
                     _sync_month_roles(r.id, wg, ny, nm, False)
-                _send_welcome_email(request, r)
-                messages.success(
-                    request, f"{first} {last} oprettet og tilføjet til {ny}-{nm:02d}. Velkomstmail sendt."
-                )
+                sent = _send_welcome_email(request, r)
+                base = f"{first} {last} oprettet og tilføjet til {ny}-{nm:02d}."
+                messages.success(request, f"{base} Velkomstmail sendt." if sent else base)
+                if not sent:
+                    messages.warning(
+                        request,
+                        "Velkomstmailen kunne ikke sendes — bed dem bruge “glemt kodeord”, "
+                        "og tjek serverloggen.",
+                    )
 
         return redirect("next_month_list")
 

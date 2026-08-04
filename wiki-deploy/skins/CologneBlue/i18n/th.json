@@ -1,0 +1,33 @@
+{
+	"@metadata": {
+		"authors": [
+			"Aefgh39622",
+			"Ans",
+			"Geonuch",
+			"Horus",
+			"Manop",
+			"Octahedron80",
+			"Passawuth"
+		]
+	},
+	"skinname-cologneblue": "น้ำเงินโคโลญจ์",
+	"cologneblue.css": "/* สไตล์ชีตในหน้านี้จะส่งผลแก่ผู้ใช้ที่ใช้สกินโคโลญจ์บลู */",
+	"cologneblue.js": "/* จาวาสคริปต์ใด ๆ ในหน้านี้จะถูกโหลดให้แก่ผู้ใช้ที่ใช้สกินโคโลญจ์บลู */",
+	"cologneblue-desc": "สกินเบา ๆ ด้วยรูปแบบมินิมอล",
+	"qbfind": "ค้นหา",
+	"qbbrowse": "สืบค้น",
+	"qbedit": "แก้ไข",
+	"qbpageoptions": "หน้านี้",
+	"qbmyoptions": "หน้าของฉัน",
+	"faqpage": "Project:คำถามที่พบบ่อย",
+	"editthispage": "แก้ไขหน้านี้",
+	"create-this-page": "สร้างหน้านี้",
+	"deletethispage": "ลบหน้านี้",
+	"undeletethispage": "กู้คืนหน้านี้",
+	"protectthispage": "ป้องกันหน้านี้",
+	"unprotectthispage": "เปลี่ยนการป้องกันหน้านี้",
+	"talkpage": "อภิปรายหน้านี้",
+	"articlepage": "ดูหน้าเนื้อหา",
+	"userpage": "ดูหน้าผู้ใช้",
+	"projectpage": "ดูหน้าโครงการ"
+}

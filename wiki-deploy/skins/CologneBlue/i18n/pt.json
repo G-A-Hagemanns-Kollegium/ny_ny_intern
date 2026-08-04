@@ -1,0 +1,31 @@
+{
+	"@metadata": {
+		"authors": [
+			"GoEThe",
+			"Hamilton Abreu",
+			"Luckas",
+			"Vitorvicentevalente",
+			555
+		]
+	},
+	"skinname-cologneblue": "Azul colonial",
+	"cologneblue.css": "/* Todo o código CSS colocado aqui será carregado para os utilizadores do tema Azul colonial */",
+	"cologneblue.js": "/* Todo o código Javascript colocado aqui será carregado para utilizadores do tema Azul colonial */",
+	"cologneblue-desc": "Um tema leve com formatação mínima",
+	"qbfind": "Procurar",
+	"qbbrowse": "Navegar",
+	"qbedit": "Editar",
+	"qbpageoptions": "Esta página",
+	"qbmyoptions": "As minhas páginas",
+	"faqpage": "Project:FAQ",
+	"editthispage": "Editar esta página",
+	"create-this-page": "Criar esta página",
+	"deletethispage": "Eliminar esta página",
+	"undeletethispage": "Restaurar esta página",
+	"protectthispage": "Proteger esta página",
+	"unprotectthispage": "Alterar a proteção desta página",
+	"talkpage": "Discutir esta página",
+	"articlepage": "Ver página de conteúdo",
+	"userpage": "Ver página de utilizador",
+	"projectpage": "Ver página de projeto"
+}

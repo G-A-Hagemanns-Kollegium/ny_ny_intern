@@ -1,0 +1,24 @@
+{
+	"@metadata": {
+		"authors": [
+			"Harvzsf",
+			"JinJian"
+		]
+	},
+	"qbfind": "Bilnga",
+	"qbbrowse": "Igdalikyat",
+	"qbedit": "Igliwat",
+	"qbpageoptions": "Ini nga pakli",
+	"qbmyoptions": "Akon mga pakli",
+	"faqpage": "Project:AGG",
+	"editthispage": "Igliwat ini nga pakli",
+	"create-this-page": "Himo-a ini nga pakli",
+	"deletethispage": "Para-a ini nga pakli",
+	"undeletethispage": "Igbalik an ini nga pakli nga napara",
+	"protectthispage": "Panalipdi ini nga pakli",
+	"unprotectthispage": "Kuhaa an panalipod hini nga pakli",
+	"talkpage": "Pakighimangraw hiunong hini nga pakli",
+	"articlepage": "Kitaa in may sulod nga pakli",
+	"userpage": "Kitaa in pakli hin gumaramit",
+	"projectpage": "Kitaa in pakli hin proyekto"
+}

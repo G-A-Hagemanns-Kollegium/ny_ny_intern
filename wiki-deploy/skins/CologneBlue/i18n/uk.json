@@ -1,0 +1,34 @@
+{
+	"@metadata": {
+		"authors": [
+			"AS",
+			"Ahonc",
+			"Alex Khimich",
+			"AtUkr",
+			"Dim Grits",
+			"Mykola Swarnyk",
+			"Andriy.v",
+			"DDPAT"
+		]
+	},
+	"skinname-cologneblue": "Кельнське синє",
+	"cologneblue.css": "/* Увесь тут CSS-код буде завантажений для користувачів з налаштованою темою оформлення Кельнське блакитне */",
+	"cologneblue.js": "/* Увесь тут код JavaScript буде завантажений для всіх користувачів, що використовують тему оформлення Кельнське синє */",
+	"cologneblue-desc": "Легка тема оформлення з мінімальними форматуванням.",
+	"qbfind": "Знайти",
+	"qbbrowse": "Переглянути",
+	"qbedit": "Редагувати",
+	"qbpageoptions": "Налаштування сторінки",
+	"qbmyoptions": "Мої сторінки",
+	"faqpage": "Project:Часті питання",
+	"editthispage": "Редагувати цю сторінку",
+	"create-this-page": "Створити цю сторінку",
+	"deletethispage": "Вилучити цю сторінку",
+	"undeletethispage": "Відновити цю сторінку",
+	"protectthispage": "Захистити цю сторінку",
+	"unprotectthispage": "Змінити захист цієї сторінки",
+	"talkpage": "Обговорити цю сторінку",
+	"articlepage": "Переглянути статтю",
+	"userpage": "Переглянути сторінку користувача",
+	"projectpage": "Переглянути сторінку проєкту"
+}

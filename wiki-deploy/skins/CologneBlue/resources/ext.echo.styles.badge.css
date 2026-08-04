@@ -1,0 +1,6 @@
+/* Some basic handling for echo badges */
+#p-personal li#pt-notifications-alert,
+#p-personal li#pt-notifications-notice {
+	display: inline-block;
+	margin: 1em 0.5em 0.25em 0;
+}

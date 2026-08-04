@@ -1,0 +1,24 @@
+{
+	"@metadata": {
+		"authors": [
+			"Ilja.mos",
+			"Mashoi7"
+		]
+	},
+	"qbfind": "Eči",
+	"qbbrowse": "Livua",
+	"qbedit": "Kohendele",
+	"qbpageoptions": "Tämä sivu",
+	"qbmyoptions": "Minun sivut",
+	"faqpage": "Project:PKK",
+	"editthispage": "Kohendele tädä sivuu",
+	"create-this-page": "Luaji tämä sivu",
+	"deletethispage": "Ota tämä sivu iäre",
+	"undeletethispage": "Tuo sivu järilleh",
+	"protectthispage": "Suojua tämä sivu",
+	"unprotectthispage": "Vaihta tämän sivun suojavustu",
+	"talkpage": "Pagize täh sivuh näh",
+	"articlepage": "Ozuta syväindösivu",
+	"userpage": "Ozuta käyttäisivu",
+	"projectpage": "Ozuta projektusivu"
+}

@@ -1,0 +1,28 @@
+{
+	"@metadata": {
+		"authors": [
+			"Pikne",
+			"WikedKentaur"
+		]
+	},
+	"skinname-cologneblue": "Kölni sinine",
+	"cologneblue.css": "/* Siin asuv kaskaadilaadistik laaditakse kõigi Kölni sinise kujunduse kasutajate jaoks. */",
+	"cologneblue.js": "/* Siin asuv JavaScript laaditakse kõigi Kölni sinise kujunduse kasutajate jaoks. */",
+	"cologneblue-desc": "Lihtne minimaalse vormistusega kujundus",
+	"qbfind": "Otsi",
+	"qbbrowse": "Sirvi",
+	"qbedit": "Redigeeri",
+	"qbpageoptions": "Lehekülje suvandid",
+	"qbmyoptions": "Minu leheküljed",
+	"faqpage": "Project:KKK",
+	"editthispage": "Redigeeri seda lehekülge",
+	"create-this-page": "Loo see lehekülg",
+	"deletethispage": "Kustuta see lehekülg",
+	"undeletethispage": "Taasta see lehekülg",
+	"protectthispage": "Kaitse seda lehekülge",
+	"unprotectthispage": "Muuda selle lehekülje kaitset",
+	"talkpage": "Selle lehekülje arutelu",
+	"articlepage": "Vaata sisulehekülge",
+	"userpage": "Vaata kasutajalehekülge",
+	"projectpage": "Vaata projektilehekülge"
+}

@@ -1,0 +1,26 @@
+{
+	"@metadata": {
+		"authors": [
+			"David1010",
+			"Dawid Deutschland",
+			"Kilavagora",
+			"Narazeni"
+		]
+	},
+	"qbfind": "დოგორი",
+	"qbbrowse": "დათვალიერება",
+	"qbedit": "რედაქტირაფა",
+	"qbpageoptions": "თე ხასჷლა",
+	"qbmyoptions": "ჩქიმი ხასჷლეფი",
+	"faqpage": "Project:ხშირი შეკითხვები",
+	"editthispage": "ხასჷლაშ რედაქტირაფა",
+	"create-this-page": "თე ხასჷლაშ გოჭყაფა",
+	"deletethispage": "დოლასი თე ხასჷლა",
+	"undeletethispage": "თე ხასჷლაშ კჷნ ეიონწყუალა",
+	"protectthispage": "ხასილაშ თხილუა",
+	"unprotectthispage": "დოთირე ღე ხასჷლაშ თხილუაშ დონე",
+	"talkpage": "მოჩამილი ხასჷლაშ სხუნუა",
+	"articlepage": "სტატიის ნახვა",
+	"userpage": "მახვარებუშ ხასჷლაშ ძირაფა",
+	"projectpage": "პროექტიშ ხასჷლაშ ძირაფა"
+}

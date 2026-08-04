@@ -1,0 +1,27 @@
+{
+	"@metadata": {
+		"authors": [
+			"Sasan700",
+			"Исмаил Садуев",
+			"Умар"
+		]
+	},
+	"skinname-cologneblue": "Кёльнин сингаттам",
+	"cologneblue-desc": "Минимум форматашца атта тема.",
+	"qbfind": "Лахар",
+	"qbbrowse": "Хьажар",
+	"qbedit": "Нисйе",
+	"qbpageoptions": "АгӀонан гӀирс нисбар",
+	"qbmyoptions": "Хьан нисдарш",
+	"faqpage": "Project:СиХХ",
+	"editthispage": "Нисйе хӀара агӀо",
+	"create-this-page": "Кхолла хӀара агӀо",
+	"deletethispage": "ДӀайаккха хӀара агӀо",
+	"undeletethispage": "ХӀара агӀо меттахӀоттор",
+	"protectthispage": "Ларъе хӀара агӀо",
+	"unprotectthispage": "ХӀокху агӀонан ларйар хийца",
+	"talkpage": "ХӀара агӀо йийцаре йилла",
+	"articlepage": "Хьажа йаззаме",
+	"userpage": "Хьажа декъашхочуьна агӀоне",
+	"projectpage": "Хьажа проектан агӀоне"
+}

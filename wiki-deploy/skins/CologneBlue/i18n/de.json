@@ -1,0 +1,30 @@
+{
+	"@metadata": {
+		"authors": [
+			"Kghbln",
+			"Khaledelmansoury",
+			"Metalhead64",
+			"The Evil IP address"
+		]
+	},
+	"skinname-cologneblue": "Kölnisch Blau",
+	"cologneblue.css": "/* Das folgende CSS wird für Benutzer der Kölnisch-Blau-Benutzeroberfläche geladen. */",
+	"cologneblue.js": "/* Das folgende JavaScript wird für Benutzer der Kölnisch-Blau-Benutzeroberfläche geladen. */",
+	"cologneblue-desc": "Stellt eine minimalistische Benutzeroberfläche bereit",
+	"qbfind": "Finden",
+	"qbbrowse": "Durchsuchen",
+	"qbedit": "Bearbeiten",
+	"qbpageoptions": "Seitenoptionen",
+	"qbmyoptions": "Meine Seiten",
+	"faqpage": "Project:FAQ",
+	"editthispage": "Seite bearbeiten",
+	"create-this-page": "Seite erstellen",
+	"deletethispage": "Diese Seite löschen",
+	"undeletethispage": "Diese Seite wiederherstellen",
+	"protectthispage": "Seite schützen",
+	"unprotectthispage": "Seitenschutz ändern",
+	"talkpage": "Diese Seite diskutieren",
+	"articlepage": "Inhaltsseite anzeigen",
+	"userpage": "Benutzerseite anzeigen",
+	"projectpage": "Projektseite anzeigen"
+}

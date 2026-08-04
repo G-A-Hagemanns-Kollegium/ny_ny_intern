@@ -1,0 +1,28 @@
+{
+	"@metadata": {
+		"authors": [
+			"Dasius",
+			"Euriditi",
+			"GretaDoci",
+			"Kosovastar",
+			"Olsi"
+		]
+	},
+	"skinname-cologneblue": "Kolonjë Blu",
+	"qbfind": "Gjeni",
+	"qbbrowse": "Shfletoni",
+	"qbedit": "Redakto",
+	"qbpageoptions": "Kjo faqe",
+	"qbmyoptions": "Faqet e mia",
+	"faqpage": "Project: Pyetje të shpeshta",
+	"editthispage": "Redakto këtë faqe",
+	"create-this-page": "Krijo këtë faqe",
+	"deletethispage": "Grise këtë faqe",
+	"undeletethispage": "Rikthe faqen",
+	"protectthispage": "Mbroje këtë faqe",
+	"unprotectthispage": "Ndrysho mbrojtjen e kësaj faqeje",
+	"talkpage": "Diskuto rreth kësaj faqeje",
+	"articlepage": "Shiko faqen me përmbajtje",
+	"userpage": "Shfaq faqen e përdoruesit",
+	"projectpage": "Shfaq faqen e projektit"
+}

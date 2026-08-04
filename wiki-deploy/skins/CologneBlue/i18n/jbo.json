@@ -1,0 +1,23 @@
+{
+	"@metadata": {
+		"authors": [
+			"Gleki",
+			"KSFT",
+			"Mankunaku",
+			"OldakQuill"
+		]
+	},
+	"qbfind": "zvasisku",
+	"qbedit": "stika",
+	"qbpageoptions": "ti noi papri",
+	"qbmyoptions": "lo mi papri",
+	"faqpage": "lo proiekto zo'u: lo cafne se retsku",
+	"editthispage": "stika ti noi papri",
+	"create-this-page": "cfagau ti noi papri",
+	"deletethispage": "daspo ti noi papri",
+	"undeletethispage": "to'e vimcu ti noi papri",
+	"protectthispage": "bandu ti noi ckupau",
+	"unprotectthispage": "stika lo nu bandu ti noi papri",
+	"talkpage": "casnu ti noi papri",
+	"userpage": "catlu lo pilno papri"
+}

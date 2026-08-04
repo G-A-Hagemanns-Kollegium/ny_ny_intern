@@ -1,0 +1,12 @@
+{
+	"@metadata": {
+		"authors": [
+			"Jon Harald Søby",
+			"Nlemslu Phlyshi",
+			"Orf3us"
+		]
+	},
+	"action-showrealname": "se virkelige navn",
+	"right-showrealname": "Se virkelige navn i [[Special:ListUsers]]",
+	"sru-realname-desc": "Utvider [[Special:ListUsers]] til å vise hver brukers virkelige navn og/eller annen brukerspesifikk informasjon"
+}

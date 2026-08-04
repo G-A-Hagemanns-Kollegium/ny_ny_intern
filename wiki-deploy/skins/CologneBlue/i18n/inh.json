@@ -1,0 +1,25 @@
+{
+	"@metadata": {
+		"authors": [
+			"Adam-Yourist",
+			"ElizaMag",
+			"Sapral Mikail"
+		]
+	},
+	"qbfind": "Лахар",
+	"qbbrowse": "БIаргтохар",
+	"qbedit": "Нийсде",
+	"qbpageoptions": "ОагIон оттамаш",
+	"qbmyoptions": "Хьа оттамаш",
+	"faqpage": "Project:Каст-кастта телаш дола хаттараш",
+	"editthispage": "Нийсъе ер оагIув",
+	"create-this-page": "Хьакхолла ер оагӀув",
+	"deletethispage": "ДӀаяккха ер оагӀув",
+	"undeletethispage": "Юхаметтаоттае ер оагӀув",
+	"protectthispage": "Лорае ер оагIув",
+	"unprotectthispage": "Ер оагIув лораяр дIахувца",
+	"talkpage": "Ер оагIув ювца оттае",
+	"articlepage": "БIаргтоха оагIонга",
+	"userpage": "Доакъашхочун оагIон бIаргтоха",
+	"projectpage": "Проекта оагIон бIаргтоха"
+}

@@ -1,0 +1,11 @@
+<!--
+     page taken from
+     https://www.mediawiki.org/wiki/Extension:ShowRealUsernames/Upgrading
+-->
+== Upgrading ==
+
+To upgrade, simply install the new version at the place of the old one.
+
+=== From versions before 1.2 ===
+
+Your existing configuration works as before, but you might like to take advantage of the [[{{NAMESPACE}}:{{BASEPAGENAME}}/History#Version 1.2|new features]].

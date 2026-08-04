@@ -1,0 +1,27 @@
+{
+	"@metadata": {
+		"authors": [
+			"Ammartivari",
+			"Bresta",
+			"Cradel",
+			"Dardan"
+		]
+	},
+	"cologneblue.css": "/* CSS i vendosun këtu ka me i prekë shfrytëzuesit e dukjes Cologne Blue */",
+	"cologneblue.js": "/* Çdo JavaScript këtu ka me u ngarkue për shfrytëzuesit që përdorin dukjen Cologne Blue */",
+	"qbfind": "Kërko",
+	"qbbrowse": "Shfleto",
+	"qbedit": "Redakto",
+	"qbpageoptions": "Kjo faqe",
+	"qbmyoptions": "Faqet e mija",
+	"faqpage": "Project:Pyetjet e shpeshta",
+	"editthispage": "Redaktoje kët faqe",
+	"create-this-page": "Krijo kët faqe",
+	"deletethispage": "Fshije kët faqe",
+	"protectthispage": "Mbroje këtë faqe",
+	"unprotectthispage": "Hiq mbrojtjen nga kjo faqe",
+	"talkpage": "Bisedo këtë faqe",
+	"articlepage": "Shiko artikullin",
+	"userpage": "Shiko faqen e përdoruesit",
+	"projectpage": "Shiko faqen e projektit"
+}

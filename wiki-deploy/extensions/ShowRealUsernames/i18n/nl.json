@@ -1,0 +1,11 @@
+{
+	"@metadata": {
+		"authors": [
+			"Mainframe98",
+			"McDutchie"
+		]
+	},
+	"action-showrealname": "de echte namen te zien",
+	"right-showrealname": "De echte namen in [[Special:ListUsers]] zien.",
+	"sru-realname-desc": "Breidt [[Special:ListUsers]] uit zodat ook de echte naam van elke gebruiker en/of andere gebruikersspecifieke informatie wordt getoond"
+}

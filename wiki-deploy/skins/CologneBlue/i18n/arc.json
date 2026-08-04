@@ -1,0 +1,24 @@
+{
+	"@metadata": {
+		"authors": [
+			"334a",
+			"Basharh",
+			"Man2fly2002"
+		]
+	},
+	"qbfind": "ܐܫܟܚ",
+	"qbbrowse": "ܡܦܐܬ",
+	"qbedit": "ܫܚܠܦ",
+	"qbpageoptions": "ܗܕܐ ܦܐܬܐ",
+	"qbmyoptions": "ܦܐܬܬ̈ܐ ܕܝܠܝ",
+	"faqpage": "Project:ܫܘܐܠ̈ܐ ܬܢܝ̈ܐ",
+	"editthispage": "ܫܚܠܦ ܦܐܬܐ ܗܕܐ",
+	"create-this-page": "ܒܪܝ ܗܕܐ ܦܐܬܐ",
+	"deletethispage": "ܫܘܦ ܦܐܬܐ ܗܕܐ",
+	"protectthispage": "ܛܪ ܠܗܕܐ ܦܐܬܐ",
+	"unprotectthispage": "ܫܚܠܦ ܢܛܝܪܘܬܐ ܕܗܕܐ ܦܐܬܐ",
+	"talkpage": "ܕܪܘܫ ܗܕܐ ܦܐܬܐ",
+	"articlepage": "ܚܘܝܝܐ ܕܦܐܬܐ ܕܚܒܝܫܬ̈ܐ",
+	"userpage": "ܚܙܝ ܦܐܬܐ ܕܡܦܠܚܢܐ",
+	"projectpage": "ܚܙܝ ܦܐܬܐ ܕܬܪܡܝܬܐ"
+}

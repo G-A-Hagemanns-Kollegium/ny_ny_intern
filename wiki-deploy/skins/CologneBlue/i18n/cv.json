@@ -1,0 +1,23 @@
+{
+	"@metadata": {
+		"authors": [
+			"Chuvash2014",
+			"PCode"
+		]
+	},
+	"qbfind": "Шырани",
+	"qbbrowse": "Пăх",
+	"qbedit": "Тӳрлет",
+	"qbpageoptions": "Страница ĕнерлевĕсем",
+	"qbmyoptions": "Сирĕн ĕнĕрлевсем",
+	"faqpage": "Project:ЫйХу",
+	"editthispage": "Страницăна тӳрлетесси",
+	"create-this-page": "Ку страницăна хатĕрле",
+	"deletethispage": "Хурат ăна",
+	"protectthispage": "Хӳтĕле",
+	"unprotectthispage": "Хӳтĕлеве пăрахăçла",
+	"talkpage": "Сӳтсе явни",
+	"articlepage": "Статьяна пăх",
+	"userpage": "Хутшăнакан страницине пăх",
+	"projectpage": "Проект страницине пăх"
+}

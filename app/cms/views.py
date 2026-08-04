@@ -5,8 +5,9 @@ with `|safe` in the template. URLs match the legacy slugs (incl. multi-segment) 
 """
 
 from django.db.models import Q
-from django.http import HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.http import Http404, HttpRequest, HttpResponse, HttpResponsePermanentRedirect
+from django.shortcuts import render
+from django.urls import Resolver404, resolve
 from django.utils import timezone
 
 from .models import Event, NewsItem, Page
@@ -77,4 +78,25 @@ def events_news(request: HttpRequest) -> HttpResponse:
 
 
 def page(request: HttpRequest, url_path: str) -> HttpResponse:
-    return _render(request, get_object_or_404(Page, slug=url_path.strip("/")))
+    """Catch-all CMS lookup by slug, with a slash-appending fallback.
+
+    This pattern is last in the URLconf but still matches *slashless* paths owned by a real app -
+    `/optagelse`, `/nyintern`, `/begivenheder`. Because a pattern matched, Django's APPEND_SLASH
+    never fires, so those legacy URLs 404ed instead of redirecting to their real view (the live PHP
+    site served `/optagelse` with a 200, and `/nyintern` is how residents reach the portal). Restore
+    APPEND_SLASH's behaviour for exactly the paths this view swallows: if no CMS page owns the slug
+    but `<path>/` resolves to some *other* view, 301 there.
+    """
+    slug = url_path.strip("/")
+    if found := Page.objects.filter(slug=slug).first():
+        return _render(request, found)
+
+    candidate = f"/{slug}/"
+    try:
+        match = resolve(candidate)
+    except Resolver404:
+        raise Http404(f"No CMS page with slug {slug!r}") from None
+    if match.func is page:  # the catch-all again - genuinely nothing here
+        raise Http404(f"No CMS page with slug {slug!r}")
+    query = request.META.get("QUERY_STRING", "")
+    return HttpResponsePermanentRedirect(f"{candidate}?{query}" if query else candidate)

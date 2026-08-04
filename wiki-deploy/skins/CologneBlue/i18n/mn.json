@@ -1,0 +1,25 @@
+{
+	"@metadata": {
+		"authors": [
+			"Chinneeb",
+			"MongolWiki",
+			"Wisdom"
+		]
+	},
+	"qbfind": "Хайх",
+	"qbbrowse": "Дэлгэх",
+	"qbedit": "Засварлах",
+	"qbpageoptions": "Энэ хуудас",
+	"qbmyoptions": "Миний хуудсууд",
+	"faqpage": "Project:Тогтмол тавигддаг асуултууд",
+	"editthispage": "Энэ хуудсыг засварлах",
+	"create-this-page": "Энэ хуудсыг үүсгэх",
+	"deletethispage": "Энэ хуудсыг устга",
+	"undeletethispage": "Энэ хуудсыг бүү устга",
+	"protectthispage": "Энэ хуудсыг хамгаалах",
+	"unprotectthispage": "Энэ хуудасны хамгаалалтыг солих",
+	"talkpage": "Энэ хуудсын талаар хэлэлцүүлэг явуулах",
+	"articlepage": "Өгүүллийг үзэх",
+	"userpage": "Хэрэглэгчийн хуудсыг үзэх",
+	"projectpage": "Төслийн хуудсыг үзэх"
+}

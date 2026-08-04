@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+			"Xuacu"
+		]
+	},
+	"action-showrealname": "ver nomes reales",
+	"right-showrealname": "Ver los nomes reales en [[Special:ListUsers]]",
+	"sru-realname-desc": "Estende [[Special:ListUsers]] p'amosar tamién el nome real y/o otra información específica de cada usuariu"
+}

@@ -1,0 +1,36 @@
+{
+	"@metadata": {
+		"authors": [
+			"Gomoko",
+			"Grondin",
+			"IAlex",
+			"Linedwell",
+			"Momo50WM",
+			"Od1n",
+			"PieRRoMaN",
+			"Urhixidur",
+			"Verdy p",
+			"Zetud"
+		]
+	},
+	"skinname-cologneblue": "Bleu de Cologne",
+	"cologneblue.css": "/* Tout CSS placé ici sera chargé avec les pages accédées par les utilisateurs de l’habillage Bleu de Cologne */",
+	"cologneblue.js": "/* Tout code JavaScript placé ici sera chargé avec les pages accédées par les utilisateurs de l’habillage Bleu de Cologne */",
+	"cologneblue-desc": "Un habillage léger avec une mise en forme minimale",
+	"qbfind": "Rechercher",
+	"qbbrowse": "Parcourir",
+	"qbedit": "Modifier",
+	"qbpageoptions": "Cette page",
+	"qbmyoptions": "Mes pages",
+	"faqpage": "Project:FAQ",
+	"editthispage": "Modifier cette page",
+	"create-this-page": "Créer cette page",
+	"deletethispage": "Supprimer cette page",
+	"undeletethispage": "Restaurer cette page",
+	"protectthispage": "Protéger cette page",
+	"unprotectthispage": "Changer la protection de cette page",
+	"talkpage": "Discussion sur cette page",
+	"articlepage": "Voir la page de contenu",
+	"userpage": "Voir la page d’utilisateur",
+	"projectpage": "Voir la page du projet"
+}

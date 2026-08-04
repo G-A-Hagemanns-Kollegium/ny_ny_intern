@@ -1,0 +1,29 @@
+{
+	"@metadata": {
+		"authors": [
+			"Don Alessandro",
+			"Himiq Dzyu",
+			"Ерней",
+			"Ильнар",
+			"Умар"
+		]
+	},
+	"skinname-cologneblue": "Зәңгәр сагыш",
+	"cologneblue-desc": "Гади булган күренеш.",
+	"qbfind": "Табу",
+	"qbbrowse": "Карап чыгу",
+	"qbedit": "Үзгәртү",
+	"qbpageoptions": "Бу бит",
+	"qbmyoptions": "Битләрем",
+	"faqpage": "Project:ЕБС",
+	"editthispage": "Бу битне үзгәртү",
+	"create-this-page": "Бу битне төзү",
+	"deletethispage": "Бу битне бетерү",
+	"undeletethispage": "Бу битне кайтару",
+	"protectthispage": "Бу битне яклау",
+	"unprotectthispage": "Бу битнең яклауын үзгәртү",
+	"talkpage": "Бит турында фикер алышу",
+	"articlepage": "Мәкаләне карау",
+	"userpage": "Кулланучы битен карау",
+	"projectpage": "Проект битен карау"
+}

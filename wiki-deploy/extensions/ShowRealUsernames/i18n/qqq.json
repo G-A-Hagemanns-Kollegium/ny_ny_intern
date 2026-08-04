@@ -1,0 +1,13 @@
+{
+	"@metadata": {
+		"authors": [
+			"RV1971",
+			"Umherirrender"
+		]
+	},
+	"action-showrealname": "{{doc-action|showrealname}}\nRight to see real names in [[Special:ListUsers]].",
+	"right-showrealname": "{{doc-right|showrealname}}\nRight to see real names in [[Special:ListUsers]].",
+	"sru-realname-desc": "{{desc}}",
+	"sru-realname-inline": "{{notranslate}}\nHTML code used to format the user data which replaces the user name in [[Special:ListUsers]]. The parameters are replaced with the fields retrieved from the database, by default user_real_name, user_name, user_email.",
+	"sru-realname-append": "{{optional}}\nHTML code used to format the user data which is appended to the user name in [[Special:ListUsers]]. The parameters are replaced with the fields retrieved from the database, by default user_real_name, user_name, user_email."
+}

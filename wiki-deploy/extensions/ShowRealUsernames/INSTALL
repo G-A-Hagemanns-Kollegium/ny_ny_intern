@@ -1,0 +1,7 @@
+<!--
+     page taken from
+     https://www.mediawiki.org/wiki/Extension:ShowRealUsernames/Installation
+-->
+== Installation ==
+
+{{TNT|ExtensionInstall|registration = required}}

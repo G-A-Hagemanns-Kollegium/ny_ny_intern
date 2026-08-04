@@ -1,0 +1,25 @@
+{
+	"@metadata": {
+		"authors": [
+			"Autokrator",
+			"UV"
+		]
+	},
+	"skinname-cologneblue": "Caerulus Colonia",
+	"qbfind": "Invenire",
+	"qbbrowse": "Perspicere",
+	"qbedit": "Recensere",
+	"qbpageoptions": "Optiones paginae",
+	"qbmyoptions": "Paginae meae",
+	"faqpage": "Project:Quaestiones frequentes",
+	"editthispage": "Recensere hanc paginam",
+	"create-this-page": "Creare hanc paginam",
+	"deletethispage": "Delere hanc paginam",
+	"undeletethispage": "Hanc paginam restituere",
+	"protectthispage": "Protegere hanc paginam",
+	"unprotectthispage": "Protectionem huius paginae mutare",
+	"talkpage": "Disputare hanc paginam",
+	"articlepage": "Videre rem",
+	"userpage": "Videre paginam usoris",
+	"projectpage": "Videre consilium"
+}

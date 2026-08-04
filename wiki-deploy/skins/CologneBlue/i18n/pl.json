@@ -1,0 +1,30 @@
+{
+	"@metadata": {
+		"authors": [
+			"Chrumps",
+			"Derbeth",
+			"Devwebtel",
+			"Sp5uhe"
+		]
+	},
+	"skinname-cologneblue": "Błękit",
+	"cologneblue.css": "/* Umieszczony tutaj kod CSS wpłynie na wygląd skórki Błękit */",
+	"cologneblue.js": "/* Umieszczony tutaj kod JavaScript zostanie załadowany wyłącznie przez użytkowników korzystających ze skórki Błękit */",
+	"cologneblue-desc": "Lekka skórka z minimalnym formatowaniem",
+	"qbfind": "Znajdź",
+	"qbbrowse": "Przeglądanie",
+	"qbedit": "Edycja",
+	"qbpageoptions": "Ta strona",
+	"qbmyoptions": "Moje strony",
+	"faqpage": "Project:FAQ",
+	"editthispage": "Edytuj tę stronę",
+	"create-this-page": "Utwórz tę stronę",
+	"deletethispage": "Usuń tę stronę",
+	"undeletethispage": "Przywróć tę stronę",
+	"protectthispage": "Zabezpiecz tę stronę",
+	"unprotectthispage": "Zmień zabezpieczenie strony",
+	"talkpage": "Dyskusja",
+	"articlepage": "Pokaż zawartość strony",
+	"userpage": "Pokaż stronę użytkownika",
+	"projectpage": "Pokaż stronę projektu"
+}

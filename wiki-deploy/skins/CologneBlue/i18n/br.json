@@ -1,0 +1,27 @@
+{
+	"@metadata": {
+		"authors": [
+			"Fulup",
+			"Y-M D"
+		]
+	},
+	"skinname-cologneblue": "Glaz Kologn",
+	"cologneblue.css": "/* Talvezout a raio ar CSS lakaet amañ evit implijerien ar gwiskadur Glaz Kologn */",
+	"cologneblue.js": "/* Kement JavaScript amañ a vo karget evit an implijerien a ra gant ar gwiskadur Glaz Kologn */",
+	"qbfind": "Klask",
+	"qbbrowse": "Furchal",
+	"qbedit": "Kemmañ",
+	"qbpageoptions": "Pajenn an dibaboù",
+	"qbmyoptions": "Ma dibaboù",
+	"faqpage": "Project:FAG",
+	"editthispage": "Kemmañ ar bajenn-mañ",
+	"create-this-page": "Krouiñ ar bajenn-mañ",
+	"deletethispage": "Diverkañ ar bajenn-mañ",
+	"undeletethispage": "Diziverkañ ar bajenn-mañ",
+	"protectthispage": "Gwareziñ ar bajenn-mañ",
+	"unprotectthispage": "Cheñch live gwareziñ ar bajenn-mañ",
+	"talkpage": "Pajenn gaozeal",
+	"articlepage": "Sellet ouzh ar pennad",
+	"userpage": "Pajenn implijer",
+	"projectpage": "Pajenn meta"
+}

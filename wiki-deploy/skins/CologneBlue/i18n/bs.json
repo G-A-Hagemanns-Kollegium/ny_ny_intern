@@ -1,0 +1,31 @@
+{
+	"@metadata": {
+		"authors": [
+			"CERminator",
+			"DzWiki",
+			"Edinwiki",
+			"Kal-El",
+			"Srdjan m"
+		]
+	},
+	"skinname-cologneblue": "Kelnsko plava",
+	"cologneblue.css": "/* CSS umetnut ovdje uticat će na korisnike koji koriste Cologne Blue skin */",
+	"cologneblue.js": "/* Bilo koja JavaScript će biti učitana za sve korisnike koji koriste Cologne Blue skin */",
+	"cologneblue-desc": "Lagahna tema s minimalnim formatiranjem",
+	"qbfind": "Pronađi",
+	"qbbrowse": "Potraži",
+	"qbedit": "Uredi",
+	"qbpageoptions": "Opcije stranice",
+	"qbmyoptions": "Moje opcije",
+	"faqpage": "Project:NPP",
+	"editthispage": "Uredite ovu stranicu",
+	"create-this-page": "Napravi ovu stranicu",
+	"deletethispage": "Obriši ovu stranicu",
+	"undeletethispage": "Povrati ovu stranicu",
+	"protectthispage": "Zaštiti ovu stranicu",
+	"unprotectthispage": "Promijeni zaštitu ove stranice",
+	"talkpage": "Razgovor o stranici",
+	"articlepage": "Pogledaj članak",
+	"userpage": "Pogledaj korisničku stranicu",
+	"projectpage": "Pogledaj stranicu projekta"
+}

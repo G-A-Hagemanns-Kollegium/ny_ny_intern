@@ -1,0 +1,31 @@
+{
+	"@metadata": {
+		"authors": [
+			"Alunardon90",
+			"Candalua",
+			"Conky77",
+			"Fierodelveneto",
+			"Vajotwo"
+		]
+	},
+	"skinname-cologneblue": "Cologne Blue",
+	"cologneblue.css": "/* All CSS here will be loaded for users of the Cologne Blue skin */",
+	"cologneblue.js": "/* All JavaScript here will be loaded for users of the Cologne Blue skin */",
+	"cologneblue-desc": "Tema pejero co formatasion minima",
+	"qbfind": "Cata fora",
+	"qbbrowse": "Sfoja",
+	"qbedit": "Modìfega",
+	"qbpageoptions": "Opsion pàjina",
+	"qbmyoptions": "Łe me pajine",
+	"faqpage": "Project:Domande pì fate",
+	"editthispage": "Canbia sta pàjina",
+	"create-this-page": "Crea sta pàjina",
+	"deletethispage": "Scançeła sta pàjina",
+	"undeletethispage": "Recupara sta pajina",
+	"protectthispage": "Protexi sta pàjina",
+	"unprotectthispage": "Canbia ła protesion de sta pàjina",
+	"talkpage": "Pajina de discusion",
+	"articlepage": "Varda ła voxe",
+	"userpage": "Varda la pàjina utente",
+	"projectpage": "Varda la pajina de projeto"
+}

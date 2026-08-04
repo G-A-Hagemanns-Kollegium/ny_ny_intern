@@ -1,0 +1,20 @@
+{
+	"@metadata": {
+		"authors": [
+			"Slomox",
+			"Wikipeeta"
+		]
+	},
+	"cologneblue.css": "/* CSS opp dise Sted wirtjt opp daut Keloonsch-Blau-Skin */",
+	"cologneblue.js": "/* Daut neachste JavaScript woat fe Brucka mett Keloonsch-Blau-Skin jelode */",
+	"qbfind": "finje",
+	"qbedit": "Endre",
+	"qbpageoptions": "Dise Sied",
+	"qbmyoptions": "Miene Siede",
+	"editthispage": "Endre dise Sied",
+	"create-this-page": "Moak dise Sied",
+	"deletethispage": "Dise Sied lasche",
+	"talkpage": "Beräd de Sied",
+	"userpage": "Brucka-Sied",
+	"projectpage": "Meta-Sied"
+}

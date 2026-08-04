@@ -1,0 +1,28 @@
+{
+	"@metadata": {
+		"authors": [
+			"Ghaly",
+			"Meno25",
+			"Ramsis II"
+		]
+	},
+	"skinname-cologneblue": "كولون بلو",
+	"cologneblue.css": "/* الأنماط المتراصة CSS المعروضة هنا ستؤثر على مستخدمى واجهة كولون بلو */",
+	"cologneblue.js": "/* أى جافاسكريبت هنا ح تتحمل لليوزرز اللى بيستعملو واجهة كولون بلو */",
+	"qbfind": "تدوير",
+	"qbbrowse": "تصفح",
+	"qbedit": "عدل",
+	"qbpageoptions": " الصفحه دى",
+	"qbmyoptions": "صفحاتى",
+	"faqpage": "Project:اسئله بتتسئل كتير",
+	"editthispage": "عدل الصفحه دى",
+	"create-this-page": "اعمل الصفحه دى",
+	"deletethispage": "امسح الصفحه دى",
+	"undeletethispage": "استرجاع الصفحه دى",
+	"protectthispage": "احمى الصفحه دى",
+	"unprotectthispage": "غير حماية الصفحه دى",
+	"talkpage": "ناقش الصفحه دى",
+	"articlepage": "بين صفحة المحتوى",
+	"userpage": "عرض صفحة اليوزر",
+	"projectpage": "عرض صفحة المشروع"
+}

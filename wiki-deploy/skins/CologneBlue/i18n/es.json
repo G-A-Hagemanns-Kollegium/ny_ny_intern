@@ -1,0 +1,37 @@
+{
+	"@metadata": {
+		"authors": [
+			"AlvaroMolina",
+			"Dgstranz",
+			"Fitoschido",
+			"Locos epraix",
+			"Macofe",
+			"MarcoAurelio",
+			"Sanbec",
+			"Spacebirdy",
+			"Themasterriot",
+			"VegaDark",
+			"Vivaelcelta"
+		]
+	},
+	"skinname-cologneblue": "Colonia azul",
+	"cologneblue.css": "/* El CSS colocado en esta página afectará a los usuarios que usen la apariencia Cologne Blue */",
+	"cologneblue.js": "/* Cualquier código JavaScript escrito aquí se cargará para todos los usuarios que usen la apariencia Cologne Blue */",
+	"cologneblue-desc": "Una apariencia ligera con formato minimalista",
+	"qbfind": "Buscar",
+	"qbbrowse": "Navegar",
+	"qbedit": "Editar",
+	"qbpageoptions": "Esta página",
+	"qbmyoptions": "Mis páginas",
+	"faqpage": "Project:Preguntas frecuentes",
+	"editthispage": "Editar esta página",
+	"create-this-page": "Crear esta página",
+	"deletethispage": "Borrar esta página",
+	"undeletethispage": "Restaurar esta página",
+	"protectthispage": "Proteger esta página",
+	"unprotectthispage": "Cambiar la protección de esta página",
+	"talkpage": "Discutir esta página",
+	"articlepage": "Ver artículo",
+	"userpage": "Ver página de usuario",
+	"projectpage": "Ver página del proyecto"
+}

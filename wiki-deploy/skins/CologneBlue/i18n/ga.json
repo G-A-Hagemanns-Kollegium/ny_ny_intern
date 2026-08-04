@@ -1,0 +1,25 @@
+{
+	"@metadata": {
+		"authors": [
+			"Alison",
+			"Kwekubo",
+			"Tem"
+		]
+	},
+	"skinname-cologneblue": "Gorm Köln",
+	"qbfind": "Aimsigh",
+	"qbbrowse": "Brabhsáil",
+	"qbedit": "Cuir in eagar",
+	"qbpageoptions": "An leathanach seo",
+	"qbmyoptions": "Mo chuid leathanaigh",
+	"faqpage": "Project:Ceisteanna_Coiteanta",
+	"editthispage": "Athraigh an lch seo",
+	"create-this-page": "Cruthaigh an lch seo",
+	"deletethispage": "Scrios an lch seo",
+	"protectthispage": "Glasáil an lch seo",
+	"unprotectthispage": "Athraigh an chosaint atá ag an lch seo",
+	"talkpage": "Pléigh an lch seo",
+	"articlepage": "Féach ar an alt",
+	"userpage": "Féach ar lch úsáideora",
+	"projectpage": "Féach ar lch thionscadail"
+}

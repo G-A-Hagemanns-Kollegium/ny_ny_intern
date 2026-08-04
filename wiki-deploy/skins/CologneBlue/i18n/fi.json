@@ -1,0 +1,34 @@
+{
+	"@metadata": {
+		"authors": [
+			"Crt",
+			"McSalama",
+			"Nedergard",
+			"Nike",
+			"Pxos",
+			"Pyscowicz",
+			"Stryn",
+			"Markus Mikkonen"
+		]
+	},
+	"skinname-cologneblue": "Kölnin sininen",
+	"cologneblue.css": "/* Tämä sivu sisältää Kölnin sininen -ulkoasua muuttavia tyylejä. */",
+	"cologneblue.js": "/* Tämän sivun JavaScript-koodi liitetään Kölnin sininen -tyyliin */",
+	"cologneblue-desc": "Kevyt ulkoasu minimaalisella muotoilulla",
+	"qbfind": "Etsi",
+	"qbbrowse": "Selaa",
+	"qbedit": "Muokkaa",
+	"qbpageoptions": "Tämä sivu",
+	"qbmyoptions": "Omat sivut",
+	"faqpage": "Project:UKK",
+	"editthispage": "Muokkaa tätä sivua",
+	"create-this-page": "Luo tämä sivu",
+	"deletethispage": "Poista tämä sivu",
+	"undeletethispage": "Palauta tämä sivu",
+	"protectthispage": "Suojaa tämä sivu",
+	"unprotectthispage": "Muuta tämän sivun suojausta",
+	"talkpage": "Keskustele tästä sivusta",
+	"articlepage": "Näytä varsinainen sivu",
+	"userpage": "Näytä käyttäjäsivu",
+	"projectpage": "Näytä projektisivu"
+}

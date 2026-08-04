@@ -1,0 +1,21 @@
+{
+	"@metadata": {
+		"authors": [
+			"Mohau"
+		]
+	},
+	"qbfind": "Humana",
+	"qbbrowse": "Leba",
+	"qbedit": "Fetola",
+	"qbpageoptions": "Letlakala le",
+	"qbmyoptions": "Matlakala a ka",
+	"editthispage": "Fetola letlakala  le",
+	"create-this-page": "Tlhoma letlakala le",
+	"deletethispage": "Phumula letlakala le",
+	"protectthispage": "Lota letlakala le",
+	"unprotectthispage": "Fetola go lota letlakaleng",
+	"talkpage": "Rêrišana ka letlakala le",
+	"articlepage": "Nyakoretša letlakala la mateng",
+	"userpage": "Nyakorela letlakala la mošomiši",
+	"projectpage": "Nyakoretša letlakala la tirotherwa"
+}

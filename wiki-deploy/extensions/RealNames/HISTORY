@@ -1,0 +1,179 @@
+This is the historical changelog for the Realnames extension.
+
+  https://www.mediawiki.org/wiki/Extension:Realnames
+
+See [CHANGELOG](CHANGELOG) for the current releases.
+
+== 0.7.0 (2021-01-11) ==
+Many thanks to @samwilson for providing the PR for this release. I've not been able to test it, but given this is the only new development in years I've gone ahead and merged it.
+
+I believe it is mostly concerned with updating the coding standards and the way the extension is loaded to the latest mediawiki uses.
+
+== 0.6.2 (2019-03-11) ==
+**FEEDBACK NEEDED TO KEEP CONFIGS, SEE NOTE FOR 0.6.0 **
+
+bugfix:
+* fixes #12: fix support for Cyrillic language links (thanks Max Volkov)
+
+note:
+* split out advanced docs from readme.
+
+== 0.6.1 (2019-02-09) ==
+**FEEDBACK NEEDED TO KEEP CONFIGS, SEE NOTE FOR 0.6.0 **
+
+bugfix:
+* incremented version display
+
+== 0.6.0 (2019-02-09) ==
+**FEEDBACK NEEDED TO KEEP CONFIGS, SEE NOTE**
+
+features:
+* to keep custom styles, new configuration settings for two error states had to be added
+* When user has no realname: $wgRealnamesLinkStyleNoRealname, $wgRealnamesBareStyleNoRealname
+* when username and realname are same: $wgRealnamesLinkStyleSameName, $wgRealnamesBareStyleSameName
+
+bugfix:
+* when no realname, display standard format
+
+breaking:
+* removed support for now-archived Extension:Configure
+
+note:
+* this extension may suffer from too many options, especially as a result of supporting custom styles.
+  If you use any option other than $wgRealnamesLinkStyle, I want to hear from you! If I don't hear from
+  anyone I will assume nobody cares about the options, and I can significantly simplify the testing of the
+  extension down to just to one configuration parameter, $wgRealnamesLinkStyle and remove the rest. 
+  
+  email me ofbeaton at gmail dot com
+
+testing:
+* 1.31.1 (LTS)
+
+== 0.5.1 (2019-02-04) ==
+
+bugfix:
+* added PersonalUrls hook to wfLoadExtension method. Does not work with Timeless skin. (thanks <mhausi>)
+
+== 0.5.0 (2019-02-04) ==
+
+features:
+* you can now load extension using wfLoadExtension( 'Realnames' ); 
+
+testing:
+* 1.32.0, 1.31.1 (LTS)
+
+== 0.4.0 (2019-02-03) ==
+
+features:
+* new $wgRealnamesStyles: dash-reverse, paren-append, paren-reverse
+* all $wgRealnamesStyles now include all user text in the link (create custom style to restore previous behaviour)
+* $wgRealnamesLinkStyle now defaults to paren-reverse (was reverse)
+
+bugfix:
+* fix non-english namespace detection missing colon (:) (thanks Koty, 193.190.131.67)
+* fix RecentChanges/AllUsers/etc which added more html to links (thanks Syserr0r)
+
+testing:
+* 1.31.1 (LTS)
+
+== 0.3.2 (2019-01-30) ==
+
+notes:
+* documentation update
+
+== 0.3.1 (2011-12-25) ==
+
+bugfix:
+* custom namespace regex (thanks Cweiske)
+* STRICT error with STATIC (thanks Vgold)
+
+notes:
+* removed contrib-agreement, consensus in discussions indicate it's
+ uneeded to remain BSD in shared environment.
+* some progress is being made into core-features for name display, expect
+ some future version to support things like sorting based on realnames (thanks Daniel Friesen)
+* version 0.3 misreported version as 0.2.1, now 0.3.1 (oops, again)
+
+issues:
+* Consensus is that performance could be an issue using current methods. I am currently working
+ on a 2-pass version of the extension to address these issues that will be released as soon as
+ it is ready.
+
+testing:
+* svn trunk 2011-12-26, stable 1.18.0, 1.17.1, 1.16.5, 1.15.5
+
+== 0.3 (2011-11-05) ==
+
+features:
+* you can opt-out of replacements using $wgRealnamesReplacements (thanks Salquint)
+* we now have smarts in the form of not displaying "Marry - Marry" text
+* you can change "smart" features like above using $wgRealnamesSmart
+
+bugfix:
+* version 0.2 misreported version as 0.1.1, now 0.3
+* now tied into main debugging framework
+* a missing return statement was causing titles in append style to get garbled
+
+notes:
+* switched to a more permissive and correct bsd-2-clause license agreement for commits
+* added more metadata files
+
+issues:
+* I continue to be concerned with performance on large recentchanges/history since my initial
+ post about it on 2011-09-19. After receiving a few code reviews recently (finally!) the main
+ feedback has been that there may indeed be scalability problems with using newFromName. In my
+ original post (see extension talk page) I proposed two solutions, but haven't heard from anyone
+ experiencing problems yet. I think I may implement a two-pass as described in the next feature
+ version, however it will make the code significantly more complex. I'll hold off on extending
+ those two specific pages until it's confirmed a two-pass isn't enough.
+
+testing:
+* svn trunk 2011-11-05, 1.18.0beta1, 1.17.0, 1.16.5, 1.15.5
+
+== 0.2 (2011-09-22) ==
+
+features:
+* replaces username in personnal url bar (where you click login top right vector)
+* allows custom namespace detection $wgRealnamesNamespaces
+* adds support for Extension:Configure (undoc at release)
+
+bugfix:
+* i18n links User: namespaces (thanks Nilsy)
+* support for upcoming 1.18 gendered namespaces
+* title handling for pre 1.16 wiki's
+* custom namespace names
+
+testing:
+* trunk 2011-09-22 stable 1.17.0, 1.16.0, 1.15.5
+
+== 0.1.1 (2011-09-17) ==
+
+bugfix:
+* eliminated use of create_function due speed implications (thanks Dantman)
+* changed user caching to realname cache for a smaller memory footprint (thanks Dantman)
+* moved debug handling into class and uses $wgRequest, can expand later for 1.18+ (thanks Dantman)
+* license change to BSD, cc is not recommended for software (says them) (thanks Dantman)
+* fixed author link (backported to 0.1, thanks Dantman)
+
+issues:
+* It may be that this extension is slow on RecentChanges and History pages. If so,
+  I have a solution, but I'd rather not introduce more code if I don't have to.
+  If you experience noticable slowdowns on these pages please let me know at
+  olivier dot beaton at gmail dot com
+
+== 0.1 (2011-09-17) ==
+
+initial tested pages:
+* Special:ListUsers
+* old and new Special:RecentChanges
+* Special:Search of the User: space
+* History of page
+* Revisions list of page
+* Revision view of page
+* Revision Compare
+* Page header + html title (limited)
+* Should integrate into any page where user links are found
+
+issues:
+* Always destructive of User: text, new config in future release?
+* improve bare detection on users with spaces or underscores in names (article titles and html title)

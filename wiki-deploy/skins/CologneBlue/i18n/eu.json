@@ -1,0 +1,29 @@
+{
+	"@metadata": {
+		"authors": [
+			"Bengoa",
+			"Mikel Ibaiba",
+			"Theklan",
+			"Unai Fdz. de Betoño",
+			"Xabier Armendaritz"
+		]
+	},
+	"skinname-cologneblue": "Cologne Blue",
+	"cologneblue-desc": "Formatu minimalistadun azal arina",
+	"qbfind": "Aurkitu",
+	"qbbrowse": "Arakatu",
+	"qbedit": "Aldatu",
+	"qbpageoptions": "Orrialde hau",
+	"qbmyoptions": "Nire orrialdeak",
+	"faqpage": "Project:Maiz egindako galderak",
+	"editthispage": "Orri hau aldatu",
+	"create-this-page": "Sortu orri hau",
+	"deletethispage": "Ezabatu orri hau",
+	"undeletethispage": "Orrialde hau bergaitu",
+	"protectthispage": "Babestu orri hau",
+	"unprotectthispage": "Orrialde honen babesa aldatu",
+	"talkpage": "Orrialde honi buruz eztabaidatu",
+	"articlepage": "Artikulua ikusi",
+	"userpage": "Lankide orrialdea ikusi",
+	"projectpage": "Proiektuaren orrialdea ikusi"
+}

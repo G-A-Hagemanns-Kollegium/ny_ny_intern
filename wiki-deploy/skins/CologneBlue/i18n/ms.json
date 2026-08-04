@@ -1,0 +1,29 @@
+{
+	"@metadata": {
+		"authors": [
+			"Anakmalaysia",
+			"Aviator",
+			"Pizza1016"
+		]
+	},
+	"skinname-cologneblue": "Cologne Blue",
+	"cologneblue.css": "/* Kod CSS yang terletak di sini akan mempengaruhi pengguna yang memakai rupa Cologne Blue */",
+	"cologneblue.js": "/* Sebarang kod JavaScript di sini akan dimuat oleh sesiapa yang memakai rupa Blue Cologne */",
+	"cologneblue-desc": "Rupa ringan dengan pemformatan minimum",
+	"qbfind": "Cari",
+	"qbbrowse": "Semak imbas",
+	"qbedit": "Sunting",
+	"qbpageoptions": "Laman ini",
+	"qbmyoptions": "Laman-laman saya",
+	"faqpage": "Project:Soalan Lazim",
+	"editthispage": "Sunting laman ini",
+	"create-this-page": "Cipta laman ini",
+	"deletethispage": "Hapuskan laman ini",
+	"undeletethispage": "Nyahhapuskan laman ini",
+	"protectthispage": "Lindungi laman ini",
+	"unprotectthispage": "Ubah tahap perlindungan laman ini",
+	"talkpage": "Bincangkan laman ini",
+	"articlepage": "Lihat laman kandungan",
+	"userpage": "Lihat laman pengguna",
+	"projectpage": "Lihat laman projek"
+}

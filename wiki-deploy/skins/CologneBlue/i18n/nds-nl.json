@@ -1,0 +1,25 @@
+{
+	"@metadata": {
+		"authors": [
+			"Servien"
+		]
+	},
+	"skinname-cologneblue": "Keuls blauw",
+	"cologneblue-desc": "Een lichtgewicht uterlik mid minimale upmaak",
+	"qbfind": "Söken",
+	"qbbrowse": "Bladen",
+	"qbedit": "Bewarken",
+	"qbpageoptions": "Disse syde",
+	"qbmyoptions": "Myn syden",
+	"faqpage": "Project:Vake stelde vrågen",
+	"editthispage": "Disse syde bewarken",
+	"create-this-page": "Disse syde upstellen",
+	"deletethispage": "Disse syde vordsmyten",
+	"undeletethispage": "Syde weaderümmeplaatsen",
+	"protectthispage": "Beveiligen",
+	"unprotectthispage": "Beveiliging van disse syde wysigen",
+	"talkpage": "Oaverlegsyde",
+	"articlepage": "Syde bekyken",
+	"userpage": "Gebrukerssyde bekyken",
+	"projectpage": "Projektsyde bekyken"
+}

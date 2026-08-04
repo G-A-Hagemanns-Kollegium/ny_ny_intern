@@ -1,0 +1,9 @@
+{
+	"@metadata": {
+		"authors": [
+			"Banjo"
+		]
+	},
+	"right-showrealname": "Ver nomes reais en [[Special:ListUsers|Especial:lista de usuarios]]",
+	"sru-realname-desc": "Estende [[Special:ListUsers|Especial:lista de usuarios]] para amosar o nome real de cada usuario e/ou outra información específica de usuario"
+}

@@ -1,0 +1,6 @@
+{
+	"name": "GahkAuthLogin",
+	"AutoloadNamespaces": {
+		"Gahk\\": "src/"
+	}
+}

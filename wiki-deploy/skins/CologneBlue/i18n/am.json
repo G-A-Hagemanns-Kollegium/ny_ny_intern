@@ -1,0 +1,23 @@
+{
+	"@metadata": {
+		"authors": [
+			"Codex Sinaiticus",
+			"Teferra"
+		]
+	},
+	"qbfind": "አግኝ",
+	"qbbrowse": "ቃኝ",
+	"qbedit": "አርም",
+	"qbpageoptions": "ይህ ገጽ",
+	"qbmyoptions": "የኔ ገጾች",
+	"faqpage": "Project:ብጊየጥ",
+	"editthispage": "ይህን ገጽ አርም",
+	"create-this-page": "ይህን ገጽ ለመፍጠር",
+	"deletethispage": "ይህን ገጽ ሰርዝ",
+	"protectthispage": "ይህን ገጽ ለመቆለፍ",
+	"unprotectthispage": "ይህን ገጽ ለመፍታት",
+	"talkpage": "ስለዚሁ ገጽ ለመወያየት",
+	"articlepage": "መጣጥፉን ለማየት",
+	"userpage": "የአባል መኖሪያ ገጽ ለማየት",
+	"projectpage": "ግብራዊ ገጹን ለማየት"
+}

@@ -1,0 +1,23 @@
+{
+	"@metadata": {
+		"authors": [
+			"Jyllanj"
+		]
+	},
+	"qbfind": "Syeg",
+	"qbbrowse": "Djennemsie",
+	"qbedit": "Redigiir",
+	"qbpageoptions": "Instellenge for siid",
+	"qbmyoptions": "Min instellenge",
+	"faqpage": "Project:OSS",
+	"editthispage": "Redigiir siid",
+	"create-this-page": "Oprett siden",
+	"deletethispage": "Slett siid",
+	"undeletethispage": "Djenta siden",
+	"protectthispage": "Beskøtt siid",
+	"unprotectthispage": "Ønda beskøttelsen å siden",
+	"talkpage": "Diskusjon",
+	"articlepage": "Sie artikli",
+	"userpage": "Sie brugesiden",
+	"projectpage": "Sie projektsiden"
+}

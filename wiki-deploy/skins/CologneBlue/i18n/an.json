@@ -1,0 +1,25 @@
+{
+	"@metadata": {
+		"authors": [
+			"Juanpabl"
+		]
+	},
+	"skinname-cologneblue": "Colonia Azul (Cologne Blue)",
+	"cologneblue.css": "/* Os estilos CSS colocaus aquí s'aplicarán ta totz os usuarios que faigan servir l'apariencia Cologne Blue */",
+	"cologneblue.js": "/* Qualsiquier codigo Javascript escrito aquí se cargará ta totz os usuarios que faigan servir l'apariencia Colonia azul */",
+	"qbfind": "Mirar",
+	"qbbrowse": "Navegar",
+	"qbedit": "Editar",
+	"qbpageoptions": "Ista pachina",
+	"qbmyoptions": "Pachinas propias",
+	"faqpage": "Project:Preguntas freqüents",
+	"editthispage": "Editar ista pachina",
+	"create-this-page": "Creyar ista pachina",
+	"deletethispage": "Borrar ista pachina",
+	"protectthispage": "Protecher ista pachina",
+	"unprotectthispage": "Cambiar a protección d'ista pachina",
+	"talkpage": "Descusión d'ista pachina",
+	"articlepage": "Veyer l'articlo",
+	"userpage": "Veyer a pachina d'usuario",
+	"projectpage": "Veyer a pachina d'o prochecto"
+}

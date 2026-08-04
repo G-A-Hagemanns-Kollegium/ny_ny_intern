@@ -1,0 +1,7 @@
+<!--
+     page taken from
+     https://www.mediawiki.org/wiki/Extension:ShowRealUsernames/Usage
+-->
+== Usage ==
+
+This extension operates automatically whenever the [[Special:ListUsers]] page is displayed.

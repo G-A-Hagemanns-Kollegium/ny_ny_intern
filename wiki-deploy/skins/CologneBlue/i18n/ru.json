@@ -1,0 +1,35 @@
+{
+	"@metadata": {
+		"authors": [
+			"Ahonc",
+			"Kaganer",
+			"Lunacy1911",
+			"NBS",
+			"Okras",
+			"Rave",
+			"Александр Сигачёв",
+			"Stjn",
+			"Pacha Tchernof"
+		]
+	},
+	"skinname-cologneblue": "Кёльнский синий",
+	"cologneblue.css": "/* Весь CSS отсюда будет загружен пользователям темы оформления «Кёльнский синий» */",
+	"cologneblue.js": "/* Весь код JavaScript отсюда будет загружаться пользователям темы оформления «Кёльнский синий» */",
+	"cologneblue-desc": "Лёгкая тема оформления с минимальным форматированием.",
+	"qbfind": "Поиск",
+	"qbbrowse": "Просмотреть",
+	"qbedit": "Править",
+	"qbpageoptions": "Настройки страницы",
+	"qbmyoptions": "Ваши настройки",
+	"faqpage": "Project:ЧаВО",
+	"editthispage": "Править эту страницу",
+	"create-this-page": "Создать эту страницу",
+	"deletethispage": "Удалить эту страницу",
+	"undeletethispage": "Восстановить эту страницу",
+	"protectthispage": "Защитить эту страницу",
+	"unprotectthispage": "Изменить защиту этой страницы",
+	"talkpage": "Обсудить эту страницу",
+	"articlepage": "Просмотреть статью",
+	"userpage": "Просмотреть страницу участника",
+	"projectpage": "Просмотреть страницу проекта"
+}
