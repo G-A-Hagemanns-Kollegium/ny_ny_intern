@@ -28,6 +28,12 @@ function gahkEnv($name, $default = null)
         }
         die("Configuration error: environment variable $name is not set.\n");
     }
+    // Reject un-substituted placeholders like "<openssl rand -hex 32>" or "<from step 2>". A quoted
+    // heredoc copies these in verbatim, and a non-empty value otherwise sails straight through —
+    // which for $wgSecretKey means a predictable key silently weakening CSRF and session security.
+    if ($value[0] === '<' && substr($value, -1) === '>') {
+        die("Configuration error: $name still holds the placeholder '$value'.\n");
+    }
     return $value;
 }
 
@@ -38,6 +44,18 @@ $wgSitename = "Gahk Wiki";
 $wgMetaNamespace = "Gahk_Wiki";
 
 $wgScriptPath = "/wiki";
+
+# Coolify/Traefik routes gahk.dk/wiki here with a stripprefix middleware, so Apache receives
+# "/index.php/Forside" while $wgScriptPath is still "/wiki". MediaWiki normally derives the page
+# title by matching REQUEST_URI against $wgScript ("/wiki/index.php") — which no longer matches, so
+# every path-style URL resolved to *no title* and rendered the main page instead. On a private wiki
+# that looks like "Log på nødvendigt" on every link, including the login link, so logging in appeared
+# to do nothing.
+#
+# PATH_INFO is populated correctly ("/Forside"); MediaWiki just ignores it, because $wgUsePathInfo
+# defaults to false under the apache2handler SAPI. Forcing it on makes the incoming title come from
+# PATH_INFO (correct after the strip) while $wgScriptPath keeps outgoing links pointing at /wiki.
+$wgUsePathInfo = true;
 
 ## The protocol and server name to use in fully-qualified URLs
 $wgServer = gahkEnv('MW_SERVER', 'https://gahk.dk');
