@@ -1,0 +1,23 @@
+{
+	"@metadata": {
+		"authors": [
+			"Dani",
+			"Tacsipacsi"
+		]
+	},
+	"qbfind": "Keresés",
+	"qbbrowse": "Böngészés",
+	"qbedit": "Szerkesztés",
+	"qbpageoptions": "Lapbeállítások",
+	"qbmyoptions": "Lapjai",
+	"faqpage": "Project:GyIK",
+	"editthispage": "Lap szerkesztése",
+	"create-this-page": "Oldal létrehozása",
+	"deletethispage": "Lap törlése",
+	"protectthispage": "Lapvédelem",
+	"unprotectthispage": "Védelem módosítása",
+	"talkpage": "A lappal kapcsolatos megbeszélés",
+	"articlepage": "Szócikk megtekintése",
+	"userpage": "Felhasználó lapjának megtekintése",
+	"projectpage": "Projektlap megtekintése"
+}

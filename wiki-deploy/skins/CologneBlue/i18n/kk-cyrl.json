@@ -1,0 +1,28 @@
+{
+	"@metadata": {
+		"authors": [
+			"Arystanbek",
+			"Daniyar",
+			"Kaztrans"
+		]
+	},
+	"skinname-cologneblue": "Көк зеңгірлігі (cologneblue)",
+	"cologneblue.css": "/* Мында орналастырылған CSS тек «Көлн зеңгірлігі» (cologneblue) мәнерін пайдаланушыларына ықпал етеді skin */",
+	"cologneblue.js": "/* Мындағы JavaScript тек «Көлн зеңгірлігі» (cologneblue) мәнерін пайдаланушылар үшін жегіледі */",
+	"qbfind": "Табу",
+	"qbbrowse": "Шолу",
+	"qbedit": "Өңдеу",
+	"qbpageoptions": "Бұл бет",
+	"qbmyoptions": "Беттерім",
+	"faqpage": "Project:Жиі қойылатын сұрақтар",
+	"editthispage": "Бұл бетті өңдеу",
+	"create-this-page": "Осы бетті бастау",
+	"deletethispage": "Бұл бетті жою",
+	"undeletethispage": "Бұл бетті қалпына келтіру",
+	"protectthispage": "Бұл бетті қорғау",
+	"unprotectthispage": "Бұл беттің қорғалуын өзгерту",
+	"talkpage": "Бұл бетті талқылау",
+	"articlepage": "Мәлімет бетін қарау",
+	"userpage": "Қатысушы бетін қарау",
+	"projectpage": "Жоба бетін қарау"
+}

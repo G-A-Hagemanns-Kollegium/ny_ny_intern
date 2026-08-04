@@ -1,0 +1,25 @@
+{
+	"@metadata": {
+		"authors": [
+			"Arnobarnard",
+			"Naudefj"
+		]
+	},
+	"skinname-cologneblue": "Keulen blou",
+	"qbfind": "Vind",
+	"qbbrowse": "Snuffel",
+	"qbedit": "Wysig",
+	"qbpageoptions": "Bladsyopsies",
+	"qbmyoptions": "My bladsye",
+	"faqpage": "Project:GewildeVrae",
+	"editthispage": "Wysig hierdie bladsy",
+	"create-this-page": "Skep hierdie bladsy",
+	"deletethispage": "Skrap die bladsy",
+	"undeletethispage": "Ontskrap die bladsy",
+	"protectthispage": "Beskerm hierdie bladsy",
+	"unprotectthispage": "Wysig beskerming vir die bladsy",
+	"talkpage": "Bespreek hierdie bladsy",
+	"articlepage": "Lees artikel",
+	"userpage": "Lees gebruikersbladsy",
+	"projectpage": "Lees metabladsy"
+}

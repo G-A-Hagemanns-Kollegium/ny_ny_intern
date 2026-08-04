@@ -1,0 +1,29 @@
+{
+	"@metadata": {
+		"authors": [
+			"SPQRobin",
+			"Siebrand",
+			"McDutchie"
+		]
+	},
+	"skinname-cologneblue": "Keuls blauw",
+	"cologneblue.css": "/* Alle hier geplaatste CSS-code wordt geladen voor gebruikers van de vormgeving Keuls blauw */",
+	"cologneblue.js": "/* Alle hier geplaatste JavaScript-code wordt geladen voor gebruikers van de vormgeving Keuls blauw */",
+	"cologneblue-desc": "Een lichtgewicht uiterlijk met minimale opmaak",
+	"qbfind": "Zoeken",
+	"qbbrowse": "Bladeren",
+	"qbedit": "Bewerken",
+	"qbpageoptions": "Deze pagina",
+	"qbmyoptions": "Mijn pagina's",
+	"faqpage": "Project:Veelgestelde vragen",
+	"editthispage": "Deze pagina bewerken",
+	"create-this-page": "Deze pagina aanmaken",
+	"deletethispage": "Deze pagina verwijderen",
+	"undeletethispage": "Pagina terugplaatsen",
+	"protectthispage": "Deze pagina beveiligen",
+	"unprotectthispage": "Beveiliging van deze pagina wijzigen",
+	"talkpage": "Overlegpagina",
+	"articlepage": "Pagina bekijken",
+	"userpage": "Gebruikerspagina bekijken",
+	"projectpage": "Projectpagina bekijken"
+}

@@ -1,0 +1,27 @@
+{
+	"@metadata": {
+		"authors": [
+			"EugeneZelenko",
+			"Red Winged Duck",
+			"Wizardist"
+		]
+	},
+	"skinname-cologneblue": "Кёльнскі смутак",
+	"cologneblue-desc": "Лёгкая тэма афармленьня зь мінімальным фарматаваньнем",
+	"qbfind": "Знайсьці",
+	"qbbrowse": "Праглядзець",
+	"qbedit": "Рэдагаваць",
+	"qbpageoptions": "Гэтая старонка",
+	"qbmyoptions": "Мае старонкі",
+	"faqpage": "Project:Частыя пытаньні",
+	"editthispage": "Рэдагаваць гэтую старонку",
+	"create-this-page": "Стварыць гэтую старонку",
+	"deletethispage": "Выдаліць гэтую старонку",
+	"undeletethispage": "Аднавіць гэту старонку",
+	"protectthispage": "Абараніць гэтую старонку",
+	"unprotectthispage": "Зьмяніць абарону старонкі",
+	"talkpage": "Абмеркаваць гэтую старонку",
+	"articlepage": "Паказаць старонку зьместу",
+	"userpage": "Паказаць старонку ўдзельніка",
+	"projectpage": "Паказаць старонку праекту"
+}

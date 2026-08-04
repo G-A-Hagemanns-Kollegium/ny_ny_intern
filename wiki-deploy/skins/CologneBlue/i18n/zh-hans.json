@@ -1,0 +1,31 @@
+{
+	"@metadata": {
+		"authors": [
+			"Liangent",
+			"Liuxinyu970226",
+			"Xiaomingyan",
+			"Yfdyh000",
+			"FakeGreenHand"
+		]
+	},
+	"skinname-cologneblue": "科隆香水蓝",
+	"cologneblue.css": "/* 这里的任何CSS将为使用科隆香水蓝皮肤的用户加载 */",
+	"cologneblue.js": "/* 这里的任何JavaScript将为使用科隆香水蓝皮肤的用户加载 */",
+	"cologneblue-desc": "使用最少量格式的轻量级皮肤",
+	"qbfind": "查找",
+	"qbbrowse": "浏览",
+	"qbedit": "编辑",
+	"qbpageoptions": "该页面",
+	"qbmyoptions": "我的页面",
+	"faqpage": "Project:常见问题",
+	"editthispage": "编辑本页",
+	"create-this-page": "创建本页",
+	"deletethispage": "删除本页",
+	"undeletethispage": "还原本页",
+	"protectthispage": "保护本页",
+	"unprotectthispage": "更改本页的保护",
+	"talkpage": "讨论本页",
+	"articlepage": "查看内容页面",
+	"userpage": "查看用户页面",
+	"projectpage": "查看项目页面"
+}

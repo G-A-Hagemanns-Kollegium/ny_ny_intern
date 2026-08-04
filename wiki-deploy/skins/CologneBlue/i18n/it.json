@@ -1,0 +1,31 @@
+{
+	"@metadata": {
+		"authors": [
+			"Beta16",
+			"BrokenArrow",
+			"Darth Kule",
+			"FRacco",
+			"Gianfranco",
+			"Urielejh"
+		]
+	},
+	"cologneblue.css": "/* Gli stili CSS inseriti qui si applicano agli utenti che usano il tema Cologne Blue */",
+	"cologneblue.js": "/* Il codice JavaScript inserito qui viene caricato dagli utenti che usano il tema Cologne Blue */",
+	"cologneblue-desc": "Tema leggero con formattazione minima",
+	"qbfind": "Trova",
+	"qbbrowse": "Sfoglia",
+	"qbedit": "Modifica",
+	"qbpageoptions": "Opzioni pagina",
+	"qbmyoptions": "Le mie pagine",
+	"faqpage": "Project:Domande frequenti",
+	"editthispage": "Modifica questa pagina",
+	"create-this-page": "Crea questa pagina",
+	"deletethispage": "Cancella questa pagina",
+	"undeletethispage": "Recupera questa pagina",
+	"protectthispage": "Proteggi questa pagina",
+	"unprotectthispage": "Modifica la protezione di questa pagina",
+	"talkpage": "Pagina di discussione",
+	"articlepage": "Visualizza la voce",
+	"userpage": "Vedi la pagina utente",
+	"projectpage": "Vedi la pagina di servizio"
+}

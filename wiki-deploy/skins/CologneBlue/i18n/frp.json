@@ -1,0 +1,26 @@
+{
+	"@metadata": {
+		"authors": [
+			"ChrisPtDe"
+		]
+	},
+	"skinname-cologneblue": "Blu de Cologne",
+	"cologneblue.css": "/* Lo code CSS betâ ique afècterat los usanciérs de l’habelyâjo « Blu de Cologne ». */",
+	"cologneblue.js": "/* Tot code JavaScript betâ ique serat chargiê per los usanciérs de l’habelyâjo « Blu de Cologne ». */",
+	"qbfind": "Trovar",
+	"qbbrowse": "Fâre dèfelar",
+	"qbedit": "Changiér",
+	"qbpageoptions": "Cela pâge",
+	"qbmyoptions": "Mes pâges",
+	"faqpage": "Project:Quèstions sovent pôses",
+	"editthispage": "Changiér cela pâge",
+	"create-this-page": "Fâre cela pâge",
+	"deletethispage": "Suprimar cela pâge",
+	"undeletethispage": "Refâre cela pâge",
+	"protectthispage": "Protègiér cela pâge",
+	"unprotectthispage": "Changiér la protèccion de cela pâge",
+	"talkpage": "Discussion sur cela pâge",
+	"articlepage": "Vêre la pâge de contegnu",
+	"userpage": "Vêre la pâge utilisator",
+	"projectpage": "Vêre la pâge projèt"
+}

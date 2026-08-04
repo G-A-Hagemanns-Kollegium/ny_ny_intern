@@ -1,0 +1,11 @@
+{
+	"@metadata": {
+		"authors": [
+			"Athena in Wonderland",
+			"Hamilton Abreu"
+		]
+	},
+	"action-showrealname": "ver os nomes reais",
+	"right-showrealname": "Ver os nomes reais na [[Special:ListUsers|lista de utilizadores]]",
+	"sru-realname-desc": "Estende a página [[Special:ListUsers|Especial:ListaUtilizadores]] para mostrar o nome verdadeiro de cada utilizador, ou outras informações específicas do utilizador"
+}

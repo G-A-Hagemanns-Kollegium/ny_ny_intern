@@ -1,0 +1,49 @@
+{
+	"name": "Realnames",
+	"type": "parserhook",
+	"author": ["[https://ofbeaton.com/ Finlay Beaton]", "..."],
+	"version": "0.8.0",
+	"url": "https://www.mediawiki.org/wiki/Extension:Realnames",
+	"description": "Displays a user's real name everywhere",
+	"license-name": "BSD-2-Clause",
+	"requires": {
+		"MediaWiki": ">= 1.31.0"
+	},
+	"config": {
+		"RealnamesLinkStyle": "paren-reverse",
+		"RealnamesLinkStyleBlankName": "standard",
+		"RealnamesLinkStyleSameName": "standard",
+		"RealnamesBareStyle": false,
+		"RealnamesBareStyleBlankName": false,
+		"RealnamesBareStyleSameName": false,
+		"RealnamesBlank": false,
+		"RealnamesReplacements": {
+			"title": true,
+			"subtitle": true,
+			"personnal": true,
+			"body": true
+		},
+		"RealnamesStyles": {
+			"standard": "$1$2$4",
+			"append": "$1$2 [$3]$4",
+			"replace": "$1$3$4",
+			"reverse": "$1$3 [$2]$4",
+			"dash": "$1$2 &ndash; $3$4",
+			"dash-reverse": "$1$3$4 &ndash; $2",
+			"paren-append": "$1$2 ($3)$4",
+			"paren-reverse": "$1$3 ($2)$4"
+		},
+		"RealnamesSmart": {
+			"same": true
+		},
+		"RealnamesNamespaces": {}
+	},
+	"AutoloadClasses": {
+		"MediaWiki\\Extension\\Realnames\\Realnames": "src/Realnames.php"
+	},
+	"Hooks": {
+		"BeforePageDisplay": "\\MediaWiki\\Extension\\Realnames\\Realnames::hookBeforePageDisplay",
+		"PersonalUrls": "\\MediaWiki\\Extension\\Realnames\\Realnames::hookPersonalUrls"
+	},
+	"manifest_version": 1
+}

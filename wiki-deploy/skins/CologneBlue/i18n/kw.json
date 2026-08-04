@@ -1,0 +1,25 @@
+{
+	"@metadata": {
+		"authors": [
+			"Kernoweger",
+			"Kw-Moon",
+			"Nrowe",
+			"GwikorFrank"
+		]
+	},
+	"qbfind": "Kavos",
+	"qbbrowse": "Peuri",
+	"qbedit": "Golegi",
+	"qbpageoptions": "An folen ma",
+	"qbmyoptions": "Ow folennow",
+	"editthispage": "Golegi an folen ma",
+	"create-this-page": "Gwruthyl an folen ma",
+	"deletethispage": "Dilea an folen ma",
+	"undeletethispage": "Andhilea an folen ma",
+	"protectthispage": "Difres an folen ma",
+	"unprotectthispage": "Chanjya difresans an folen ma",
+	"talkpage": "Dadhla an folen ma",
+	"articlepage": "Gweles an folen",
+	"userpage": "Gweles an folen dhevnydhyer",
+	"projectpage": "Gweles folen an ragdres"
+}

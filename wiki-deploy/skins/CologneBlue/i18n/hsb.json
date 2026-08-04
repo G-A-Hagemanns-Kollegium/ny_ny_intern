@@ -1,0 +1,25 @@
+{
+	"@metadata": {
+		"authors": [
+			"Dundak",
+			"Michawiki"
+		]
+	},
+	"skinname-cologneblue": "Kölnjanska módrina",
+	"qbfind": "Namakać",
+	"qbbrowse": "Přepytować",
+	"qbedit": "Wobdźěłać",
+	"qbpageoptions": "Tuta strona",
+	"qbmyoptions": "Moje strony",
+	"faqpage": "Project:Husto stajene prašenja (FAQ)",
+	"editthispage": "Tutu stronu wobdźěłać",
+	"create-this-page": "Stronu wutworić",
+	"deletethispage": "Stronu wušmórnyć",
+	"undeletethispage": "Tutu stronu wobnowić",
+	"protectthispage": "Stronu škitać",
+	"unprotectthispage": "Tutu stronu hižo nješkitać",
+	"talkpage": "Tutu stronu diskutować",
+	"articlepage": "Nastawk",
+	"userpage": "Wužiwarsku stronu pokazać",
+	"projectpage": "Projektowu stronu pokazać"
+}

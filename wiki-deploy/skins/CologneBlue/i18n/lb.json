@@ -1,0 +1,28 @@
+{
+	"@metadata": {
+		"authors": [
+			"Kaffi",
+			"Robby"
+		]
+	},
+	"skinname-cologneblue": "Köln Blo",
+	"cologneblue.css": "/* Dës CSS huet nëmmen Afloss op de Skin ''Köln Blo''  */",
+	"cologneblue.js": "/* All JavaScript hei gëtt gelueden esoubal ee Benotzer d'Ausgesinn Köln Blo benotzt */",
+	"cologneblue-desc": "E liicht Ausgesi mat minimaler Formatéierung",
+	"qbfind": "Fannen",
+	"qbbrowse": "Duerchsichen",
+	"qbedit": "Änneren",
+	"qbpageoptions": "Säitenoptiounen",
+	"qbmyoptions": "Meng Säiten",
+	"faqpage": "Project:FAQ",
+	"editthispage": "Dës Säit änneren",
+	"create-this-page": "Dës Säit uleeën",
+	"deletethispage": "Dës Säit läschen",
+	"undeletethispage": "Dës Säit restauréieren",
+	"protectthispage": "Dës Säit schützen",
+	"unprotectthispage": "D'Spär vun dëser Säit änneren",
+	"talkpage": "Diskussioun",
+	"articlepage": "Säit",
+	"userpage": "Benotzersäit",
+	"projectpage": "Meta-Text"
+}

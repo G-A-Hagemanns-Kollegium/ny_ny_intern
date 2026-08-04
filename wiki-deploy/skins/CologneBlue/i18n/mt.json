@@ -1,0 +1,28 @@
+{
+	"@metadata": {
+		"authors": [
+			"Chrisportelli",
+			"Giangian15",
+			"Roderick Mallia"
+		]
+	},
+	"skinname-cologneblue": "Cologne Blue",
+	"cologneblue.css": "/* CSS li tpoġġa hawnhekk se jaffetwa dawk l-utenti li jagħmlu użu mill-aspett grafiku Cologne Blue */",
+	"cologneblue.js": "/* Kull ''JavaScript'' hawnhekk jiġi mniżżel għal dawk l-utenti li qegħdin jagħmlu użu mill-iskin ''Cologne Blue'' */",
+	"qbfind": "Fittex",
+	"qbbrowse": "Qalleb",
+	"qbedit": "Immodifika",
+	"qbpageoptions": "Din il-paġna",
+	"qbmyoptions": "Il-paġni tiegħi",
+	"faqpage": "Project:FAQ",
+	"editthispage": "Immodifika din il-paġna",
+	"create-this-page": "Oħloq din il-paġna",
+	"deletethispage": "Ħassar din il-paġna",
+	"undeletethispage": "irkupra din il-paġna",
+	"protectthispage": "Ipproteġi din il-paġna",
+	"unprotectthispage": "Biddel il-protezzjoni ta' din il-paġna",
+	"talkpage": "Paġna ta' diskussjoni",
+	"articlepage": "Ara l-artiklu",
+	"userpage": "Ara l-paġna tal-utent",
+	"projectpage": "Ara l-paġna tal-proġett"
+}

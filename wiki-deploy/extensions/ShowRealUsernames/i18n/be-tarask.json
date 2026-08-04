@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+			"Red Winged Duck"
+		]
+	},
+	"action-showrealname": "прагляд сапраўдных імёнаў",
+	"right-showrealname": "Бачыць сапраўдныя імёны ў [[Special:ListUsers]]",
+	"sru-realname-desc": "Пашырае [[Special:ListUsers]], каб таксама паказваць сапраўднае імя кожнага ўдзельніка і/ці іншую дадатковую інфармацыю пра ўдзельнікаў"
+}

@@ -1,0 +1,24 @@
+{
+	"@metadata": {
+		"authors": [
+			"Nertiks",
+			"Peteris",
+			"Tīgelika"
+		]
+	},
+	"qbfind": "Aupallais",
+	"qbbrowse": "Pradirēis",
+	"qbedit": "Redigīs",
+	"qbpageoptions": "Šin pāusan",
+	"qbmyoptions": "Majāi pāusai",
+	"faqpage": "Project:Ukadeznai prasīsenei",
+	"editthispage": "Redigīs šin pāusan",
+	"create-this-page": "Teīkeis stan pāusan",
+	"deletethispage": "Āupausinais šin pāusan",
+	"protectthispage": "Pakūnteis šin pāusan",
+	"unprotectthispage": "Kitawīdintun pakūnsnan šisse pāusas",
+	"talkpage": "Diskusiōni",
+	"articlepage": "Wīdais ēnturas pāusan",
+	"userpage": "Tērpautajas pāusan",
+	"projectpage": "Prōjaktas pāusan"
+}

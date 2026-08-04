@@ -1,0 +1,27 @@
+{
+	"@metadata": {
+		"authors": [
+			"Joetaras"
+		]
+	},
+	"skinname-cologneblue": "Blu Cologne",
+	"cologneblue.css": "/* Tutte le CSS ca stonne aqquà onna essere carecate pe le utinde d'a masckere Blu Cologne */",
+	"cologneblue.js": "/* Tutte le JavaScript ca stonne aqquà onna essere carecate pe le utinde d'a masckere Blu Cologne */",
+	"cologneblue-desc": "'Nu skin leggere cu 'nu picca-picche de formattazzione",
+	"qbfind": "Cirche",
+	"qbbrowse": "Sfoglie",
+	"qbedit": "Cange",
+	"qbpageoptions": "Pàgene currende",
+	"qbmyoptions": "Pàggene mije",
+	"faqpage": "Project:FAQ",
+	"editthispage": "Cange sta pàgene",
+	"create-this-page": "Ccreje 'a pàgene",
+	"deletethispage": "Scangille sta pàgene",
+	"undeletethispage": "Repristine sta pàgene",
+	"protectthispage": "Prutigge sta pàgene",
+	"unprotectthispage": "Cange 'a protezione de sta pàgene",
+	"talkpage": "'Ngazzete pe sta pàgene",
+	"articlepage": "Vide 'a pàgene de le condenute",
+	"userpage": "'Ndruche 'a pàgene de l'utende",
+	"projectpage": "'Ndruche 'a pàgene de le pruggette"
+}

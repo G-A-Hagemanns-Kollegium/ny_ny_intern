@@ -1,0 +1,24 @@
+{
+	"@metadata": {
+		"authors": [
+			"Sayed Muddasir",
+			"Si Gam Acèh"
+		]
+	},
+	"qbfind": "Mita",
+	"qbbrowse": "Lop",
+	"qbedit": "Peusaneut",
+	"qbpageoptions": "Laman nyoe",
+	"qbmyoptions": "Laman lôn",
+	"faqpage": "Project:FAQ",
+	"editthispage": "Peusaneut laman nyoe",
+	"create-this-page": "Peugöt laman nyoë",
+	"deletethispage": "Sampôh laman nyoë",
+	"undeletethispage": "Bèk neusampôh laman nyoë",
+	"protectthispage": "Peulindông laman nyoë",
+	"unprotectthispage": "Gantoë neulindông laman nyoë",
+	"talkpage": "Peugah haba bhah laman nyoë",
+	"articlepage": "Eu asoë laman",
+	"userpage": "Eu laman ureuëng ngui",
+	"projectpage": "Eu laman buët"
+}

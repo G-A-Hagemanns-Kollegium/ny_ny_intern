@@ -1,0 +1,26 @@
+{
+	"@metadata": {
+		"authors": [
+			"Dbc334",
+			"Janezdrilc",
+			"Eleassar"
+		]
+	},
+	"cologneblue-desc": "Lahka preobleka z minimalnim oblikovanjem",
+	"qbfind": "Poišči",
+	"qbbrowse": "Prebrskaj",
+	"qbedit": "Uredi",
+	"qbpageoptions": "Možnosti strani",
+	"qbmyoptions": "Moje strani",
+	"faqpage": "Project:Pogosta vprašanja",
+	"editthispage": "Uredi stran",
+	"create-this-page": "Ustvari stran",
+	"deletethispage": "Izbriši stran",
+	"undeletethispage": "Obnovi stran",
+	"protectthispage": "Zaščiti stran",
+	"unprotectthispage": "Spremeni zaščito strani",
+	"talkpage": "Pogovorite se o strani",
+	"articlepage": "Prikaže članek",
+	"userpage": "Prikaži uporabnikovo stran",
+	"projectpage": "Prikaži projektno stran"
+}

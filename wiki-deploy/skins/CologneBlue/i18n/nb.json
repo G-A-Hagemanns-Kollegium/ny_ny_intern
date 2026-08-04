@@ -1,0 +1,29 @@
+{
+	"@metadata": {
+		"authors": [
+			"Jeblad",
+			"Jon Harald Søby",
+			"Nghtwlkr"
+		]
+	},
+	"skinname-cologneblue": "Kølnerblå",
+	"cologneblue.css": "/* CSS i denne fila vil gjelde alle som bruker drakta Kølnerblå */",
+	"cologneblue.js": "/* Javascript i denne fila vil gjelde for brukere av drakta Kølnerblå */",
+	"cologneblue-desc": "En lettvekterdrakt med minimal formatering",
+	"qbfind": "Finn",
+	"qbbrowse": "Bla gjennom",
+	"qbedit": "Rediger",
+	"qbpageoptions": "Sideinnstillinger",
+	"qbmyoptions": "Egne innstillinger",
+	"faqpage": "Project:Ofte stilte spørsmål",
+	"editthispage": "Rediger siden",
+	"create-this-page": "Opprett denne siden",
+	"deletethispage": "Slett denne siden",
+	"undeletethispage": "Legg tilbake siden",
+	"protectthispage": "Lås siden",
+	"unprotectthispage": "Endre beskyttelsen av denne siden",
+	"talkpage": "Diskuter denne siden",
+	"articlepage": "Vis innholdsside",
+	"userpage": "Vis brukerside",
+	"projectpage": "Vis prosjektside"
+}

@@ -1,0 +1,28 @@
+{
+	"@metadata": {
+		"authors": [
+			"StephDC",
+			"Suchichi02",
+			"Yanteng3"
+		]
+	},
+	"skinname-cologneblue": "馨藍",
+	"cologneblue.css": "/* 此之 CSS 用於馨藍面之簿也 */",
+	"cologneblue.js": "/* 此之JavaScript將載於用馨藍面之簿 */",
+	"qbfind": "尋",
+	"qbbrowse": "覽",
+	"qbedit": "纂",
+	"qbpageoptions": "此頁",
+	"qbmyoptions": "吾好",
+	"faqpage": "Project:頻答問",
+	"editthispage": "纂",
+	"create-this-page": "立",
+	"deletethispage": "刪是頁",
+	"undeletethispage": "反刪此頁",
+	"protectthispage": "緘封",
+	"unprotectthispage": "啟函",
+	"talkpage": "參議此文",
+	"articlepage": "閱內文",
+	"userpage": "簿",
+	"projectpage": "計畫"
+}

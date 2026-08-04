@@ -1,0 +1,30 @@
+{
+	"@metadata": {
+		"authors": [
+			"Danutz",
+			"Firilacroco",
+			"KlaudiuMihaila",
+			"Minisarm",
+			"Wintereu"
+		]
+	},
+	"skinname-cologneblue": "Albastru de Cologne",
+	"cologneblue.css": "/* CSS plasate aici vor afecta utilizatorii stilului Cologne Blue */",
+	"cologneblue-desc": "Un aspect simplu cu o formatare minimă",
+	"qbfind": "Găsește",
+	"qbbrowse": "Răsfoiește",
+	"qbedit": "Modificare",
+	"qbpageoptions": "Această pagină",
+	"qbmyoptions": "Paginile mele",
+	"faqpage": "Project:Întrebări frecvente",
+	"editthispage": "Modificați pagina",
+	"create-this-page": "Creați această pagină",
+	"deletethispage": "Șterge această pagină",
+	"undeletethispage": "Recuperează această pagină",
+	"protectthispage": "Protejați această pagină",
+	"unprotectthispage": "Schimbă nivelul de protejare al acestei pagini",
+	"talkpage": "Discutați despre această pagină",
+	"articlepage": "Vizualizați conținutul paginii",
+	"userpage": "Vizualizați pagina utilizatorului",
+	"projectpage": "Vizualizați pagina proiectului"
+}

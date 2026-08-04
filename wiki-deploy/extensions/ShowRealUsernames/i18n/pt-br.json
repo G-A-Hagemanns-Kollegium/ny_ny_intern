@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+			"Eduardo Addad de Oliveira"
+		]
+	},
+	"action-showrealname": "ver nomes reais",
+	"right-showrealname": "Veja nomes reais em [[Special:ListUsers]]",
+	"sru-realname-desc": "Estende [[Special:ListUsers]] para mostrar também o nome real de cada usuário e/ou outras informações específicas do usuário"
+}

@@ -1,0 +1,27 @@
+{
+	"@metadata": {
+		"authors": [
+			"McDutchie"
+		]
+	},
+	"skinname-cologneblue": "Colonia Blau",
+	"cologneblue.css": "/* Tote CSS hic essera cargate pro le usatores del apparentia Colonia Blau */",
+	"cologneblue.js": "/* Tote JavaScript hic essera cargate pro le usatores del apparentia Colonia Blau */",
+	"cologneblue-desc": "Apparentia legier e minimalista",
+	"qbfind": "Cercar",
+	"qbbrowse": "Foliar",
+	"qbedit": "Modificar",
+	"qbpageoptions": "Iste pagina",
+	"qbmyoptions": "Mi paginas",
+	"faqpage": "Project:FAQ",
+	"editthispage": "Modificar iste pagina",
+	"create-this-page": "Crear iste pagina",
+	"deletethispage": "Deler iste pagina",
+	"undeletethispage": "Restaurar iste pagina",
+	"protectthispage": "Proteger iste pagina",
+	"unprotectthispage": "Cambiar le protection de iste pagina",
+	"talkpage": "Discuter iste pagina",
+	"articlepage": "Vider pagina de contento",
+	"userpage": "Visitar le pagina del usator",
+	"projectpage": "Vider pagina de projecto"
+}

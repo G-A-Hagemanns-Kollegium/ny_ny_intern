@@ -1,0 +1,28 @@
+{
+	"@metadata": {
+		"authors": [
+			"Alsandro",
+			"David1010",
+			"Dawid Deutschland",
+			"Sopho"
+		]
+	},
+	"skinname-cologneblue": "კელნის ლურჯი",
+	"cologneblue.css": "/* აქ ჩასმული CSS გამოყენებული იქნება კელნის ლურჯი გაფორმების თემაში */",
+	"qbfind": "მოძებნე",
+	"qbbrowse": "გადახედე",
+	"qbedit": "რედაქტირება",
+	"qbpageoptions": "ეს გვერდი",
+	"qbmyoptions": "ჩემი გვერდები",
+	"faqpage": "Project:ხშირი შეკითხვები",
+	"editthispage": "გვერდის რედაქტირება",
+	"create-this-page": "ამ გვერდის შექმნა",
+	"deletethispage": "გვერდის წაშლა",
+	"undeletethispage": "ამ გვერდის აღდგენა",
+	"protectthispage": "დაბლოკე ეს გვერდი",
+	"unprotectthispage": "შეცვალე ამ გვერდის დაცვის დონე",
+	"talkpage": "მოცემული გვერდის განხილვა",
+	"articlepage": "სტატიის ნახვა",
+	"userpage": "გადახედე მომხმარებლის გვერდს",
+	"projectpage": "დაათვალიერე პროექტის გვერდი"
+}

@@ -1,0 +1,29 @@
+{
+	"@metadata": {
+		"authors": [
+			"Esbardu",
+			"Mikel",
+			"Xuacu"
+		]
+	},
+	"skinname-cologneblue": "Azul Colonia",
+	"cologneblue.css": "/* Los CSS allugaos equí afeutarán a los usuarios del aspeutu Cologne Blue */",
+	"cologneblue.js": "/* Cualesquier JavaScript que tea equí se cargará pa los usuarios del aspeutu Cologne Blue */",
+	"cologneblue-desc": "Un tema llixeru col mínimu formatu",
+	"qbfind": "Alcontrar",
+	"qbbrowse": "Navegar",
+	"qbedit": "Editar",
+	"qbpageoptions": "Esta páxina",
+	"qbmyoptions": "Les mios páxines",
+	"faqpage": "Project:FAQ",
+	"editthispage": "Editar esta páxina",
+	"create-this-page": "Crear esta páxina",
+	"deletethispage": "Desaniciar esta páxina",
+	"undeletethispage": "Restaurar esta páxina",
+	"protectthispage": "Protexer esta páxina",
+	"unprotectthispage": "Camudar la proteición d'esta páxina",
+	"talkpage": "Aldericar sobre esta páxina",
+	"articlepage": "Ver la páxina de conteníu",
+	"userpage": "Ver la páxina d'usuariu",
+	"projectpage": "Ver la páxina del proyeutu"
+}

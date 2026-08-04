@@ -1,0 +1,30 @@
+{
+	"@metadata": {
+		"authors": [
+			"Helix84",
+			"Rudko",
+			"Sudo77(new)",
+			"TomášPolonec"
+		]
+	},
+	"skinname-cologneblue": "Kolínska modrá",
+	"cologneblue.css": "/* Tu umiestnené CSS bude ovplyvňovať používateľov štýlu Kolínska modrá */",
+	"cologneblue.js": "/* Tu sa nachádzajúci JavaScript sa načíta používateľom vzhľadu Kolínska modrá */",
+	"cologneblue-desc": "Odľahčený vzhľad s minimálnym formátovaním",
+	"qbfind": "Hľadať",
+	"qbbrowse": "Prehliadať",
+	"qbedit": "Upraviť",
+	"qbpageoptions": "Táto stránka",
+	"qbmyoptions": "Moje stránky",
+	"faqpage": "Project:Často kladené otázky",
+	"editthispage": "Upraviť túto stránku",
+	"create-this-page": "Vytvoriť túto stránku",
+	"deletethispage": "Vymazať túto stránku",
+	"undeletethispage": "Obnoviť túto stránku",
+	"protectthispage": "Zamknúť túto stránku",
+	"unprotectthispage": "Zmeniť stav ochrany tejto stránky",
+	"talkpage": "Diskusia k stránke",
+	"articlepage": "Zobraziť stránku",
+	"userpage": "Zobraziť stránku používateľa",
+	"projectpage": "Zobraziť projektovú stránku"
+}

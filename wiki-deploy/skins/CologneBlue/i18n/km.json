@@ -1,0 +1,30 @@
+{
+	"@metadata": {
+		"authors": [
+			"Chhorran",
+			"Kiensvay",
+			"Lovekhmer",
+			"Thearith",
+			"គីមស៊្រុន",
+			"វ័ណថារិទ្ធ"
+		]
+	},
+	"skinname-cologneblue": "ទឹកអប់ខៀវ",
+	"cologneblue.css": "/* CSS បានដាក់ទីនេះនឹងមានអនុភាពលើអ្នកប្រើប្រាស់នៃសំបក Cologne Blue */",
+	"qbfind": "ស្វែងរក",
+	"qbbrowse": "រាវរក",
+	"qbedit": "កែប្រែ",
+	"qbpageoptions": "ទំព័រនេះ",
+	"qbmyoptions": "ទំព័ររបស់ខ្ញុំ",
+	"faqpage": "Project:សំណួរដែលសួរញឹកញាប់",
+	"editthispage": "កែប្រែទំព័រនេះ",
+	"create-this-page": "បង្កើតទំព័រនេះ",
+	"deletethispage": "លុបទំព័រនេះចោល",
+	"undeletethispage": "ឈប់លុបទំព័រនេះ",
+	"protectthispage": "ការពារទំព័រនេះ",
+	"unprotectthispage": "ផ្លាស់ប្ដូរការការពារទំព័រនេះ",
+	"talkpage": "ពិភាក្សាទំព័រនេះ",
+	"articlepage": "មើលខ្លឹមសារទំព័រ​",
+	"userpage": "មើលទំព័រអ្នកប្រើប្រាស់",
+	"projectpage": "មើល​ទំព័រគម្រោង"
+}

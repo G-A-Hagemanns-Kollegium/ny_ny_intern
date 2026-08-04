@@ -1,0 +1,26 @@
+{
+	"@metadata": {
+		"authors": [
+			"Andria",
+			"Marzedu",
+			"Taxandru",
+			"Uharteko"
+		]
+	},
+	"qbfind": "Busca",
+	"qbbrowse": "Nàviga",
+	"qbedit": "Càmbia",
+	"qbpageoptions": "Possibilidades de sa pàgina",
+	"qbmyoptions": "Sas preferèntzias meas",
+	"faqpage": "Project:FAQ",
+	"editthispage": "Modìfica custa pàgina",
+	"create-this-page": "Crea custa pàgina",
+	"deletethispage": "Burra custa pàgina",
+	"undeletethispage": "Non burres custa pàgina",
+	"protectthispage": "Ampara custa pàgina",
+	"unprotectthispage": "Càmbia amparu de custa pàgina",
+	"talkpage": "Pàgina de cuntierra",
+	"articlepage": "Càstia s'artìculu",
+	"userpage": "Càstia sa pàgina impitadore",
+	"projectpage": "Càstia sa pàgina meta"
+}

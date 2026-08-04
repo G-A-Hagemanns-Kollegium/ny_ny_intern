@@ -1,0 +1,34 @@
+{
+	"@metadata": {
+		"authors": [
+			"Boivie",
+			"Habj",
+			"Jopparn",
+			"Lejonel",
+			"Lokal Profil",
+			"M.M.S.",
+			"Sannab",
+			"WikiPhoenix"
+		]
+	},
+	"skinname-cologneblue": "Cologne blå",
+	"cologneblue.css": "/* All CSS här kommer att läsas in för de som använder utseendet Cologne blå */",
+	"cologneblue.js": "/* All JavaScript här kommer att läsas in för alla som använder utseendet Cologne blå */",
+	"cologneblue-desc": "Ett lättviktsutseende med minimal formatering",
+	"qbfind": "Hitta",
+	"qbbrowse": "Bläddra igenom",
+	"qbedit": "Redigera",
+	"qbpageoptions": "Denna sida",
+	"qbmyoptions": "Mina sidor",
+	"faqpage": "Project:FAQ",
+	"editthispage": "Redigera denna sida",
+	"create-this-page": "Skapa denna sida",
+	"deletethispage": "Radera denna sida",
+	"undeletethispage": "Återställ denna sida",
+	"protectthispage": "Skrivskydda denna sida",
+	"unprotectthispage": "Ändra skyddet på denna sidan",
+	"talkpage": "Diskutera denna sida",
+	"articlepage": "Visa innehållssida",
+	"userpage": "Visa användarsida",
+	"projectpage": "Visa projektsida"
+}

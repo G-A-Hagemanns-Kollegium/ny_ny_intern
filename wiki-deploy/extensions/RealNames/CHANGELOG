@@ -1,0 +1,14 @@
+This is the changelog for the Realnames extension.
+
+https://www.mediawiki.org/wiki/Extension:Realnames
+
+See [HISTORY](HISTORY) for previous releases.
+
+== 0.8.0 (2021-06-27) ==
+Many thanks to @ericrichtert for providing the PR for this release. I've not been able to test it, but was assured it was so I've gone ahead and merged it. I'll revert if we get any bug reports.
+
+This is a fix for $GLOBALS['wgContLang'] no longer being available in version mediawiki 1.36
+
+Shoutout to @samwilson for helping review/discuss the PR.
+
+If you need to keep running this extension on older versions of MediaWiki prior to 1.27.0, please use an older version of the extension.

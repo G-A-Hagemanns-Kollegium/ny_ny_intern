@@ -1,0 +1,24 @@
+{
+	"@metadata": {
+		"authors": [
+			"Hangmanwa7id",
+			"JeanVoisin"
+		]
+	},
+	"qbfind": "Charcher",
+	"qbbrowse": "Regarder",
+	"qbedit": "Changer",
+	"qbpageoptions": "Page de choix",
+	"qbmyoptions": "Mes options",
+	"faqpage": "Project:Questions Communes",
+	"editthispage": "Faire un changement",
+	"create-this-page": "Créer cette page",
+	"deletethispage": "Supprimer cette page",
+	"undeletethispage": "Restaurer cette page",
+	"protectthispage": "Protéger cette page",
+	"unprotectthispage": "Changer la protection de cette page",
+	"talkpage": "Discuter cette page",
+	"articlepage": "Voir l'article",
+	"userpage": "Page d'useur",
+	"projectpage": "Page des projets"
+}

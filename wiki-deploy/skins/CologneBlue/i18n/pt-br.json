@@ -1,0 +1,34 @@
+{
+	"@metadata": {
+		"authors": [
+			"Cainamarques",
+			"Diego Queiroz",
+			"Felipe L. Ewald",
+			"Giro720",
+			"TheEduGobi",
+			555,
+			"Eduardo Addad de Oliveira",
+			"Eduardoaddad"
+		]
+	},
+	"skinname-cologneblue": "Azul Colonial",
+	"cologneblue.css": "/* Todos os CSS colocado aqui serão carregados para usuários do tema Cologne Blue */",
+	"cologneblue.js": "/* Todos os JavaScript aqui colocado será carregado para usuários do tema Cologne Blue */",
+	"cologneblue-desc": "Um tema leve com formatação mínima",
+	"qbfind": "Buscar",
+	"qbbrowse": "Navegar",
+	"qbedit": "Editar",
+	"qbpageoptions": "Esta página",
+	"qbmyoptions": "Minhas páginas",
+	"faqpage": "Project:Perguntas frequentes",
+	"editthispage": "Editar esta página",
+	"create-this-page": "Criar esta página",
+	"deletethispage": "Excluir esta página",
+	"undeletethispage": "Restaurar esta página",
+	"protectthispage": "Proteger esta página",
+	"unprotectthispage": "Alterar a proteção desta página",
+	"talkpage": "Discutir sobre esta página",
+	"articlepage": "Ver página de conteúdo",
+	"userpage": "Ver página de usuário",
+	"projectpage": "Ver página de projeto"
+}

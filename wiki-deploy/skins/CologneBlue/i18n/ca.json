@@ -1,0 +1,31 @@
+{
+	"@metadata": {
+		"authors": [
+			"Aleator",
+			"BroOk",
+			"Grondin",
+			"Martorell",
+			"Ssola",
+			"Toniher",
+			"Vriullop",
+			"XVEC"
+		]
+	},
+	"skinname-cologneblue": "Colònia blava",
+	"qbfind": "Cerca",
+	"qbbrowse": "Navega",
+	"qbedit": "Modifica",
+	"qbpageoptions": "Opcions de pàgina",
+	"qbmyoptions": "Pàgines pròpies",
+	"faqpage": "Project:PMF",
+	"editthispage": "Modifica la pàgina",
+	"create-this-page": "Crea aquesta pàgina",
+	"deletethispage": "Elimina la pàgina",
+	"undeletethispage": "Desfés l'eliminació d'aquesta pàgina",
+	"protectthispage": "Protegeix aquesta pàgina",
+	"unprotectthispage": "Desprotegeix aquesta pàgina",
+	"talkpage": "Discussió",
+	"articlepage": "Mostra la pàgina",
+	"userpage": "Visualitza la pàgina d'usuari",
+	"projectpage": "Visualitza la pàgina del projecte"
+}

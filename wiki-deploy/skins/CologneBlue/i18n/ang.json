@@ -1,0 +1,25 @@
+{
+	"@metadata": {
+		"authors": [
+			"Gott wisst",
+			"Wōdenhelm",
+			"Heahwrita"
+		]
+	},
+	"qbfind": "Find",
+	"qbbrowse": "Þurhsec",
+	"qbedit": "Adiht",
+	"qbpageoptions": "Þes tramet",
+	"qbmyoptions": "Mine trametas",
+	"faqpage": "Project:FAQ",
+	"editthispage": "Adiht þisne tramet",
+	"create-this-page": "Scypp þisne tramet",
+	"deletethispage": "Forleos þisne tramet",
+	"undeletethispage": "Undo þa forleosunge þisses trametes",
+	"protectthispage": "Beorg þisne tramet",
+	"unprotectthispage": "Andwend þæt gebeorg þisses trametes",
+	"talkpage": "Sprec ymbe þisne tramet",
+	"articlepage": "Seoh innunge tramet",
+	"userpage": "Seoh brucendtramet",
+	"projectpage": "Seoh weorces tramet"
+}

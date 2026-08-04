@@ -1,0 +1,30 @@
+{
+	"@metadata": {
+		"authors": [
+			"ITurtle",
+			"Klutzy",
+			"Kwj2772",
+			"아라"
+		]
+	},
+	"skinname-cologneblue": "쾰른 블루",
+	"cologneblue.css": "/* 이 CSS 설정은 쾰른 블루 스킨을 사용하는 사용자에게 적용됩니다 */",
+	"cologneblue.js": "/* 이 자바스크립트 설정은 쾰른 블루 스킨을 사용하는 사용자에게 적용됩니다 */",
+	"cologneblue-desc": "최소한의 형식을 가진 경량 스킨",
+	"qbfind": "찾기",
+	"qbbrowse": "찾아보기",
+	"qbedit": "편집",
+	"qbpageoptions": "문서 기능",
+	"qbmyoptions": "내 사용자 문서",
+	"faqpage": "Project:FAQ",
+	"editthispage": "이 문서 편집하기",
+	"create-this-page": "이 문서 만들기",
+	"deletethispage": "이 문서 삭제하기",
+	"undeletethispage": "이 문서를 되살리기",
+	"protectthispage": "이 문서 보호하기",
+	"unprotectthispage": "이 문서의 보호 설정을 바꾸기",
+	"talkpage": "토론 문서",
+	"articlepage": "문서 보기",
+	"userpage": "사용자 문서 보기",
+	"projectpage": "프로젝트 문서 보기"
+}

@@ -1,0 +1,11 @@
+{
+	"@metadata": {
+		"authors": [
+			"Bjankuloski06",
+			"Vlad5250"
+		]
+	},
+	"action-showrealname": "гледање на вистински имиња",
+	"right-showrealname": "Гледање на вистинските имиња во [[Special:ListUsers]]",
+	"sru-realname-desc": "Го додава [[Special:ListUsers]] за водно прикажување на вистинското име на корисниците и/или други кориснички информации"
+}

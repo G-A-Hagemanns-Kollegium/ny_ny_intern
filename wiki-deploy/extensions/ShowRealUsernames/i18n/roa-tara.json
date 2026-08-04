@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+			"Joetaras"
+		]
+	},
+	"action-showrealname": "'ndruche le nome reale",
+	"right-showrealname": "'Ndruche le nome vere de le utinde jndr'à [[Special:ListUsers|l'elenghe]]",
+	"sru-realname-desc": "Aggiunge le nome vere de le utinde e/o otre date personale sus 'a pàgene [[Special:ListUsers]]"
+}

@@ -1,0 +1,27 @@
+{
+	"@metadata": {
+		"authors": [
+			"Boukman",
+			"Jvm",
+			"Masterches",
+			"Tisave",
+			"Amire80"
+		]
+	},
+	"qbfind": "Jwenn",
+	"qbbrowse": "Bouske",
+	"qbedit": "Modifye",
+	"qbpageoptions": "Paj sa a",
+	"qbmyoptions": "Paj mwen yo",
+	"faqpage": "Project:FAQ",
+	"editthispage": "Modifye paj sa a",
+	"create-this-page": "Kreye paj sa",
+	"deletethispage": "Efase paj sa",
+	"undeletethispage": "Retabli paj sa a",
+	"protectthispage": "Pwoteje paj sa",
+	"unprotectthispage": "Chanje nivo pwoteksyon",
+	"talkpage": "Diskite paj sa a",
+	"articlepage": "Wè paj atik",
+	"userpage": "Wè paj itilizatè",
+	"projectpage": "Wè paj pwojè"
+}

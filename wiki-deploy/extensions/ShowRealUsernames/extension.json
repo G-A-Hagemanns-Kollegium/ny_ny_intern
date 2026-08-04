@@ -1,0 +1,51 @@
+{
+	"name": "ShowRealUsernames",
+	"version": "1.4.0",
+	"type": "other",
+	"author": [
+		"Paul Lustgarten",
+		"John Erling Blad",
+		"[https://www.mediawiki.org/wiki/User:RV1971 RV1971]"
+	],
+	"descriptionmsg": "sru-realname-desc",
+	"url": "https://www.mediawiki.org/wiki/Extension:ShowRealUsernames",
+	"license-name": "GPL-3.0-or-later",
+	"requires": {
+		"MediaWiki": ">= 1.30.0"
+	},
+	"AutoloadClasses": {
+		"ShowRealUsernames": "includes/ShowRealUsernames.php"
+	},
+	"MessagesDirs": {
+		"AddPersonalUrls": [
+			"i18n"
+		]
+	},
+	"AvailableRights": [
+		"showrealname"
+	],
+	"GroupPermissions": {
+		"user": {
+			"showrealname": true
+		}
+	},
+	"Hooks": {
+		"SpecialListusersFormatRow": "ShowRealUsernames::onSpecialListusersFormatRow",
+		"SpecialListusersQueryInfo": "ShowRealUsernames::onSpecialListusersQueryInfo"
+	},
+	"config": {
+		"ShowRealUsernamesInline": {
+			"description": "Whether to replace the wiki name with the real name. By default, the user's real name is appended to the wiki name in Special:ListUsers.",
+			"value": false
+		},
+		"ShowRealUsernamesFields": {
+			"description": "List of extra fields to get from the database. These fields are obtained from the table <code>user</code> and substituted for $1, $2 etc. in messages.",
+			"value": [
+				"user_real_name",
+				"user_name",
+				"user_email"
+			]
+		}
+	},
+	"manifest_version": 2
+}

@@ -1,0 +1,12 @@
+{
+	"@metadata": {
+		"authors": [
+			"BaRaN6161 TURK",
+			"Hedda",
+			"MuratTheTurkish"
+		]
+	},
+	"action-showrealname": "gerçek adlarını bakın",
+	"right-showrealname": "[[Special:ListUsers|Özel:KullanıcıListesi]] sayfasında gerçek adlarını bakın",
+	"sru-realname-desc": "Her bir kullanıcının gerçek adını ve/veya kullanıcıya özgü bilgileri de göstermek için [[Special:ListUsers|Özel:KullanıcıListesi]]'ni genişletir"
+}

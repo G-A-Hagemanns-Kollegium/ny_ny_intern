@@ -1,0 +1,27 @@
+{
+	"@metadata": {
+		"authors": [
+			"Akoppad",
+			"Anoop rao",
+			"Mana",
+			"Omshivaprakash",
+			"Shushruth"
+		]
+	},
+	"qbfind": "ಹುಡುಕು",
+	"qbbrowse": "ಕಣ್ಣಾಡಿಸು",
+	"qbedit": "ಸಂಪಾದಿಸು",
+	"qbpageoptions": "ಈ ಪುಟ",
+	"qbmyoptions": "ನನ್ನ ಪುಟಗಳು",
+	"faqpage": "Project:ಸಾಮಾನ್ಯವಾಗಿ ಕೇಳಲಾಗುವ ಪ್ರಶ್ನೆಗಳು",
+	"editthispage": "ಈ ಪುಟವನ್ನು ಬದಲಾಯಿಸಿ",
+	"create-this-page": "ಈ ಪುಟವನ್ನು ಸೃಷ್ಟಿಸು",
+	"deletethispage": "ಈ ಪುಟವನ್ನು ಅಳಿಸಿ",
+	"undeletethispage": "ಈ ಪುಟವನ್ನು ಅಳಿಸುವಿಕೆಯನ್ನು ರದ್ದುಮಾಡು",
+	"protectthispage": "ಈ ಪುಟವನ್ನು ಸಂರಕ್ಷಿಸಿ",
+	"unprotectthispage": "ಈ ಪುಟದ ರಕ್ಷಣೆಯನ್ನು ಬದಲಾಯಿಸು",
+	"talkpage": "ಈ ಪುಟವನ್ನು ಚರ್ಚಿಸಿ",
+	"articlepage": "ಲೇಖನ ಪುಟವನ್ನು ವೀಕ್ಷಿಸಿ",
+	"userpage": "ಸದಸ್ಯರ ಪುಟವನ್ನು ವೀಕ್ಷಿಸು",
+	"projectpage": "ಯೋಜನೆಯ ಪುಟವನ್ನು ನೋಡು"
+}

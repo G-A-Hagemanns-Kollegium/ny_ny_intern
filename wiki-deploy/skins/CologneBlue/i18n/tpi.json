@@ -1,0 +1,20 @@
+{
+	"@metadata": {
+		"authors": [
+			"Iketsi",
+			"Wantok"
+		]
+	},
+	"qbfind": "Painim",
+	"qbbrowse": "Lukim",
+	"qbedit": "Senisim",
+	"qbpageoptions": "Dispela pes",
+	"qbmyoptions": "Ol pes bilong mi",
+	"editthispage": "Senisim dispela pes",
+	"create-this-page": "Kirapim dispela pes",
+	"deletethispage": "Rausim dispela pes",
+	"protectthispage": "Tambuim dispela pes",
+	"talkpage": "Toktok bilong dispela pes",
+	"userpage": "Lukim pes bilong yusa",
+	"projectpage": "Lukim pes bilong projek"
+}

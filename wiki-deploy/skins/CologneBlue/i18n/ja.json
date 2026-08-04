@@ -1,0 +1,31 @@
+{
+	"@metadata": {
+		"authors": [
+			"Aotake",
+			"Fryed-peach",
+			"Ohgi",
+			"青子守歌",
+			"しぃ"
+		]
+	},
+	"skinname-cologneblue": "ケルンブルー",
+	"cologneblue.css": "/* ここに記述したCSSは、全てのケルンブルースキン利用者に読み込まれます */",
+	"cologneblue.js": "/* ここに記述したJavaScriptは、全てのケルンブルースキン利用者に読み込まれます */",
+	"cologneblue-desc": "最小限の書式設定しかない軽量な外装",
+	"qbfind": "検索",
+	"qbbrowse": "閲覧",
+	"qbedit": "編集",
+	"qbpageoptions": "このページについて",
+	"qbmyoptions": "自分のページ",
+	"faqpage": "Project:よくある質問と回答",
+	"editthispage": "このページを編集",
+	"create-this-page": "このページを作成",
+	"deletethispage": "このページを削除",
+	"undeletethispage": "このページを復元",
+	"protectthispage": "このページを保護",
+	"unprotectthispage": "このページの保護を変更",
+	"talkpage": "このページについて話し合う",
+	"articlepage": "本文を表示",
+	"userpage": "利用者ページを表示",
+	"projectpage": "プロジェクトのページを表示"
+}

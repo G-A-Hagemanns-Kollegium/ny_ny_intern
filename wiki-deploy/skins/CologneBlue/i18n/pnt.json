@@ -1,0 +1,23 @@
+{
+	"@metadata": {
+		"authors": [
+			"Sinopeus",
+			"ZaDiak"
+		]
+	},
+	"qbfind": "Εύρον",
+	"qbbrowse": "Πλοήγησην",
+	"qbedit": "Άλλαξον",
+	"qbpageoptions": "Ατή η σελίδαν",
+	"qbmyoptions": "Τ' εμά τα σελίδας",
+	"faqpage": "Project:Πολλά ερωτήσεις (FAQ)",
+	"editthispage": "Άλλαξον τη σελίδαν ατέν",
+	"create-this-page": "Ποίσον τη σελίδαν",
+	"deletethispage": "Σβήσεμαν τη σελίδας",
+	"protectthispage": "Ασπάλιγμα ατουνού τη σελίδας",
+	"unprotectthispage": "Άνοιγμα ατουνού τη σελίδας",
+	"talkpage": "Καλάτσεμαν για τη σελίδαν ατέν",
+	"articlepage": "Σελίδα",
+	"userpage": "Τέρεν σελίδαν χρήστε",
+	"projectpage": "Τέρεμαν σελίδας βοήθειας"
+}

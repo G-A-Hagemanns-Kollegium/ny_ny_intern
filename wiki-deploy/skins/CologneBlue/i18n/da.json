@@ -1,0 +1,28 @@
+{
+	"@metadata": {
+		"authors": [
+			"Christian List",
+			"Jhertel",
+			"Joedalton",
+			"Peter Alberti"
+		]
+	},
+	"skinname-cologneblue": "Kølnerblå",
+	"cologneblue-desc": "Et simpelt tema med minimal formatering",
+	"qbfind": "Søg",
+	"qbbrowse": "Gennemse",
+	"qbedit": "Redigér",
+	"qbpageoptions": "Denne side",
+	"qbmyoptions": "Mine sider",
+	"faqpage": "Project:OSS",
+	"editthispage": "Redigér side",
+	"create-this-page": "Opret denne side",
+	"deletethispage": "Slet side",
+	"undeletethispage": "Gendan denne side",
+	"protectthispage": "Beskyt side",
+	"unprotectthispage": "Ændr beskyttelsen af denne side",
+	"talkpage": "Diskussion",
+	"articlepage": "Se artiklen",
+	"userpage": "Vis brugerside",
+	"projectpage": "Vis projektside"
+}

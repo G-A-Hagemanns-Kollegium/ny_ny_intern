@@ -1,0 +1,27 @@
+{
+	"@metadata": {
+		"authors": [
+			"Joao Xavier",
+			"Lakaoso",
+			"Malafaya",
+			"Robin van der Vliet"
+		]
+	},
+	"skinname-cologneblue": "Kölnana Blua (Cologne Blue)",
+	"qbfind": "Trovez",
+	"qbbrowse": "Montrez listo",
+	"qbedit": "Redaktar",
+	"qbpageoptions": "Ica pagino",
+	"qbmyoptions": "Mea pagini",
+	"faqpage": "Project:FAQ - Dubi maxim frequa",
+	"editthispage": "Redaktar ca pagino",
+	"create-this-page": "Kreez ca pagino",
+	"deletethispage": "Efacar ica pagino",
+	"undeletethispage": "Desfacar l'efaco di ca pagino",
+	"protectthispage": "Protektar ica pagino",
+	"unprotectthispage": "Desprotektar ica pagino",
+	"talkpage": "Debatar pri ca pagino",
+	"articlepage": "Regardar artiklo",
+	"userpage": "Vidar uzeropagino",
+	"projectpage": "Vidar projeto-pagino"
+}

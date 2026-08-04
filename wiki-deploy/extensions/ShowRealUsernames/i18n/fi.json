@@ -1,0 +1,11 @@
+{
+	"@metadata": {
+		"authors": [
+			"01miki10",
+			"Pyscowicz"
+		]
+	},
+	"action-showrealname": "nähdä oikeita nimiä",
+	"right-showrealname": "Nähdä oikeat nimet [[Special:ListUsers|käyttäjien luettelossa]]",
+	"sru-realname-desc": "Laajentaa [[Special:ListUsers]]-toimintosivun näyttämään käyttäjien oikeat nimet ja/tai muut käyttäjäkohtaiset tiedot"
+}

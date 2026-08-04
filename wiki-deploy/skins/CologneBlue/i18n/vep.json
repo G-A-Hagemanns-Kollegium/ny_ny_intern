@@ -1,0 +1,23 @@
+{
+	"@metadata": {
+		"authors": [
+			"Игорь Бродский"
+		]
+	},
+	"skinname-cologneblue": "Köl'nan sinine",
+	"qbfind": "Ectä",
+	"qbbrowse": "Kacelta",
+	"qbedit": "Redaktiruida",
+	"qbpageoptions": "Necen lehtpolen järgendused",
+	"qbmyoptions": "Minun järgendused",
+	"faqpage": "Project:PPK",
+	"editthispage": "Redaktiruida nece lehtpol'",
+	"create-this-page": "Säta nece lehtpol'",
+	"deletethispage": "Čuta nece lehtpol'",
+	"protectthispage": "Kaita nece lehtpol'",
+	"unprotectthispage": "Toižetada necen lehtpolen kaičend",
+	"talkpage": "Lodaita necen lehtpolen polhe",
+	"articlepage": "Kacu südäimišton lehtpol'",
+	"userpage": "Kacu kävutajan lehtpol'",
+	"projectpage": "Kacu projektan lehtpol'"
+}

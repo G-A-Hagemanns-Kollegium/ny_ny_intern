@@ -1,0 +1,24 @@
+{
+	"@metadata": {
+		"authors": [
+			"Cgboeree",
+			"Malafaya"
+		]
+	},
+	"qbfind": "Trova",
+	"qbbrowse": "Surfa",
+	"qbedit": "Edita",
+	"qbpageoptions": "Esta paje",
+	"qbmyoptions": "Me pajes",
+	"faqpage": "Project: Demandas comun",
+	"editthispage": "Cambia esta paje",
+	"create-this-page": "Crea esta paje",
+	"deletethispage": "Sutrae esta paje",
+	"undeletethispage": "Desutrae esta paje",
+	"protectthispage": "Proteje esta paje",
+	"unprotectthispage": "Cambia la proteje de esta paje",
+	"talkpage": "Discute esta paje",
+	"articlepage": "Vide la paje de contenis",
+	"userpage": "Vide paje de usor",
+	"projectpage": "Vide la paje de projeta"
+}

@@ -1,0 +1,30 @@
+{
+	"@metadata": {
+		"authors": [
+			"Dvorapa",
+			"Li-sung",
+			"Littledogboy",
+			"Mormegil"
+		]
+	},
+	"skinname-cologneblue": "Kolínská modř",
+	"cologneblue.css": "/* Zde uvedené CSS bude ovlivňovat pouze vzhled „Kolínská modř“ */",
+	"cologneblue.js": "/* Zde uvedený JavaScript bude použit pouze pro uživatele vzhledu „Kolínská modř“ */",
+	"cologneblue-desc": "Odlehčený vzhled s minimálním formátováním",
+	"qbfind": "Hledání",
+	"qbbrowse": "Listování",
+	"qbedit": "Editování",
+	"qbpageoptions": "Tato stránka",
+	"qbmyoptions": "Moje stránky",
+	"faqpage": "Project:Často kladené otázky",
+	"editthispage": "Editovat stránku",
+	"create-this-page": "Vytvořit tuto stránku",
+	"deletethispage": "Smazat stránku",
+	"undeletethispage": "Obnovit tuto stránku",
+	"protectthispage": "Zamknout stránku",
+	"unprotectthispage": "Změnit zámek této stránky",
+	"talkpage": "Diskusní stránka",
+	"articlepage": "Prohlédnout si stránku",
+	"userpage": "Prohlédnout si uživatelskou stránku",
+	"projectpage": "Prohlédnout si stránku projektu"
+}

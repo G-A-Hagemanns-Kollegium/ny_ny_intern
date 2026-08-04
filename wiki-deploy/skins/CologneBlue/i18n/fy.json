@@ -1,0 +1,30 @@
+{
+	"@metadata": {
+		"authors": [
+			"Kening Aldgilles",
+			"PiefPafPier",
+			"Robin van der Vliet",
+			"Snakesteuben"
+		]
+	},
+	"skinname-cologneblue": "Keulsk Blau",
+	"cologneblue.css": "/* Al it CSS hjirre sil foar brûkers fan de Keulsk Blau-foarmjouwing laden wurde */",
+	"cologneblue.js": "/* Al it JavaScript hjirre sil foar brûkers fan de Keulsk Blau-foarmjouwing laden wurde */",
+	"cologneblue-desc": "In lichtgewicht foarmjouwing mei minimale opmaak",
+	"qbfind": "Fine",
+	"qbbrowse": "Blêdzje",
+	"qbedit": "Bewurkje",
+	"qbpageoptions": "Dizze side",
+	"qbmyoptions": "Myn siden",
+	"faqpage": "Project:Faak stelde fragen",
+	"editthispage": "Dizze side bewurkje",
+	"create-this-page": "Dizze side oanmeitsje",
+	"deletethispage": "Dizze side wiskje",
+	"undeletethispage": "Wiskjen fan dizze side weromdraaie",
+	"protectthispage": "Dizze side skoattelje",
+	"unprotectthispage": "Befeiliging fan dizze side wizigje",
+	"talkpage": "Oerlis oer dizze side",
+	"articlepage": "Sideynhâld besjen",
+	"userpage": "Meidoggerside besjen",
+	"projectpage": "Projektside besjen"
+}

@@ -1,0 +1,24 @@
+{
+	"@metadata": {
+		"authors": [
+			"Võrok"
+		]
+	},
+	"skinname-cologneblue": "Array",
+	"qbfind": "Otsiq",
+	"qbbrowse": "Kaeq",
+	"qbedit": "Toimõndaq",
+	"qbpageoptions": "Leheküle säädmine",
+	"qbmyoptions": "Mu säädmiseq",
+	"faqpage": "Project:KKK",
+	"editthispage": "Toimõndaq seod artiklit",
+	"create-this-page": "Luuq seo leht",
+	"deletethispage": "Kistudaq seo artikli ärq",
+	"undeletethispage": "Tiiq seo leht tagasi",
+	"protectthispage": "Kaidsaq seod artiklit",
+	"unprotectthispage": "Muudaq seo leheküle kaidsõt",
+	"talkpage": "Seo artikli arotus",
+	"articlepage": "Artiklilehekülg",
+	"userpage": "Pruukjalehekülg",
+	"projectpage": "Tallituslehekülg"
+}

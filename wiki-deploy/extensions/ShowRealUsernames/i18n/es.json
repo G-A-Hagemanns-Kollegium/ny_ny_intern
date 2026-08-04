@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+			"Nlemslu Phlyshi",
+			"DiegoAmbrocio"
+		]
+	},
+	"action-showrealname": "ver nombres reales",
+	"sru-realname-desc": "Extiende la p&aacute;gina [[Especial:ListaUsuarios]] para mostrar el nombre real de cada usuario"
+}

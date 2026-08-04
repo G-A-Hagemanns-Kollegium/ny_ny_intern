@@ -1,0 +1,42 @@
+<!--
+     page taken from
+     https://www.mediawiki.org/wiki/Extension:ShowRealUsernames/History
+-->
+== Version 1.3.0 ==
+
+=== Configuration changes ===
+
+* The messages are now stored in the [[mw:Localisation file format|new JSON format]].
+
+== Version 1.2.2 ==
+
+=== Bug fixes ===
+
+* [[Manual:$wgExtensionFunctions|$wgExtensionFunctions]] is used so that [[mw-config]] now works.
+
+== Version 1.2.1 ==
+
+=== Bugfixes ===
+
+* The message <tt>sru-realname-desc</tt> in the languages en,de,fr,it has been enhanced with the hint that other data besides the user's real name can be added.
+* The message <tt>sru-realname-desc</tt> in the language nb now uses html entities for non-ASCII characters.
+
+=== Other changes ===
+
+[[User:RV1971|]] has taken over the maintainer role from [[User:Plustgarten|Paul Lustgarten]]. Thanks to Paul for creating and maintaining the extension so far.
+
+== Version 1.2 ==
+
+=== Configuration changes ===
+
+Even though the [[{{NAMESPACE}}:{{BASEPAGENAME}}#Configuration|Configuration]] offers more options than it did in version 1.1.1, your existing configuration works as before.
+
+=== New features ===
+
+* The list of fields to retrieve from the database is now configurable. For instance, it can be used to retrieve the email as well.
+* Only users having the ''showrealname'' right do see the real names. Thanks to [[User:Phantomsteve]] for suggesting the feature and the implementation.
+* The languages French and Italian have been added to the messages file.
+
+=== Other changes ===
+
+* The code has been reviewed in order to comply more closely with the guidelines on mediawiki.org. In particular, it has been wrapped into a class.

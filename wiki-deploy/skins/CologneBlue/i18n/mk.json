@@ -1,0 +1,29 @@
+{
+	"@metadata": {
+		"authors": [
+			"Bjankuloski06",
+			"Brest",
+			"Vlad5250"
+		]
+	},
+	"skinname-cologneblue": "Келнско сино",
+	"cologneblue.css": "/* Тука поставениот CSS ќе се применува врз корисниците што го избрале рувото „Келнско сино“ */",
+	"cologneblue.js": "/* Тука поставениот JavaScript  ќе им се вчитува на корисниците што го користат рувото „Келнско сино“ */",
+	"cologneblue-desc": "Лесно руво со најмало форматирање",
+	"qbfind": "Најди",
+	"qbbrowse": "Прелистај",
+	"qbedit": "Уреди",
+	"qbpageoptions": "Оваа страница",
+	"qbmyoptions": "Мои страници",
+	"faqpage": "Project:ЧПП",
+	"editthispage": "Уреди ја страницава",
+	"create-this-page": "Создај ја страницава",
+	"deletethispage": "Избриши ја страницава",
+	"undeletethispage": "Обнови ја страницава",
+	"protectthispage": "Заштити ја страницава",
+	"unprotectthispage": "Измени ја заштитата на страницава",
+	"talkpage": "Разговор",
+	"articlepage": "Преглед на содржината",
+	"userpage": "Преглед на корисничката страница",
+	"projectpage": "Преглед на проектната страница"
+}

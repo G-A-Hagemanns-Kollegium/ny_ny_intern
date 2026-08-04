@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+			"Kly"
+		]
+	},
+	"action-showrealname": "查看真實名稱",
+	"right-showrealname": "查看在 [[Special:ListUsers]] 的真實姓名",
+	"sru-realname-desc": "擴充 [[Special:ListUsers]] 來另顯示任一使用者的真實姓名以及/或是其他使用者的特定訊息"
+}

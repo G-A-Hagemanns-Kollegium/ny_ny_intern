@@ -1,0 +1,35 @@
+{
+	"@metadata": {
+		"authors": [
+			"Gamliel Fishkin",
+			"KuboF",
+			"LyzTyphone",
+			"Mirin",
+			"Objectivesea",
+			"Robin van der Vliet",
+			"Tlustulimu",
+			"Yekrats",
+			"YvesNevelsteen"
+		]
+	},
+	"skinname-cologneblue": "Kolonja Bluo",
+	"cologneblue.css": "/* La jena CSS influos la paĝaspekton por uzantoj de la Kolonja Blua temo. */",
+	"cologneblue.js": "/* La jena Ĝavaskripto ŝargiĝos por uzantoj de la Kolonja Blua temo. */",
+	"cologneblue-desc": "Leĝera etoso kun minimuma aranĝado",
+	"qbfind": "Serĉi",
+	"qbbrowse": "Foliumi",
+	"qbedit": "Redakti",
+	"qbpageoptions": "Ĉi tiu paĝo",
+	"qbmyoptions": "Miaj paĝoj",
+	"faqpage": "Project:Oftaj demandoj",
+	"editthispage": "Redakti ĉi tiun paĝon",
+	"create-this-page": "Krei ĉi tiun paĝon",
+	"deletethispage": "Forigi ĉi tiun paĝon",
+	"undeletethispage": "Restarigi tiun ĉi paĝon",
+	"protectthispage": "Protekti ĉi tiun paĝon",
+	"unprotectthispage": "Ŝanĝi la protektadon de ĉi tiu paĝo",
+	"talkpage": "Pridiskuti ĉi tiun paĝon",
+	"articlepage": "Vidi la enhavan paĝon",
+	"userpage": "Vidi la uzantopaĝon",
+	"projectpage": "Vidi la projektopaĝon"
+}

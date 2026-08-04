@@ -1,0 +1,24 @@
+{
+	"@metadata": {
+		"authors": [
+			"Hugo.arg",
+			"Zordsdavini"
+		]
+	},
+	"qbfind": "Ėiškuotė",
+	"qbbrowse": "Naršītė",
+	"qbedit": "Taisītė",
+	"qbpageoptions": "Tas poslapis",
+	"qbmyoptions": "Mona poslapē",
+	"faqpage": "Project:DOK",
+	"editthispage": "Taisītė ton poslapi",
+	"create-this-page": "Dėrbtė ton poslapi",
+	"deletethispage": "Trintė ton poslapi",
+	"undeletethispage": "Ton poslapi padėrbtė apent",
+	"protectthispage": "Apsergietė ton poslapi",
+	"unprotectthispage": "Keistė ton poslapė apsarga",
+	"talkpage": "Aptartė ton poslapi",
+	"articlepage": "Veizietė straipsnė",
+	"userpage": "Ruodītė nauduotuojė poslapi",
+	"projectpage": "Ruodītė pruojekta poslapi"
+}

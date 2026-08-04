@@ -1,0 +1,29 @@
+{
+	"@metadata": {
+		"authors": [
+			"Eirik",
+			"Frokor",
+			"Jon Harald Søby",
+			"Njardarlogar"
+		]
+	},
+	"skinname-cologneblue": "Kölnerblå",
+	"cologneblue.css": "/* CSS i denne fila vil gjelde alle som nyttar drakta Kølnerblå */",
+	"cologneblue.js": "/* Javascript i denne fila vil gjelde for brukarar av drakta Kølnerblå */",
+	"qbfind": "Finn",
+	"qbbrowse": "Bla gjennom",
+	"qbedit": "Endre",
+	"qbpageoptions": "Denne sida",
+	"qbmyoptions": "Sidene mine",
+	"faqpage": "Project:OSS",
+	"editthispage": "Endre sida",
+	"create-this-page": "Opprett sida",
+	"deletethispage": "Slett denne sida",
+	"undeletethispage": "Attopprett sida",
+	"protectthispage": "Vern denne sida",
+	"unprotectthispage": "Endra vernet av sida",
+	"talkpage": "Diskuter sida",
+	"articlepage": "Vis innhaldsside",
+	"userpage": "Vis brukarside",
+	"projectpage": "Sjå prosjektsida"
+}

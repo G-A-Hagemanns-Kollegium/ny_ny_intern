@@ -1,0 +1,11 @@
+{
+	"@metadata": {
+		"authors": [
+			"Liuxinyu970226",
+			"StarrySky"
+		]
+	},
+	"action-showrealname": "见真名",
+	"right-showrealname": "查看[[Special:ListUsers]]中的真名",
+	"sru-realname-desc": "扩充[[Special:ListUsers]]以显示每个用户的真名和/或其他用户特定信息"
+}

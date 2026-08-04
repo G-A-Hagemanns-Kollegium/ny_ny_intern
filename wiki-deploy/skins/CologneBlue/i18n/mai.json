@@ -1,0 +1,24 @@
+{
+	"@metadata": {
+		"authors": [
+			"Umeshberma",
+			"बिप्लब आनन्द"
+		]
+	},
+	"qbfind": "ताकी",
+	"qbbrowse": "ब्राउज करी",
+	"qbedit": "सम्पादन करी",
+	"qbpageoptions": "ई पृष्ठ",
+	"qbmyoptions": "हमर पृष्ठसभ",
+	"faqpage": "Project: त्वरित प्रश्नोत्तरी",
+	"editthispage": "ई पृष्ठ सम्पादन करी",
+	"create-this-page": "ई पन्ना बनाबी",
+	"deletethispage": "ई पन्ना मेटाबी",
+	"undeletethispage": "ई पृष्ठके पुनर्स्थापित करी।",
+	"protectthispage": "ई पन्नाक सुरक्षित करी",
+	"unprotectthispage": "ई पृष्ठक सुरक्षा स्तर बदली",
+	"talkpage": "ई पृष्ठक बारेमे चर्चा करी",
+	"articlepage": "विषय-सूची पन्ना देखी",
+	"userpage": "प्रयोक्ता पन्ना देखी",
+	"projectpage": "परियोजना पन्ना देखी"
+}

@@ -1,0 +1,26 @@
+{
+	"@metadata": {
+		"authors": [
+			"Dead3y3",
+			"Protnet"
+		]
+	},
+	"cologneblue.css": "/* Το τοποθετημένο εδώ CSS θα επηρεάσει χρήστες του Cologne Blue skin */",
+	"cologneblue.js": "/* Οποιοσδήποτε κώδικας JavaScript εδώ θα φορτωθεί για χρήστες που χρησιμοποιούν το Cologne Blue skin */",
+	"qbfind": "Εύρεση",
+	"qbbrowse": "Περιήγηση",
+	"qbedit": "Επεξεργασία",
+	"qbpageoptions": "Αυτή η σελίδα",
+	"qbmyoptions": "Οι σελίδες μου",
+	"faqpage": "Project:Συχνές ερωτήσεις",
+	"editthispage": "Επεξεργασία αυτής της σελίδας",
+	"create-this-page": "Δημιουργία αυτής της σελίδας",
+	"deletethispage": "Διαγραφή αυτής της σελίδας",
+	"undeletethispage": "Επαναφορά αυτής της διαγεγραμμένης σελίδας",
+	"protectthispage": "Προστασία αυτής της σελίδας",
+	"unprotectthispage": "Αλλαγή προστασίας αυτής της σελίδας",
+	"talkpage": "Συζήτηση για αυτήν τη σελίδα",
+	"articlepage": "Εμφάνιση σελίδας περιεχομένου",
+	"userpage": "Προβολή σελίδας χρήστη",
+	"projectpage": "Προβολή σελίδας εγχειρήματος"
+}

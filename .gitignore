@@ -18,3 +18,36 @@ frontend/node_modules/
 *.dump
 
 CUTOVER.md
+
+# ---------------------------------------------------------------------------
+# Secrets and data. Added 2026-08-04 after a production database dump reached a
+# public commit; every pattern below closes a gap that was live at that moment.
+# ---------------------------------------------------------------------------
+
+# `app/.env` matches that one path literally — it does NOT cover `.env.prod`, which DEPLOY.md §2
+# designates for the full production secret set.
+.env
+.env.*
+!.env.example
+
+# Compressed dumps: `*.sql` / `*.dump` miss these entirely.
+*.sql.gz
+*.sql.bz2
+*.dump.gz
+*.tar.gz
+
+# A missing colon turns `scp file root@host:~/` into a LOCAL copy named `root@host` — no extension,
+# so no content-based rule catches it. That is exactly how the 3.7 MB production dump (117 unsalted
+# password hashes, 1 861 applicant records) became public on 2026-08-04.
+root@*
+*@*.*.*.*
+ubuntu-gahk*
+
+# Key, certificate and ACME material
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+acme.json

@@ -1,0 +1,24 @@
+{
+	"@metadata": {
+		"authors": [
+			"Malafaya",
+			"Smeira"
+		]
+	},
+	"qbfind": "Tuvön",
+	"qbbrowse": "Padön",
+	"qbedit": "Redakön",
+	"qbpageoptions": "Pad at",
+	"qbmyoptions": "Pads obik",
+	"faqpage": "Project:FAQ",
+	"editthispage": "Redakolöd padi at",
+	"create-this-page": "Jafön padi at",
+	"deletethispage": "Moükolös padi at",
+	"undeletethispage": "Sämoükön padi at",
+	"protectthispage": "Jelön padi at",
+	"unprotectthispage": "Votükön jeli pada at",
+	"talkpage": "Bespikolöd padi at",
+	"articlepage": "Jonön ninädapadi",
+	"userpage": "Logön gebanapadi",
+	"projectpage": "Logön proyegapadi"
+}

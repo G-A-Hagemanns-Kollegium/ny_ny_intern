@@ -1,0 +1,23 @@
+{
+	"@metadata": {
+		"authors": [
+			"Moris231"
+		]
+	},
+	"qbfind": "Reserser",
+	"qbbrowse": "Parkourir",
+	"qbedit": "Modifier",
+	"qbpageoptions": "Sa paz-la",
+	"qbmyoptions": "Mo bann paz",
+	"faqpage": "Project:FAQ",
+	"editthispage": "Modifie sa paz-la",
+	"create-this-page": "Kre sa paz-la",
+	"deletethispage": "Delete sa paz-la",
+	"undeletethispage": "Restore sa paz-la",
+	"protectthispage": "Proteze sa paz-la",
+	"unprotectthispage": "Sanz proteksion sa paz-la",
+	"talkpage": "Diskision lor sa paz-la",
+	"articlepage": "Montre paz kontenu",
+	"userpage": "Montre paz itilizater",
+	"projectpage": "Montre paz prozet"
+}

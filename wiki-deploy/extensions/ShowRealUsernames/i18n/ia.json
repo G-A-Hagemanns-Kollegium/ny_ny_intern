@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+			"McDutchie"
+		]
+	},
+	"action-showrealname": "vider nomines real",
+	"right-showrealname": "Vider nomines real in [[Special:ListUsers]]",
+	"sru-realname-desc": "Extende [[Special:ListUsers]] pro monstrar tamben le nomine real de cata usator e/o altere informationes specific al usator"
+}

@@ -1,0 +1,23 @@
+{
+	"@metadata": {
+		"authors": [
+			"Gion",
+			"Gion-andri"
+		]
+	},
+	"qbfind": "Chattar",
+	"qbbrowse": "Sfegliar",
+	"qbedit": "Modifitgar",
+	"qbpageoptions": "Questa pagina",
+	"qbmyoptions": "Mia pagina",
+	"faqpage": "Project:FAQ",
+	"editthispage": "Modifitgar questa pagina",
+	"create-this-page": "Crear questa pagina",
+	"deletethispage": "Stizzar questa pagina",
+	"protectthispage": "Proteger questa pagina",
+	"unprotectthispage": "Midar la protecziun da questa pagina",
+	"talkpage": "Discutar quest artitgel",
+	"articlepage": "Mussar la pagina da cuntegn",
+	"userpage": "Mussar la pagina d'utilisader",
+	"projectpage": "Mussar la pagina da project"
+}

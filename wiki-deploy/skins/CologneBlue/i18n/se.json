@@ -1,0 +1,22 @@
+{
+	"@metadata": {
+		"authors": [
+			"Jeblad",
+			"Skuolfi",
+			"Kimberli Mäkäräinen (WMNO)"
+		]
+	},
+	"qbfind": "Oza",
+	"qbbrowse": "Bláđe",
+	"qbedit": "Rievdat",
+	"qbpageoptions": "Siidoásahusat",
+	"qbmyoptions": "Ásahusat",
+	"editthispage": "Rievdat dán siiddu",
+	"deletethispage": "Sihko dán siiddu",
+	"protectthispage": "Suodjal dán siiddu",
+	"unprotectthispage": "Rievdat dán siiddu suodjalusa",
+	"talkpage": "Ságastala dán siiddu birra",
+	"articlepage": "Geahča sisdoalu",
+	"userpage": "Čájet geavaheaddjesiiddu",
+	"projectpage": "Čájet prošeaktasiiddu"
+}

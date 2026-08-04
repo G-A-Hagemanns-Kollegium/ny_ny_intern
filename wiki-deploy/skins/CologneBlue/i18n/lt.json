@@ -1,0 +1,29 @@
+{
+	"@metadata": {
+		"authors": [
+			"Eitvys200",
+			"Homo",
+			"Hugo.arg",
+			"Perkunas",
+			"Zygimantus"
+		]
+	},
+	"skinname-cologneblue": "Kelno mėlyna",
+	"cologneblue-desc": "Lengva išvaizda su minimaliu formatavimu",
+	"qbfind": "Paieška",
+	"qbbrowse": "Naršymas",
+	"qbedit": "Taisyti",
+	"qbpageoptions": "Šis puslapis",
+	"qbmyoptions": "Mano puslapiai",
+	"faqpage": "Project:DUK",
+	"editthispage": "Redaguoti šį puslapį",
+	"create-this-page": "Sukurti šį puslapį",
+	"deletethispage": "Ištrinti šį puslapį",
+	"undeletethispage": "Atkurti šį puslapį",
+	"protectthispage": "Rakinti šį puslapį",
+	"unprotectthispage": "Keisti šio puslapio apsaugą",
+	"talkpage": "Aptarti šį puslapį",
+	"articlepage": "Rodyti turinio puslapį",
+	"userpage": "Rodyti naudotojo puslapį",
+	"projectpage": "Rodyti projekto puslapį"
+}

@@ -1,0 +1,11 @@
+{
+	"@metadata": {
+		"authors": [
+			"Omotecho",
+			"Shirayuki"
+		]
+	},
+	"action-showrealname": "実名の閲覧",
+	"right-showrealname": "[[Special:ListUsers]]で利用者の実名を閲覧",
+	"sru-realname-desc": "[[Special:ListUsers]]を拡張して利用者の実名やその他の利用者固有の情報も表示する"
+}
