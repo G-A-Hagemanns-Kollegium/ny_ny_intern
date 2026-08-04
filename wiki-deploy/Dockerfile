@@ -9,8 +9,10 @@
 #
 #     docker build -t gahk-wiki:1.35 .
 #
-# 1.35 is the last MediaWiki supporting PHP 7.4, so this is pinned there. The GahkAuthLogin sources
-# are PHP 8.1-clean, so they carry through the eventual 1.43 upgrade unchanged.
+# PHP comes from the base image and is currently 8.0.30 — 1.35's composer.json only requires
+# ">=7.3.19", and the official image maintainers ship 8.0. Do not assume 7.4 here. The GahkAuthLogin
+# sources are `php -l` clean on 7.4, 8.0 and 8.1, so they carry through the eventual 1.43 upgrade
+# (which requires 8.1+) unchanged.
 
 FROM mediawiki:1.35
 
