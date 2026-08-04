@@ -26,15 +26,33 @@ DJANGO_DEBUG=0
 DJANGO_ALLOWED_HOSTS=www.gahk.dk,gahk.dk
 DATABASE_URL=postgres://gahk:<pw>@postgres:5432/gahk
 VISIT_COUNTER_HMAC_KEY=<random>
-SMTP_HOST=…  SMTP_USER=…  SMTP_PASSWORD=…  DEFAULT_FROM_EMAIL=autosvar@gahk.dk
+SMTP_HOST=send.one.com  SMTP_USER=…  SMTP_PASSWORD=…  SMTP_PORT=587
 EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+DEFAULT_FROM_EMAIL=autosvar@gahk.dk               # ⚠ must be an alias of SMTP_USER — see below
+OELKAELDER_FROM_EMAIL=bierkeller@gahk.dk          # ⚠ second sender, same requirement
 TURNSTILE_SITE_KEY=…  TURNSTILE_SECRET_KEY=…      # Cloudflare Turnstile [you]
 WIFI_PASSWORD=…  GOOGLE_CALENDAR_USER=…  GOOGLE_CALENDAR_PASSWORD=…
-INDSTILLING_EMAIL=indstillingen@gahk.dk
+INDSTILLING_EMAIL=indstillingen@gahk.dk           # recipient only, not a sender
 POSTGRES_PASSWORD=<pw>                            # for the compose postgres service
 OELKAELDER_KIOSK_IPS=<the till's server-observed source IP>   # confirm from access logs, NOT ipconfig
 ```
 Store real values in Coolify's secret manager / a vault — not in git.
+
+**Email — verify the senders, don't assume.** one.com authenticates as `SMTP_USER` and rejects any
+From address that account is not itself or an alias of:
+`550 5.7.1 [M9] User [it@gahk.dk] not authorized to send on behalf of <autosvar@gahk.dk>`. Both
+`DEFAULT_FROM_EMAIL` and `OELKAELDER_FROM_EMAIL` must therefore be added as aliases on the
+`SMTP_USER` mailbox in the one.com control panel (or pointed at `SMTP_USER` itself). Test each from
+inside the running container — this is the only way to confirm, since MX stays on one.com (§7) and
+the app relays through their smarthost, so existing SPF/DKIM for gahk.dk covers it with no new DNS:
+```
+python manage.py sendtestemail you@example.com                       # exercises DEFAULT_FROM_EMAIL
+DEFAULT_FROM_EMAIL=$OELKAELDER_FROM_EMAIL python manage.py sendtestemail you@example.com
+```
+Exit 0 = delivered. A failure here is otherwise near-invisible in the UI: the mails are best-effort
+so the app keeps working, and only the server log records the rejection. The one exception is
+password reset — Django's built-in view does not suppress errors, so a bad `DEFAULT_FROM_EMAIL`
+turns "glemt kodeord" into a 500 for the resident.
 
 ## 3. CI (GitHub Actions — `.github/workflows/ci.yml`) **[you: create the repo]**
 Fresh repo (do **not** import the legacy history — it contains plaintext secrets, scope §5). Jobs:
@@ -82,6 +100,7 @@ Encoding: connection charset is utf8mb3 — check per-table charsets, watch lati
 - [ ] Postgres + MariaDB provisioned; `media` volume mounted.
 - [ ] `task etl` + `etl_verify` + `relocate_media` run against a fresh dump; counts sane.
 - [ ] `createsuperuser`; assign initial roles via `/admin/roles`.
+- [ ] `sendtestemail` green for **both** sender addresses (§2); one real "glemt kodeord" round-trip.
 - [ ] Interim hardening done on the *old* box until DNS flips (scope §8: lock KCFinder, gate mass-mailers,
       delete `phpinfo.php`, pull & archive access logs).
 - [ ] MediaWiki migrated + upgraded to 1.43, reachable behind the proxy.
