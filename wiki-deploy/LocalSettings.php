@@ -45,6 +45,18 @@ $wgMetaNamespace = "Gahk_Wiki";
 
 $wgScriptPath = "/wiki";
 
+# Coolify/Traefik routes gahk.dk/wiki here with a stripprefix middleware, so Apache receives
+# "/index.php/Forside" while $wgScriptPath is still "/wiki". MediaWiki normally derives the page
+# title by matching REQUEST_URI against $wgScript ("/wiki/index.php") — which no longer matches, so
+# every path-style URL resolved to *no title* and rendered the main page instead. On a private wiki
+# that looks like "Log på nødvendigt" on every link, including the login link, so logging in appeared
+# to do nothing.
+#
+# PATH_INFO is populated correctly ("/Forside"); MediaWiki just ignores it, because $wgUsePathInfo
+# defaults to false under the apache2handler SAPI. Forcing it on makes the incoming title come from
+# PATH_INFO (correct after the strip) while $wgScriptPath keeps outgoing links pointing at /wiki.
+$wgUsePathInfo = true;
+
 ## The protocol and server name to use in fully-qualified URLs
 $wgServer = gahkEnv('MW_SERVER', 'https://gahk.dk');
 
