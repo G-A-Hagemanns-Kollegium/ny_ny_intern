@@ -131,30 +131,34 @@ def success(request: HttpRequest) -> HttpResponse:
 
 
 def _send_emails(app: Application, notify_committee: bool) -> None:
-    """Best-effort; a mail failure must not lose the saved application."""
-    try:
-        if notify_committee:
-            body = (
-                f"Ny {app.get_type_display().lower()}-anmodning:\n\n"
-                f"Navn: {app.full_name}\nE-mail: {app.email}\nAlder: {app.age}\n"
-                f"Hørt om os: {app.heard_about_us}\n\nMotivation:\n{app.motivation}\n"
-            )
+    """Best-effort; a mail failure must not lose the saved application. Each mail is sent (and caught)
+    on its own so a failing committee notification does not also swallow the applicant's auto-reply.
+    Nothing is sent with fail_silently: SMTP errors — e.g. one.com refusing a DEFAULT_FROM_EMAIL the
+    SMTP account is not an alias of — must reach the log instead of vanishing."""
+    if notify_committee:
+        body = (
+            f"Ny {app.get_type_display().lower()}-anmodning:\n\n"
+            f"Navn: {app.full_name}\nE-mail: {app.email}\nAlder: {app.age}\n"
+            f"Hørt om os: {app.heard_about_us}\n\nMotivation:\n{app.motivation}\n"
+        )
+        try:
             send_mail(
                 f"GAHK {app.get_type_display()}: {app.full_name}",
                 body,
                 settings.DEFAULT_FROM_EMAIL,
                 [settings.INDSTILLING_EMAIL],
-                fail_silently=True,
             )
+        except Exception:
+            logger.exception("Failed notifying the committee about application %s", app.pk)
+    try:
         send_mail(
             "GAHK – vi har modtaget din henvendelse",
             f"Kære {app.full_name}\n\nTak for din henvendelse. Vi vender tilbage.\n\nMvh. Indstillingen",
             settings.DEFAULT_FROM_EMAIL,
             [app.email],
-            fail_silently=True,
         )
     except Exception:
-        logger.exception("Failed sending admissions email for application %s", app.pk)
+        logger.exception("Failed sending the auto-reply for application %s", app.pk)
 
 
 # ---- indstilling review ----

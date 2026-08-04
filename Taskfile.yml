@@ -18,6 +18,10 @@ vars:
 
 env:
   DJANGO_DEBUG: '1'
+  # Windows consoles default to cp1252, which cannot encode the non-ASCII characters our management
+  # commands print (etl_verify's "clean ≤ legacy" notes, the ølkælder summaries). Without this the
+  # command dies with UnicodeEncodeError *after* doing its work, which reads like a data failure.
+  PYTHONIOENCODING: 'utf-8'
 
 tasks:
   default:
