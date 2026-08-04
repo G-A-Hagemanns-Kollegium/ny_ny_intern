@@ -54,6 +54,7 @@ def send_debt_warnings(shopper: Shopper, old_ore: int, new_ore: int) -> None:
                     body,
                     settings.OELKAELDER_FROM_EMAIL,
                     [shopper.resident.email],
+                    fail_silently=True,
                 )
             except Exception:
                 logger.exception("Failed to send ølkælder warning to shopper#%s", shopper.pk)
