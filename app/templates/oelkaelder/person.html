@@ -29,7 +29,6 @@
       </p>
     {% endfor %}
 
-<<<<<<< HEAD
     {% for account, balance in accounts %}
       <form method="post" action="{% url 'oelkaelder:add_adjustment' account.id %}" class="card">
         {% csrf_token %}
