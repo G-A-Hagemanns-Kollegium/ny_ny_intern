@@ -11,7 +11,15 @@ from django.urls import reverse
 from django.utils import timezone
 
 from oelkaelder import views
-from oelkaelder.models import LogEntry, Product, PurchaseShare, Shopper, Transaction, TransactionItem
+from oelkaelder.models import (
+    Adjustment,
+    LogEntry,
+    Product,
+    PurchaseShare,
+    Shopper,
+    Transaction,
+    TransactionItem,
+)
 from oelkaelder.services import record_purchase
 
 SALES = "oelkaelder:all_sales"
@@ -259,3 +267,113 @@ def test_both_pages_are_oelkaelder_only(make_resident: Callable) -> None:
     admin = Client()
     admin.force_login(make_resident(email="admin-sales@gahk.dk", roles=("administrator",)))
     assert admin.get(reverse(SALES)).status_code == 200  # administrator implies every role
+
+
+@pytest.mark.django_db
+def test_adjustment_subtracts_with_a_written_reason_and_logs(make_resident: Callable) -> None:
+    """The migration repair tool: correct a balance, with the explanation recorded for the resident."""
+    txn = _sale(make_resident, ("Anders", "Bo"))
+    shopper = PurchaseShare.objects.get(transaction=txn).shopper
+    assert shopper.balance_ore == -2100
+
+    resp = _oek(make_resident).post(
+        reverse("oelkaelder:add_adjustment", args=[shopper.pk]),
+        {"direction": "subtract", "amount_kr": "45,50", "reason": "Manglende køb okt. 2023"},
+    )
+
+    assert resp.status_code == 302
+    assert shopper.balance_ore == -2100 - 4550
+    adj = Adjustment.objects.get(shopper=shopper, kind=Adjustment.Kind.MANUAL)
+    assert adj.amount_ore == -4550
+    assert adj.reason == "Manglende køb okt. 2023"
+    entry = LogEntry.objects.filter(message__contains="Manuel justering").get()
+    assert "oek-sales@gahk.dk" in entry.message and "Manglende køb okt. 2023" in entry.message
+
+
+@pytest.mark.django_db
+def test_adjustment_can_also_credit(make_resident: Callable) -> None:
+    """Baskets where only some buyers were migrated over-charged the survivor, so corrections run
+    both ways even though the common case is subtracting."""
+    txn = _sale(make_resident, ("Anders", "Bo"))
+    shopper = PurchaseShare.objects.get(transaction=txn).shopper
+
+    _oek(make_resident).post(
+        reverse("oelkaelder:add_adjustment", args=[shopper.pk]),
+        {"direction": "add", "amount_kr": "10", "reason": "Betalte hele kurven alene"},
+    )
+
+    assert Adjustment.objects.get(shopper=shopper).amount_ore == 1000
+    assert shopper.balance_ore == -2100 + 1000
+
+
+@pytest.mark.django_db
+def test_adjustment_requires_reason_and_nonzero_amount(make_resident: Callable) -> None:
+    txn = _sale(make_resident, ("Anders", "Bo"))
+    shopper = PurchaseShare.objects.get(transaction=txn).shopper
+    url = reverse("oelkaelder:add_adjustment", args=[shopper.pk])
+    c = _oek(make_resident)
+
+    c.post(url, {"direction": "subtract", "amount_kr": "50", "reason": "   "})
+    c.post(url, {"direction": "subtract", "amount_kr": "0", "reason": "Ingen effekt"})
+    c.post(url, {"direction": "subtract", "amount_kr": "-50", "reason": "Negativt input"})
+    c.post(url, {"direction": "subtract", "amount_kr": "abc", "reason": "Ikke et tal"})
+
+    assert not Adjustment.objects.exists()
+    assert shopper.balance_ore == -2100  # untouched by every rejected attempt
+
+
+@pytest.mark.django_db
+def test_adjustment_shows_in_the_residents_own_statement(make_resident: Callable) -> None:
+    """The resident must be able to see why their balance moved, not just that it did."""
+    txn = _sale(make_resident, ("Anders", "Bo"))
+    shopper = PurchaseShare.objects.get(transaction=txn).shopper
+    _oek(make_resident).post(
+        reverse("oelkaelder:add_adjustment", args=[shopper.pk]),
+        {"direction": "subtract", "amount_kr": "45,50", "reason": "Manglende køb okt. 2023"},
+    )
+
+    own = Client()
+    own.force_login(shopper.resident)
+    html = own.get(reverse("oelkaelder:my")).content.decode()
+
+    assert "Manglende køb okt. 2023" in html
+    assert "-45,50 kr" in html
+
+
+@pytest.mark.django_db
+def test_adjustment_can_be_voided_and_is_idempotent(make_resident: Callable) -> None:
+    txn = _sale(make_resident, ("Anders", "Bo"))
+    shopper = PurchaseShare.objects.get(transaction=txn).shopper
+    c = _oek(make_resident)
+    c.post(
+        reverse("oelkaelder:add_adjustment", args=[shopper.pk]),
+        {"direction": "subtract", "amount_kr": "45,50", "reason": "Tastefejl"},
+    )
+    adj = Adjustment.objects.get(shopper=shopper)
+    url = reverse("oelkaelder:void_adjustment", args=[adj.pk])
+
+    assert c.get(url).status_code == 405
+    c.post(url)
+    c.post(url)  # double submit
+
+    adj.refresh_from_db()
+    assert adj.is_valid is False
+    assert shopper.balance_ore == -2100  # correction rolled back
+    assert LogEntry.objects.filter(message__contains="annulleret").count() == 1
+
+
+@pytest.mark.django_db
+def test_adjustment_endpoints_are_oelkaelder_only(make_resident: Callable) -> None:
+    txn = _sale(make_resident, ("Anders", "Bo"))
+    shopper = PurchaseShare.objects.get(transaction=txn).shopper
+    plain = Client()
+    plain.force_login(make_resident(email="plain-adj@gahk.dk"))
+
+    resp = plain.post(
+        reverse("oelkaelder:add_adjustment", args=[shopper.pk]),
+        {"direction": "subtract", "amount_kr": "50", "reason": "Bør afvises"},
+    )
+
+    assert resp.status_code == 403
+    assert not Adjustment.objects.exists()
+    assert shopper.balance_ore == -2100

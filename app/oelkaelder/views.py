@@ -36,7 +36,14 @@ from .models import (
     TransactionItem,
     Warning,
 )
-from .services import apply_interest, record_deposit, record_purchase, void_purchase
+from .services import (
+    apply_interest,
+    record_adjustment,
+    record_deposit,
+    record_purchase,
+    void_adjustment,
+    void_purchase,
+)
 
 
 class _Entry(TypedDict):
@@ -532,8 +539,55 @@ def person_history(request: HttpRequest) -> HttpResponse:
             "chosen": chosen,
             "accounts": [(a, a.balance_ore) for a in accounts],
             "entries": _account_entries(accounts)[:200] if accounts else [],
+            "adjustments": (
+                Adjustment.objects.filter(shopper__in=accounts, kind=Adjustment.Kind.MANUAL)
+                .select_related("shopper")
+                .order_by("-created_at")
+                if accounts
+                else []
+            ),
         },
     )
+
+
+def _signed_ore(amount_kr: str, direction: str) -> int:
+    """Parse a positive kroner amount plus a direction into signed øre. The form asks for a direction
+    rather than a minus sign because "-50" vs "50" in a free-text field is far too easy to get wrong
+    when the mistake silently moves someone's money the wrong way."""
+    try:
+        ore = round(float((amount_kr or "0").replace(",", ".")) * 100)
+    except ValueError:
+        raise ValueError("Ugyldigt beløb.") from None
+    if ore <= 0:
+        raise ValueError("Beløbet skal være positivt — vælg i stedet retning ovenfor.")
+    return -ore if direction == "subtract" else ore
+
+
+@require_POST
+@role_required("oelkaelder")
+def add_adjustment(request: HttpRequest, pk: int) -> HttpResponseRedirect:
+    """Manually correct one shopper's balance, with a mandatory written explanation."""
+    shopper = get_object_or_404(Shopper, pk=pk)
+    try:
+        amount = _signed_ore(request.POST.get("amount_kr", ""), request.POST.get("direction", "subtract"))
+        record_adjustment(shopper, amount, request.POST.get("reason", ""), current_resident(request).email)
+        messages.success(
+            request, f"Justering på {_kr(amount)} kr registreret for {shopper.resident.full_name}."
+        )
+    except ValueError as e:
+        messages.error(request, str(e))
+    return redirect(f"{reverse('oelkaelder:person_history')}?resident={shopper.resident_id}")
+
+
+@require_POST
+@role_required("oelkaelder")
+def void_adjustment_view(request: HttpRequest, pk: int) -> HttpResponseRedirect:
+    adjustment = get_object_or_404(Adjustment, pk=pk)
+    if void_adjustment(pk, current_resident(request).email):
+        messages.success(request, "Justering annulleret.")
+    else:
+        messages.info(request, "Justeringen var allerede annulleret.")
+    return redirect(f"{reverse('oelkaelder:person_history')}?resident={adjustment.shopper.resident_id}")
 
 
 @require_POST
