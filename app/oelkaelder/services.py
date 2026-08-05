@@ -176,7 +176,6 @@ def record_deposit(shopper: Shopper, amount_ore: int) -> None:
 
 
 @transaction.atomic
-<<<<<<< HEAD
 def record_adjustment(shopper: Shopper, amount_ore: int, reason: str, actor: str) -> Adjustment:
     """A manual signed correction to one shopper's balance (F-003). Negative = a charge that increases
     their debt; positive = a credit.
