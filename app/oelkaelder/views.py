@@ -543,7 +543,6 @@ def person_history(request: HttpRequest) -> HttpResponse:
             "chosen": chosen,
             "accounts": [(a, a.balance_ore) for a in accounts],
             "entries": _account_entries(accounts)[:200] if accounts else [],
-<<<<<<< HEAD
             "adjustments": (
                 Adjustment.objects.filter(shopper__in=accounts, kind=Adjustment.Kind.MANUAL)
                 .select_related("shopper")
@@ -551,8 +550,6 @@ def person_history(request: HttpRequest) -> HttpResponse:
                 if accounts
                 else []
             ),
-=======
->>>>>>> origin/main
         },
     )
 
