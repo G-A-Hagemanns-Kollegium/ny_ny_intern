@@ -45,17 +45,26 @@ $wgMetaNamespace = "Gahk_Wiki";
 
 $wgScriptPath = "/wiki";
 
-# Coolify/Traefik routes gahk.dk/wiki here with a stripprefix middleware, so Apache receives
-# "/index.php/Forside" while $wgScriptPath is still "/wiki". MediaWiki normally derives the page
-# title by matching REQUEST_URI against $wgScript ("/wiki/index.php") — which no longer matches, so
-# every path-style URL resolved to *no title* and rendered the main page instead. On a private wiki
-# that looks like "Log på nødvendigt" on every link, including the login link, so logging in appeared
-# to do nothing.
+# Coolify/Traefik routes gahk.dk/wiki here with a `stripprefix` middleware, so Apache receives
+# "/index.php/Forside" while $wgScript is still "/wiki/index.php". MediaWiki extracts the page title
+# by matching REQUEST_URI against the pattern "$wgScript/$1" (WebRequest::getPathInfo, via
+# PathRouter). After the strip that match fails, so *every* path-style URL resolves to no title at
+# all and renders the main page — which on a private wiki is "Log på nødvendigt" for every link,
+# including the login link. The symptom is a login button that appears to do nothing: it navigates
+# to a page identical to the one you left.
 #
-# PATH_INFO is populated correctly ("/Forside"); MediaWiki just ignores it, because $wgUsePathInfo
-# defaults to false under the apache2handler SAPI. Forcing it on makes the incoming title come from
-# PATH_INFO (correct after the strip) while $wgScriptPath keeps outgoing links pointing at /wiki.
-$wgUsePathInfo = true;
+# Do NOT try to fix this with $wgUsePathInfo = true. It was tried and does nothing: getPathInfo()
+# parses REQUEST_URI, not $_SERVER['PATH_INFO'], so the correctly-populated PATH_INFO ("/Forside")
+# is never consulted. $wgUsePathInfo only controls *whether* the REQUEST_URI parse is attempted.
+#
+# Query-style URLs carry the title in the query string, which the prefix strip leaves untouched.
+# Literal "/wiki/index.php" rather than "$wgScript" — $wgScript is not populated until Setup.php
+# runs, i.e. after this file is parsed, so interpolating it here yields an empty string.
+#
+# The alternative is removing Coolify's stripprefix middleware so $wgScriptPath matches natively;
+# that means overriding Coolify's generated Traefik labels, which is more fragile than accepting
+# query-style URLs. Moving the wiki to wiki.gahk.dk would remove the problem entirely.
+$wgArticlePath = "/wiki/index.php?title=$1";
 
 ## The protocol and server name to use in fully-qualified URLs
 $wgServer = gahkEnv('MW_SERVER', 'https://gahk.dk');

@@ -15,6 +15,7 @@ from typing import Any
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import transaction
+from django.db.models import Sum
 from django.utils import timezone
 
 from .models import (
@@ -172,3 +173,32 @@ def record_deposit(shopper: Shopper, amount_ore: int) -> None:
         raise ValueError("Beløb skal være positivt.")
     Deposit.objects.create(shopper=shopper, amount_ore=amount_ore, created_at=timezone.now())
     LogEntry.objects.create(message=f"Indbetaling {amount_ore} øre til shopper#{shopper.id}.")
+
+
+@transaction.atomic
+def void_purchase(txn_id: int, actor: str) -> bool:
+    """Soft-delete a mistaken sale (F-003, legacy `deleteTransaction`). Returns False if it was already
+    voided, so a double-submit cannot write a second log line.
+
+    No compensating ledger write is needed: balances are *derived*, and Shopper.balance_ore filters
+    `transaction__is_valid=True`, so clearing the flag refunds every buyer of the basket at once. The
+    legacy code had to read-modify-write each saldo and accumulated fractional-øre drift doing it.
+
+    Two things this deliberately does NOT undo:
+      * a debt-warning mail already sent by the purchase (send_debt_warnings is edge-triggered and
+        keeps no state, so voiding also re-arms the same warning for the next crossing);
+      * an interest Adjustment charged while the debt included this sale. apply_interest materialises
+        the charge from the balance at the time and is idempotent per month, so it will not
+        self-correct — the shopper keeps interest on a debt that no longer exists.
+    """
+    if not Transaction.objects.filter(pk=txn_id, is_valid=True).update(is_valid=False):
+        return False
+    total = TransactionItem.objects.filter(transaction_id=txn_id).aggregate(s=Sum("price_ore"))["s"] or 0
+    buyers = ", ".join(
+        s.shopper.resident.full_name
+        for s in PurchaseShare.objects.filter(transaction_id=txn_id).select_related("shopper__resident")
+    )
+    LogEntry.objects.create(
+        message=f"Køb txn#{txn_id} ({total} øre, {buyers or 'ingen registrerede købere'}) annulleret af {actor}."
+    )
+    return True

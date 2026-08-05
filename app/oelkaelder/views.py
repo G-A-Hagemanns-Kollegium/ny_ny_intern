@@ -4,16 +4,20 @@
 import csv
 import io
 import json
-from datetime import date, datetime
+from collections.abc import Iterable
+from datetime import date, datetime, timedelta
 from typing import TypedDict
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.db.models import Sum
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.core.paginator import Paginator
+from django.db.models import Exists, OuterRef, Prefetch, Q, QuerySet, Sum, Value
+from django.db.models.functions import Concat
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -22,15 +26,17 @@ from residents.permissions import current_resident, role_required
 
 from .forms import InterestPolicyForm, WarningForm
 from .models import (
+    Adjustment,
     Deposit,
     InterestPolicy,
     Product,
     PurchaseShare,
     Shopper,
+    Transaction,
     TransactionItem,
     Warning,
 )
-from .services import apply_interest, record_deposit, record_purchase
+from .services import apply_interest, record_deposit, record_purchase, void_purchase
 
 
 class _Entry(TypedDict):
@@ -79,16 +85,17 @@ def purchase(request: HttpRequest) -> HttpResponseRedirect:
     return redirect("oelkaelder:shop")
 
 
-@login_required
-def my_balance(request: HttpRequest) -> HttpResponse:
-    """Balance + a combined account statement (deposits as credits, purchase shares as debits)."""
-    accounts = list(current_resident(request).shopper_accounts.all())
+def _account_entries(accounts: list[Shopper]) -> list[_Entry]:
+    """Combined account statement for one or more shopper accounts: purchase shares as debits,
+    deposits and adjustments as credits, newest first. Shared by the resident's own `min-saldo` page
+    and the ØK per-person history so the two can never disagree about what someone owes."""
     shares = (
         PurchaseShare.objects.filter(shopper__in=accounts, transaction__is_valid=True)
         .select_related("transaction")
         .prefetch_related("transaction__items__product")
     )
     deposits = Deposit.objects.filter(shopper__in=accounts, is_valid=True)
+    adjustments = Adjustment.objects.filter(shopper__in=accounts, is_valid=True)
     entries: list[_Entry] = [
         _Entry(
             created_at=s.transaction.created_at,
@@ -100,13 +107,24 @@ def my_balance(request: HttpRequest) -> HttpResponse:
         _Entry(created_at=d.created_at, text="Indbetaling", amount_ore=d.amount_ore)  # credit
         for d in deposits
     ]
+    entries += [
+        _Entry(created_at=a.created_at, text=a.reason or a.get_kind_display(), amount_ore=a.amount_ore)
+        for a in adjustments
+    ]
     entries.sort(key=lambda e: e["created_at"], reverse=True)
+    return entries
+
+
+@login_required
+def my_balance(request: HttpRequest) -> HttpResponse:
+    """Balance + a combined account statement (deposits as credits, purchase shares as debits)."""
+    accounts = list(current_resident(request).shopper_accounts.all())
     return render(
         request,
         "oelkaelder/my.html",
         {
             "accounts": [(a, a.balance_ore) for a in accounts],
-            "entries": entries[:100],
+            "entries": _account_entries(accounts)[:100],
             "bank_reg": settings.OELKAELDER_BANK_REG,
             "bank_account": settings.OELKAELDER_BANK_ACCOUNT,
         },
@@ -315,6 +333,207 @@ def report_quantity(request: HttpRequest) -> HttpResponse:
 
 def _kr(ore: int) -> str:
     return f"{ore / 100:.2f}".replace(".", ",")
+
+
+# ---- Salgsoverblik (ØK role): every sale, one row per transaction (F-003, legacy `allsales`) ----
+PAGE_SIZE = 50
+EXPORT_MAX_ROWS = 5000
+DEFAULT_RANGE_DAYS = 90
+SALES_HEADERS = ["Dato", "Personer", "I alt", "Pr. person", "Varer", "Status"]
+_FILTER_KEYS = ("start", "end", "q", "buyers")
+NO_BUYERS = "(ukendt — fraflytter)"
+
+
+class _SaleRow(TypedDict):
+    txn_id: int
+    created_at: datetime
+    is_valid: bool
+    has_buyers: bool
+    people: str
+    total_ore: int
+    per_person: str
+    items: str
+
+
+def _sales_range(request: HttpRequest) -> tuple[date, date]:
+    """Like _report_range, but defaults to the last 90 days instead of the year 2000. This page is
+    reachable with no query string at all, and a 2000-01-01 default would make the *default* render —
+    and the export button sitting next to it — cover every transaction ever recorded."""
+    today = timezone.localdate()
+    start, end = _report_range(request)
+    if "start" not in request.GET:
+        start = today - timedelta(days=DEFAULT_RANGE_DAYS)
+    return start, end
+
+
+def _filter_query(source: QueryDict, *, extra_keys: tuple[str, ...] = ()) -> str:
+    """Re-encode only this page's own filter params, so pagers and post-action redirects preserve the
+    user's filters. Whitelisted on purpose: never echoes arbitrary input into a redirect, and never
+    carries `format` (which would turn a "næste side" link into a CSV download)."""
+    params = QueryDict(mutable=True)
+    for key in (*_FILTER_KEYS, *extra_keys):
+        value = source.get(key)
+        if value:
+            params[key] = value
+    return params.urlencode()
+
+
+def _sales_queryset(start: date, end: date, query: str, buyers: str) -> QuerySet[Transaction]:
+    """Transactions in the range, newest first, with items and buyers prefetched (3 queries per page).
+
+    The explicit order_by inside each Prefetch is required: neither child model has Meta.ordering, so
+    the buyer and item lists would otherwise render in whatever order the planner returned.
+    """
+    lo = timezone.make_aware(datetime.combine(start, datetime.min.time()))
+    hi = timezone.make_aware(datetime.combine(end + timedelta(days=1), datetime.min.time()))
+    qs = Transaction.objects.filter(created_at__gte=lo, created_at__lt=hi).prefetch_related(
+        Prefetch("items", queryset=TransactionItem.objects.select_related("product").order_by("id")),
+        Prefetch(
+            "shares",
+            queryset=PurchaseShare.objects.select_related("shopper__resident").order_by("id"),
+        ),
+    )
+    if query:
+        # Exists(), not filter(shares__shopper__resident__…): the join spelling returns a transaction
+        # once per *matching buyer*, which duplicates rows in the table, in Paginator.count and in the
+        # export. .distinct() would mask that at the cost of the index, and only works by coincidence
+        # of the current select list. Concat so "Anders Andersen" matches; per-field icontains cannot.
+        people = (
+            PurchaseShare.objects.filter(transaction=OuterRef("pk"))
+            .annotate(
+                full=Concat("shopper__resident__first_name", Value(" "), "shopper__resident__last_name")
+            )
+            .filter(Q(full__icontains=query) | Q(shopper__resident__email__icontains=query))
+        )
+        qs = qs.filter(Exists(people))
+    if buyers in ("none", "any"):
+        has_share = PurchaseShare.objects.filter(transaction=OuterRef("pk"))
+        qs = qs.filter(~Exists(has_share) if buyers == "none" else Exists(has_share))
+    return qs
+
+
+def _per_person(shares: list[PurchaseShare]) -> str:
+    """The per-buyer amount read off the actual shares — never total/len(shares). Two reasons: the ETL
+    left many historic transactions with no shares at all (that would be a ZeroDivisionError), and the
+    largest-remainder split genuinely differs by an øre between buyers, so a division would lie."""
+    if not shares:
+        return "—"
+    low = min(s.share_ore for s in shares)
+    high = max(s.share_ore for s in shares)
+    return _kr(low) if low == high else f"{_kr(low)}–{_kr(high)}"
+
+
+def _sale_rows(transactions: Iterable[Transaction]) -> list[_SaleRow]:
+    """Build display rows from prefetched data — no further queries. Used by both the HTML page and
+    the export so the two can never disagree."""
+    rows = []
+    for txn in transactions:
+        items = list(txn.items.all())
+        shares = list(txn.shares.all())
+        rows.append(
+            _SaleRow(
+                txn_id=txn.pk,
+                created_at=txn.created_at,
+                is_valid=txn.is_valid,
+                has_buyers=bool(shares),
+                people=", ".join(s.shopper.resident.full_name for s in shares) or NO_BUYERS,
+                # Sum the items, not the shares: for a transaction whose buyers were never migrated the
+                # share sum is 0, and reporting 0 kr would make the cellar look like it sold nothing.
+                total_ore=sum(i.price_ore for i in items),
+                per_person=_per_person(shares),
+                items=", ".join(f"{i.quantity}× {i.product.name}" for i in items) or "—",
+            )
+        )
+    return rows
+
+
+@role_required("oelkaelder")
+def all_sales(request: HttpRequest) -> HttpResponse:
+    """Salgsoverblik: every sale, one row per transaction, with the buyers who split it."""
+    start, end = _sales_range(request)
+    query = (request.GET.get("q") or "").strip()
+    buyers = request.GET.get("buyers", "")
+    qs = _sales_queryset(start, end, query, buyers)
+    base_query = _filter_query(request.GET)
+
+    if request.GET.get("format") in ("csv", "xlsx"):
+        # Export the whole filtered set, not the current page. Capped: _report_response materialises
+        # every row, and openpyxl holds each cell as an object — the full ~99k-row history would be
+        # hundreds of MB and outlive gunicorn's 60s worker timeout. Streaming would not help; with sync
+        # workers that timeout counts time since the worker last checked in per request, not per chunk.
+        count = qs.count()
+        if count > EXPORT_MAX_ROWS:
+            messages.error(
+                request,
+                f"{count} handler er for mange at eksportere (grænsen er {EXPORT_MAX_ROWS}). "
+                "Vælg en kortere periode.",
+            )
+            return redirect(f"{reverse('oelkaelder:all_sales')}?{base_query}")
+        data = [
+            [
+                timezone.localtime(r["created_at"]).strftime("%Y-%m-%d %H:%M"),
+                r["people"],
+                _kr(r["total_ore"]),
+                r["per_person"],
+                r["items"],
+                "" if r["is_valid"] else "Annulleret",
+            ]
+            for r in _sale_rows(qs)
+        ]
+        return _report_response(request, "Salgsoverblik", SALES_HEADERS, data, f"salgsoverblik-{start}-{end}")
+
+    page = Paginator(qs, PAGE_SIZE).get_page(request.GET.get("page"))
+    return render(
+        request,
+        "oelkaelder/salgsoverblik.html",
+        {
+            "page_obj": page,
+            "rows": _sale_rows(page.object_list),
+            "start": start,
+            "end": end,
+            "query": query,
+            "buyers": buyers,
+            "base_query": base_query,
+        },
+    )
+
+
+@require_POST
+@role_required("oelkaelder")
+def void_sale(request: HttpRequest, pk: int) -> HttpResponseRedirect:
+    """Annullér a mistaken sale. POST-only: the legacy `deleteTransaction` moved money on GET."""
+    if void_purchase(pk, current_resident(request).email):
+        messages.success(request, f"Køb #{pk} annulleret. Købernes saldi er rettet.")
+    else:
+        messages.info(request, f"Køb #{pk} var allerede annulleret.")
+    query = _filter_query(request.POST, extra_keys=("page",))
+    return redirect(f"{reverse('oelkaelder:all_sales')}?{query}")
+
+
+@role_required("oelkaelder")
+def person_history(request: HttpRequest) -> HttpResponse:
+    """One resident's full ølkælder history — purchases, deposits and adjustments — so the ØK can see
+    not just what somebody bought but why their balance is what it is."""
+    residents = (
+        Resident.objects.filter(shopper_accounts__isnull=False).distinct().order_by("first_name", "last_name")
+    )
+    chosen = None
+    accounts: list[Shopper] = []
+    raw_id = request.GET.get("resident", "")
+    if raw_id.isdigit():
+        chosen = residents.filter(pk=int(raw_id)).first()
+        if chosen:
+            accounts = list(chosen.shopper_accounts.all())
+    return render(
+        request,
+        "oelkaelder/person.html",
+        {
+            "residents": residents,
+            "chosen": chosen,
+            "accounts": [(a, a.balance_ore) for a in accounts],
+            "entries": _account_entries(accounts)[:200] if accounts else [],
+        },
+    )
 
 
 @require_POST

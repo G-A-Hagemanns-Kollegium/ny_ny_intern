@@ -52,6 +52,7 @@ def _nav_intern(roles: Collection[str]) -> list[tuple[str, str]]:
         items.append(("/nyintern/ak/admin", "AK-oversigt"))
     if "oelkaelder" in roles:
         items.append(("/nyintern/oelkaelder/admin", "Ølkælder-admin"))
+        items.append(("/nyintern/oelkaelder/admin/salgsoverblik", "Salgsoverblik"))
     if "regnskab" in roles:
         items.append(("/nyintern/regnskab/", "Regnskab"))
     if "indstilling" in roles:
