@@ -176,6 +176,7 @@ def record_deposit(shopper: Shopper, amount_ore: int) -> None:
 
 
 @transaction.atomic
+<<<<<<< HEAD
 def record_adjustment(shopper: Shopper, amount_ore: int, reason: str, actor: str) -> Adjustment:
     """A manual signed correction to one shopper's balance (F-003). Negative = a charge that increases
     their debt; positive = a credit.
@@ -221,6 +222,8 @@ def void_adjustment(adjustment_id: int, actor: str) -> bool:
 
 
 @transaction.atomic
+=======
+>>>>>>> origin/main
 def void_purchase(txn_id: int, actor: str) -> bool:
     """Soft-delete a mistaken sale (F-003, legacy `deleteTransaction`). Returns False if it was already
     voided, so a double-submit cannot write a second log line.

@@ -23,8 +23,11 @@ urlpatterns = [
     path("admin/salgsoverblik", views.all_sales, name="all_sales"),
     path("admin/salgsoverblik/<int:pk>/annuller", views.void_sale, name="void_sale"),
     path("admin/person", views.person_history, name="person_history"),
+<<<<<<< HEAD
     path("admin/person/<int:pk>/justering", views.add_adjustment, name="add_adjustment"),
     path("admin/justering/<int:pk>/annuller", views.void_adjustment_view, name="void_adjustment"),
+=======
+>>>>>>> origin/main
     path("admin/produkter", views.products, name="products"),
     path("admin/produkter/opret", views.product_create, name="product_create"),
     path("admin/produkter/<int:pk>", views.product_update, name="product_update"),

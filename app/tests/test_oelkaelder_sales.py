@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from oelkaelder import views
+<<<<<<< HEAD
 from oelkaelder.models import (
     Adjustment,
     LogEntry,
@@ -20,6 +21,9 @@ from oelkaelder.models import (
     Transaction,
     TransactionItem,
 )
+=======
+from oelkaelder.models import LogEntry, Product, PurchaseShare, Shopper, Transaction, TransactionItem
+>>>>>>> origin/main
 from oelkaelder.services import record_purchase
 
 SALES = "oelkaelder:all_sales"
@@ -267,6 +271,7 @@ def test_both_pages_are_oelkaelder_only(make_resident: Callable) -> None:
     admin = Client()
     admin.force_login(make_resident(email="admin-sales@gahk.dk", roles=("administrator",)))
     assert admin.get(reverse(SALES)).status_code == 200  # administrator implies every role
+<<<<<<< HEAD
 
 
 @pytest.mark.django_db
@@ -377,3 +382,5 @@ def test_adjustment_endpoints_are_oelkaelder_only(make_resident: Callable) -> No
     assert resp.status_code == 403
     assert not Adjustment.objects.exists()
     assert shopper.balance_ore == -2100
+=======
+>>>>>>> origin/main

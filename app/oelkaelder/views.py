@@ -36,6 +36,7 @@ from .models import (
     TransactionItem,
     Warning,
 )
+<<<<<<< HEAD
 from .services import (
     apply_interest,
     record_adjustment,
@@ -44,6 +45,9 @@ from .services import (
     void_adjustment,
     void_purchase,
 )
+=======
+from .services import apply_interest, record_deposit, record_purchase, void_purchase
+>>>>>>> origin/main
 
 
 class _Entry(TypedDict):
@@ -539,6 +543,7 @@ def person_history(request: HttpRequest) -> HttpResponse:
             "chosen": chosen,
             "accounts": [(a, a.balance_ore) for a in accounts],
             "entries": _account_entries(accounts)[:200] if accounts else [],
+<<<<<<< HEAD
             "adjustments": (
                 Adjustment.objects.filter(shopper__in=accounts, kind=Adjustment.Kind.MANUAL)
                 .select_related("shopper")
@@ -546,10 +551,13 @@ def person_history(request: HttpRequest) -> HttpResponse:
                 if accounts
                 else []
             ),
+=======
+>>>>>>> origin/main
         },
     )
 
 
+<<<<<<< HEAD
 def _signed_ore(amount_kr: str, direction: str) -> int:
     """Parse a positive kroner amount plus a direction into signed øre. The form asks for a direction
     rather than a minus sign because "-50" vs "50" in a free-text field is far too easy to get wrong
@@ -590,6 +598,8 @@ def void_adjustment_view(request: HttpRequest, pk: int) -> HttpResponseRedirect:
     return redirect(f"{reverse('oelkaelder:person_history')}?resident={adjustment.shopper.resident_id}")
 
 
+=======
+>>>>>>> origin/main
 @require_POST
 @role_required("oelkaelder")
 def add_deposit(request: HttpRequest, pk: int) -> HttpResponseRedirect:
