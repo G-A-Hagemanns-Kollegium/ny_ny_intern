@@ -598,8 +598,6 @@ def void_adjustment_view(request: HttpRequest, pk: int) -> HttpResponseRedirect:
     return redirect(f"{reverse('oelkaelder:person_history')}?resident={adjustment.shopper.resident_id}")
 
 
-=======
->>>>>>> origin/main
 @require_POST
 @role_required("oelkaelder")
 def add_deposit(request: HttpRequest, pk: int) -> HttpResponseRedirect:
