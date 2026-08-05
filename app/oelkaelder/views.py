@@ -36,7 +36,6 @@ from .models import (
     TransactionItem,
     Warning,
 )
-<<<<<<< HEAD
 from .services import (
     apply_interest,
     record_adjustment,
@@ -45,9 +44,6 @@ from .services import (
     void_adjustment,
     void_purchase,
 )
-=======
-from .services import apply_interest, record_deposit, record_purchase, void_purchase
->>>>>>> origin/main
 
 
 class _Entry(TypedDict):

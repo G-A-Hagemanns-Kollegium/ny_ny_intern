@@ -221,8 +221,6 @@ def void_adjustment(adjustment_id: int, actor: str) -> bool:
 
 
 @transaction.atomic
-=======
->>>>>>> origin/main
 def void_purchase(txn_id: int, actor: str) -> bool:
     """Soft-delete a mistaken sale (F-003, legacy `deleteTransaction`). Returns False if it was already
     voided, so a double-submit cannot write a second log line.
