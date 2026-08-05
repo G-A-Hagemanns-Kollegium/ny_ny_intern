@@ -557,7 +557,6 @@ def person_history(request: HttpRequest) -> HttpResponse:
     )
 
 
-<<<<<<< HEAD
 def _signed_ore(amount_kr: str, direction: str) -> int:
     """Parse a positive kroner amount plus a direction into signed øre. The form asks for a direction
     rather than a minus sign because "-50" vs "50" in a free-text field is far too easy to get wrong
