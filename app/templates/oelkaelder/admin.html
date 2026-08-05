@@ -4,7 +4,11 @@
 {% block content %}
   <div class="flex items-center justify-between">
     <h1>Ølkælder - saldi</h1>
-    <a href="{% url 'oelkaelder:products' %}" class="btn">Varer &amp; priser</a>
+    <span class="flex gap-2">
+      <a href="{% url 'oelkaelder:all_sales' %}" class="btn">Salgsoverblik</a>
+      <a href="{% url 'oelkaelder:person_history' %}" class="btn">Personoversigt</a>
+      <a href="{% url 'oelkaelder:products' %}" class="btn">Varer &amp; priser</a>
+    </span>
   </div>
 
   <table cellpadding="6" style="width:100%; border-collapse:collapse">

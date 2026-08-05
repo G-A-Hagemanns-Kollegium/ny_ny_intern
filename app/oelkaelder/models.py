@@ -84,7 +84,13 @@ class Transaction(models.Model):  # intern_oelkaelder_transaction
     is_valid = models.BooleanField(default=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        # The -id tiebreak is load-bearing, not cosmetic: legacy created_at is minute-resolution and the
+        # till fires bursts, so timestamp ties are common. Postgres gives no stable order for tied sort
+        # keys across separate LIMIT/OFFSET queries, which silently duplicates rows onto one paginated
+        # page and drops them from another. The index matches the ordering so the sales list's date
+        # filter and "ORDER BY … LIMIT" are an index range scan instead of a seq scan plus sort.
+        ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["-created_at", "-id"], name="oelk_txn_created_id_idx")]
 
 
 class TransactionItem(models.Model):  # intern_oelkaelder_transaction_item
