@@ -1,15 +1,21 @@
 """Rooms views: vaerelsestjek (F-005 condition inspection). soegvaerelse (F-004) added separately.
 
-F-005 fixes: ORM (no SQLi), role-gated (inspektion for inspecting, ak for the AK overview — fixes the
-broken `!$username && !empty($ak)` guard), CSRF, and the unflag-old + create-new write is atomic.
-Only the current condition is kept. (Per-criterion image *upload* is a later refinement — see model note;
-legacy image path references are shown read-only.)
+F-005 fixes: ORM (no SQLi), CSRF, and the unflag-old + create-new write is atomic. Only the current
+condition is kept. (Per-criterion image *upload* is a later refinement — see model note; legacy image
+path references are shown read-only.)
+
+Access: inspecting a room is open to **every logged-in resident**, not just the inspektion role — room
+checks are done by whoever is around, and gating them behind an embedsgruppe just meant the work
+stalled. Each RoomCondition records who wrote it (`resident`, `recorded_by_name`, `recorded_at`) and
+superseded ones are kept with `is_current=False`, so the history stays attributable. `akoverview`
+remains AK-only: it is the AK group's own screen, not part of the inspection flow.
 """
 
 from typing import cast
 
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -21,7 +27,7 @@ from residents.permissions import current_resident, role_required
 from .models import RoomCondition, RoomConditionScore, RoomCriterion
 
 
-@role_required("inspektion")
+@login_required
 def overview(request: HttpRequest) -> HttpResponse:
     rooms = Room.objects.order_by("number")
     current = {c.room_id: c for c in RoomCondition.objects.filter(is_current=True)}
@@ -35,7 +41,7 @@ def akoverview(request: HttpRequest) -> HttpResponse:
     return render(request, "vaerelsestjek/akoverview.html", {"conditions": conditions})
 
 
-@role_required("inspektion")
+@login_required
 def room(request: HttpRequest, room_id: int) -> HttpResponse:
     rm = get_object_or_404(Room, number=room_id)
     cond = RoomCondition.objects.filter(room=rm, is_current=True).first()
@@ -43,7 +49,7 @@ def room(request: HttpRequest, room_id: int) -> HttpResponse:
     return render(request, "vaerelsestjek/room.html", {"room": rm, "cond": cond, "scores": scores})
 
 
-@role_required("inspektion")
+@login_required
 def besvar(request: HttpRequest, room_id: int) -> HttpResponse:
     rm = get_object_or_404(Room, number=room_id)
     resident = current_resident(request)

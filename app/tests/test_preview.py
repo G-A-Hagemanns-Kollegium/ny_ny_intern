@@ -66,14 +66,14 @@ def test_non_admin_cannot_use_switcher(make_resident: Callable) -> None:
 def test_nav_changes_under_preview(make_resident: Callable) -> None:
     admin = make_resident(email="admin@gahk.dk", roles=[Role.ADMINISTRATOR])
     c = _client(admin)
-    c.post("/admin/preview/set", {"mode": "role", "role": "inspektion"})
+    c.post("/admin/preview/set", {"mode": "role", "role": "ak"})
     html = c.get("/nyintern/").content.decode()
-    assert "Værelsestjek" in html
+    assert "AK-oversigt" in html
     assert "Ansøgninger" not in html and "Site-admin" not in html
     c.post("/admin/preview/set", {"mode": "role", "role": "indstilling"})
     html = c.get("/nyintern/").content.decode()
     assert "Ansøgninger" in html
-    assert "Værelsestjek" not in html
+    assert "AK-oversigt" not in html
 
 
 @pytest.mark.django_db
@@ -113,6 +113,7 @@ def test_superuser_preview_restricts(make_resident: Callable) -> None:
 def test_plain_resident_and_anon_have_no_admin_nav(make_resident: Callable) -> None:
     beboer = make_resident(email="b@gahk.dk")
     html = _client(beboer).get("/nyintern/").content.decode()
-    for label in ("AK-oversigt", "Ansøgninger", "Site-admin", "Ølkælder-admin", "Værelsestjek"):
+    # Værelsestjek is deliberately absent from this list: it is a base item for every resident (F-005).
+    for label in ("AK-oversigt", "Ansøgninger", "Site-admin", "Ølkælder-admin", "Regnskab"):
         assert label not in html
     assert "Alumneliste" not in Client().get("/").content.decode()  # anon front page: no intern nav
