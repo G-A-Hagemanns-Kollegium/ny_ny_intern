@@ -398,3 +398,35 @@ def test_slashless_legacy_urls_redirect_instead_of_404() -> None:
     Page.objects.create(header="Faciliteter", slug="faciliteter", body="<p>hej</p>")
     assert c.get("/faciliteter").status_code == 200
     assert c.get("/findes-ikke").status_code == 404
+
+
+@pytest.mark.django_db
+def test_vaerelsestjek_is_open_to_every_resident(make_resident: Callable) -> None:
+    """Room checks are done by whoever is around, so seeing and writing them is not gated on the
+    inspektion embedsgruppe (F-005). akoverview stays AK-only — it is the AK group's own screen."""
+    from core.models import Room
+    from rooms.models import RoomCondition, RoomCriterion
+
+    rm = Room.objects.create(legacy_index=91, number=91, floor="stuen", side="mod gaden")
+    RoomCriterion.objects.create(code="vindue", name="Vindue", options=5)
+    plain = make_resident(email="menig@gahk.dk")  # no roles at all
+    c = Client()
+    c.force_login(plain)
+
+    assert c.get("/nyintern/vaerelsestjek/").status_code == 200
+    assert c.get(f"/nyintern/vaerelsestjek/besvar/{rm.number}").status_code == 200
+
+    c.post(f"/nyintern/vaerelsestjek/besvar/{rm.number}", {"score_vindue": "4", "comment_vindue": "Fin"})
+
+    cond = RoomCondition.objects.get(room=rm, is_current=True)
+    assert cond.resident == plain  # the writer is recorded, so the history stays attributable
+    assert cond.scores.get(criterion__code="vindue").score == 4
+    assert c.get(f"/nyintern/vaerelsestjek/se/{rm.number}").status_code == 200
+
+    assert c.get("/nyintern/vaerelsestjek/akoverview").status_code == 403  # still AK-only
+    assert "Værelsestjek" in [label for _url, label in c.get("/nyintern/").context["nav_intern"]]
+
+
+@pytest.mark.django_db
+def test_vaerelsestjek_still_requires_login() -> None:
+    assert Client().get("/nyintern/vaerelsestjek/").status_code in (301, 302)

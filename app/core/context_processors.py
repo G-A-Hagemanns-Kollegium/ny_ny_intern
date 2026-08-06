@@ -42,12 +42,11 @@ def _nav_intern(roles: Collection[str]) -> list[tuple[str, str]]:
         ("/nyintern/soegvaerelse/", "Søg værelse"),
         ("/nyintern/ak/", "AK-krydser"),
         ("/nyintern/oelkaelder/min-saldo", "Ølkælder"),
+        ("/nyintern/vaerelsestjek/", "Værelsestjek"),  # open to every resident, not just inspektion
         ("/nyintern/statistik/", "Statistik"),
         (settings.WIKI_URL, "Wiki"),
         (settings.FEEDBACK_URL, "Fejl & ønsker"),
     ]
-    if "inspektion" in roles:
-        items.append(("/nyintern/vaerelsestjek/", "Værelsestjek"))
     if "ak" in roles:
         items.append(("/nyintern/ak/admin", "AK-oversigt"))
     if "oelkaelder" in roles:
