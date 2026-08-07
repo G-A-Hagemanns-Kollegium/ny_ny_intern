@@ -60,6 +60,31 @@ SEED = 1908  # the year GAHK was founded — any fixed value works, we just want
 # Non-privileged chore groups (no site role) mixed in with the privileged ones from WORKGROUP_ROLE.
 EXTRA_WORKGROUPS = ["Haven", "Vinklubben", "Festudvalget", "Bladet", "IT / Netværk"]
 CLEANING_GROUPS = ["Køkken", "Bad 1. sal", "Bad 2. sal", "Trappe", "Kælder", "Fællesrum"]
+# (code, name, options, description) — real rows from intern_room_criteria covering all three scale
+# shapes, so the værelsestjek score explainer is visible in dev. See RoomCriterion.score_values.
+ROOM_CRITERIA = [
+    (
+        "walls",
+        "Vægge",
+        5,
+        "Maling.\n1: Nymalet/pæn stand,\n2: Få pletter eller misfarvninger,\n"
+        "3: Større pletter og misfarvninger,\n4: Revner,\n5: Huller el. svamp",
+    ),
+    (
+        "floor",
+        "Gulve",
+        5,
+        "Lakering og slibning.\n1: God/pæn stand,\n2: Få ridser og pletter,\n"
+        "3: Større ridser og pletter,\n4: Mellem de to,\n5: Huller i gulvet eller skibslak",
+    ),
+    (
+        "windows",
+        "Vinduer",
+        3,
+        "0: Virker/fin stand,\n1: Tætningslister eller hasper mangler,\n2: Virker ikke",
+    ),
+    ("curtains", "Gardiner", 2, "0: Er der\n1: Mangler"),
+]
 
 # Deletion order: children before parents so PROTECT FKs don't block the wipe.
 WIPE_ORDER: list[type[models.Model]] = [
@@ -437,25 +462,35 @@ class Command(BaseCommand):
 
     # ------------------------------------------------------ room conditions
     def _seed_room_conditions(self, rooms: list[Room], residents: list[Resident]) -> None:
+        # Four real criteria from intern_room_criteria, chosen to cover all three scale shapes
+        # (5 -> 1..5, 3 -> 0..2, 2 -> 0..1) with their real Danish legends, so the score explainer and
+        # the range validation are both visible in dev. The previous invented set used options=4 —
+        # a shape no real criterion has — with no descriptions, which made the feature untestable.
+        # update_or_create, not get_or_create: re-seeding without --wipe must refresh stale rows.
         criteria = [
-            RoomCriterion.objects.get_or_create(code=c, defaults={"name": n, "options": 4})[0]
-            for c, n in [("walls", "Vægge"), ("floor", "Gulv"), ("windows", "Vinduer"), ("kitchen", "Køkken")]
+            RoomCriterion.objects.update_or_create(
+                code=code, defaults={"name": name, "options": options, "description": description}
+            )[0]
+            for code, name, options, description in ROOM_CRITERIA
         ]
         for room in self.rng.sample(rooms, k=min(15, len(rooms))):
-            cond = RoomCondition.objects.create(
-                room=room,
-                resident=self.rng.choice(residents),
-                recorded_by_name=self.rng.choice(residents).full_name,
-                recorded_at=self.now - timedelta(days=self.rng.randint(1, 300)),
-                is_current=True,
-            )
-            for crit in criteria:
-                RoomConditionScore.objects.create(
-                    condition=cond,
-                    criterion=crit,
-                    score=self.rng.randint(1, 4),
-                    comment=self.rng.choice(["", "Fin stand", "Slitage", "Skal males"]),
+            # A couple of superseded reports per room so the "vis tidligere rapport" dropdown has
+            # something to show (the real ones come from backfill_room_history).
+            for age, current in ((self.rng.randint(400, 700), False), (self.rng.randint(1, 300), True)):
+                cond = RoomCondition.objects.create(
+                    room=room,
+                    resident=self.rng.choice(residents),
+                    recorded_by_name=self.rng.choice(residents).full_name,
+                    recorded_at=self.now - timedelta(days=age),
+                    is_current=current,
                 )
+                for crit in criteria:
+                    RoomConditionScore.objects.create(
+                        condition=cond,
+                        criterion=crit,
+                        score=self.rng.choice(crit.score_values),  # always on-scale
+                        comment=self.rng.choice(["", "Fin stand", "Slitage", "Skal males"]),
+                    )
 
     # -------------------------------------------------------------- kvotient
     def _seed_kvotient(self, residents: list[Resident], rooms: list[Room]) -> None:

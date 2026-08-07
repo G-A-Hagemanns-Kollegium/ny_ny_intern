@@ -22,6 +22,17 @@ class Room(models.Model):
     def __str__(self) -> str:
         return f"Værelse {self.number:03d}"
 
+    @property
+    def plan_image(self) -> str:
+        """Static path of this floor's plan drawing, for the værelsestjek room picker (F-005).
+
+        The five legacy PNGs were copied to app/static/legacy/image/intern/ and renamed to drop the
+        spaces in "1. sal.png" — a filename with a space under CompressedManifestStaticFilesStorage
+        is a hard 500 on a missing manifest entry, not a broken image.
+        """
+        stem = "stuen" if self.floor == "stuen" else f"sal{self.floor[0]}"
+        return f"legacy/image/intern/{stem}.png"
+
 
 class Workgroup(models.Model):  # intern_alumne_workgroup (the monthly chore/embedsgruppe label)
     legacy_id = models.PositiveIntegerField(unique=True, null=True, blank=True)

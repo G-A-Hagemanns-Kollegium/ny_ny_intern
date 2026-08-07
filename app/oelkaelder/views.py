@@ -1,8 +1,6 @@
 """Ølkælder views (F-003). Kiosk (LAN-IP gated, no login) for the till; member balance view;
 ølkælder-admin screens for deposits/balances."""
 
-import csv
-import io
 import json
 from collections.abc import Iterable
 from datetime import date, datetime, timedelta
@@ -21,6 +19,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from core.exports import csv_or_xlsx_response
 from residents.models import Resident
 from residents.permissions import current_resident, role_required
 
@@ -258,32 +257,9 @@ def _report_response(
     request: HttpRequest, title: str, headers: list[str], data: list[list[str]], filename: str
 ) -> HttpResponse:
     """Render an on-screen report table, or stream CSV/Excel when ?format=csv|xlsx."""
-    fmt = request.GET.get("format")
-    if fmt == "xlsx":
-        from openpyxl import Workbook
-
-        wb = Workbook()
-        ws = wb.active
-        ws.title = title[:31]
-        ws.append(headers)
-        for row in data:
-            ws.append(row)
-        buf = io.BytesIO()
-        wb.save(buf)
-        resp = HttpResponse(
-            buf.getvalue(),
-            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
-        resp["Content-Disposition"] = f'attachment; filename="{filename}.xlsx"'
-        return resp
-    if fmt == "csv":
-        resp = HttpResponse(content_type="text/csv; charset=utf-8")
-        resp["Content-Disposition"] = f'attachment; filename="{filename}.csv"'
-        resp.write("﻿")  # BOM so Excel renders Danish characters
-        writer = csv.writer(resp)
-        writer.writerow(headers)
-        writer.writerows(data)
-        return resp
+    download = csv_or_xlsx_response(request.GET.get("format"), title, headers, data, filename)
+    if download is not None:
+        return download
     start, end = _report_range(request)
     return render(
         request,
