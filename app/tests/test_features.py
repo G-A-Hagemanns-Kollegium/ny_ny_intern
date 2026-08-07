@@ -430,3 +430,203 @@ def test_vaerelsestjek_is_open_to_every_resident(make_resident: Callable) -> Non
 @pytest.mark.django_db
 def test_vaerelsestjek_still_requires_login() -> None:
     assert Client().get("/nyintern/vaerelsestjek/").status_code in (301, 302)
+
+
+def test_room_criterion_score_scale_matches_legacy() -> None:
+    """besvar.php:27-40 — options==3 → 0..2, options>2 → 1..options, otherwise 0..1.
+    `options` selects the scale's *shape*; it is not a maximum."""
+    from rooms.models import RoomCriterion
+
+    assert RoomCriterion(options=5).score_values == [1, 2, 3, 4, 5]  # 13 real criteria
+    assert RoomCriterion(options=3).score_values == [0, 1, 2]  # 9 real criteria
+    assert RoomCriterion(options=2).score_values == [0, 1]  # 7 real criteria
+    assert (RoomCriterion(options=3).score_min, RoomCriterion(options=3).score_max) == (0, 2)
+    assert RoomCriterion(options=5).accepts_score(None)  # unanswered is fine
+    assert not RoomCriterion(options=5).accepts_score(0)  # the 5-scale starts at 1
+    assert not RoomCriterion(options=3).accepts_score(3)  # the 3-option scale tops out at 2
+
+
+def test_parse_score_rejects_non_ascii_digits() -> None:
+    """'²'.isdigit() is True but int('²') raises — the old guard 500'd on it."""
+    from rooms.views import _parse_score
+
+    assert _parse_score("3") == 3
+    assert _parse_score("-2") == -2  # parses, then gets rejected by accepts_score
+    assert _parse_score("") is None
+    assert _parse_score("abc") is None
+    assert _parse_score("²") is None
+    assert _parse_score("9" * 5000) is None
+
+
+@pytest.mark.django_db
+def test_vaerelsestjek_shows_legend_and_drops_out_of_range(make_resident: Callable) -> None:
+    """The per-criterion forklaring is rendered again, the widget offers the legacy scale, criteria
+    come in legacy (code) order, and an off-scale score is dropped without losing the other answers."""
+    from core.models import Room
+    from rooms.models import RoomConditionScore, RoomCriterion
+
+    rm = Room.objects.create(legacy_index=92, number=92, floor="stuen", side="mod gaden")
+    RoomCriterion.objects.create(
+        code="walls", name="Vægge", options=5, description="Maling.\r\n1: Nymalet/pæn stand,\r\n5: Huller"
+    )
+    RoomCriterion.objects.create(code="curtains", name="Gardiner", options=2, description="0: Er der")
+    RoomCriterion.objects.create(code="contacts", name="Kontakter", options=3, description="0: Virker")
+    c = Client()
+    c.force_login(make_resident(email="tjek@gahk.dk"))
+
+    html = c.get(f"/nyintern/vaerelsestjek/besvar/{rm.number}").content.decode()
+
+    assert "Huller" in html  # the legend is back
+    assert "Nymalet/pæn stand,<br>" in html  # multi-line legends keep their rungs
+    assert 'max="5"' in html and 'max="2"' in html and 'max="1"' in html  # all three scale shapes
+    assert 'min="1"' in html  # the 5-scale starts at 1, not 0
+    # legacy order is by code; ordering by Danish name would put Gardiner first
+    assert html.index("Kontakter") < html.index("Gardiner") < html.index("Vægge")
+
+    r = c.post(
+        f"/nyintern/vaerelsestjek/besvar/{rm.number}",
+        {"score_walls": "9", "comment_walls": "Store revner", "score_curtains": "1"},
+        follow=True,
+    )
+    walls = RoomConditionScore.objects.get(criterion__code="walls")
+    assert walls.score is None  # the off-scale value was dropped …
+    assert walls.comment == "Store revner"  # … but the observation survived
+    assert RoomConditionScore.objects.get(criterion__code="curtains").score == 1
+    assert "uden for skalaen" in r.content.decode()  # and the inspector was told
+
+
+@pytest.mark.django_db
+def test_vaerelsestjek_history_prefills_without_mutating_the_old_report(make_resident: Callable) -> None:
+    """?rapport=<id> fills the form from an earlier report; submitting creates a NEW current one."""
+    from core.models import Room
+    from rooms.models import RoomCondition, RoomConditionScore, RoomCriterion
+
+    rm = Room.objects.create(legacy_index=93, number=93, floor="1. sal", side="mod gaden")
+    crit = RoomCriterion.objects.create(code="walls", name="Vægge", options=5)
+    who = make_resident(email="tjek2@gahk.dk", first_name="Ida", last_name="Inspektør")
+    old = RoomCondition.objects.create(
+        room=rm, resident=who, recorded_by_name="Ida Inspektør", recorded_at=timezone.now(), is_current=False
+    )
+    RoomConditionScore.objects.create(condition=old, criterion=crit, score=2, comment="Gammel note")
+    cur = RoomCondition.objects.create(
+        room=rm, resident=who, recorded_by_name="Ida Inspektør", recorded_at=timezone.now(), is_current=True
+    )
+    RoomConditionScore.objects.create(condition=cur, criterion=crit, score=5, comment="Ny note")
+    c = Client()
+    c.force_login(who)
+
+    assert 'value="5"' in c.get(f"/nyintern/vaerelsestjek/besvar/{rm.number}").content.decode()
+
+    html = c.get(f"/nyintern/vaerelsestjek/besvar/{rm.number}?rapport={old.pk}").content.decode()
+    assert 'value="2"' in html and "Gammel note" in html  # prefilled from the old report
+    assert "tidligere rapport" in html  # …and says so
+
+    c.post(f"/nyintern/vaerelsestjek/besvar/{rm.number}", {"score_walls": "3"})
+    old.refresh_from_db()
+    assert old.scores.get().score == 2  # the old report is untouched
+    assert old.is_current is False
+    assert RoomCondition.objects.filter(room=rm).count() == 3  # a new report, not an overwrite
+    assert RoomCondition.objects.get(room=rm, is_current=True).scores.get().score == 3
+
+
+@pytest.mark.django_db
+def test_ak_overview_matrix_and_export_align_scores_with_headers(make_resident: Callable) -> None:
+    """The legacy filled cells positionally from a delimited blob, so a room missing one criterion
+    shifted every later score under the wrong heading. Keyed by criterion id, that cannot happen."""
+    from core.models import Room
+    from rooms.models import RoomCondition, RoomConditionScore, RoomCriterion
+
+    rm = Room.objects.create(legacy_index=94, number=94, floor="2. sal", side="mod gården")
+    a = RoomCriterion.objects.create(code="aaa", name="Alfa", options=5)
+    RoomCriterion.objects.create(code="bbb", name="Beta", options=5)  # deliberately never scored
+    z = RoomCriterion.objects.create(code="zzz", name="Zeta", options=5)
+    cond = RoomCondition.objects.create(
+        room=rm, recorded_by_name="Ida", recorded_at=timezone.now(), is_current=True
+    )
+    RoomConditionScore.objects.create(condition=cond, criterion=a, score=1)
+    RoomConditionScore.objects.create(condition=cond, criterion=z, score=5)
+    c = Client()
+    c.force_login(make_resident(email="ak-matrix@gahk.dk", roles=("ak",)))
+
+    html = c.get("/nyintern/vaerelsestjek/akoverview").content.decode()
+    assert "Alfa" in html and "Beta" in html and "Zeta" in html
+
+    csv_resp = c.get("/nyintern/vaerelsestjek/akoverview", {"format": "csv"})
+    assert csv_resp["Content-Type"].startswith("text/csv")
+    lines = csv_resp.content.decode("utf-8-sig").strip().splitlines()
+    assert lines[0].split(",")[3:] == ["Alfa", "Beta", "Zeta"]
+    # Zeta's 5 must land in Zeta's column, not shift left into the unscored Beta
+    assert lines[1].split(",")[3:] == ["1", "", "5"]
+
+    xlsx = c.get("/nyintern/vaerelsestjek/akoverview", {"format": "xlsx"})
+    assert "spreadsheetml.sheet" in xlsx["Content-Type"]
+    assert c.get("/nyintern/vaerelsestjek/akoverview").status_code == 200
+
+
+@pytest.mark.django_db
+def test_backfill_dedupes_on_naive_vs_aware_timestamps(make_resident: Callable) -> None:
+    """The backfill keys on (room, recorded_at). MySQL yields naive datetimes and Django stores them
+    aware, so without normalising first, every re-run duplicated all 620 historical reports."""
+    from datetime import datetime
+
+    from core.models import Room
+    from rooms.models import RoomCondition
+
+    rm = Room.objects.create(legacy_index=95, number=95, floor="3. sal", side="mod gaden")
+    naive = datetime(2019, 5, 1, 12, 0)
+    RoomCondition.objects.create(
+        room=rm, recorded_by_name="Ida", recorded_at=timezone.make_aware(naive), is_current=False
+    )
+
+    seen = set(RoomCondition.objects.values_list("room_id", "recorded_at"))
+    assert (rm.id, naive) not in seen  # the naive form does NOT match — this was the bug
+    assert (rm.id, timezone.make_aware(naive)) in seen  # normalising first does
+
+
+@pytest.mark.django_db
+def test_vaerelsestjek_templates_leak_no_template_syntax(make_resident: Callable) -> None:
+    """Django's {# … #} is single-line only — the lexer matches {#.*?#} without DOTALL, so a
+    multi-line one is never tokenised and renders verbatim on the page. Use {% comment %} instead.
+    Asserting presence (as the other tests do) cannot catch this; only asserting absence can."""
+    from core.models import Room
+    from rooms.models import RoomCondition, RoomConditionScore, RoomCriterion
+
+    rm = Room.objects.create(legacy_index=96, number=96, floor="4. sal", side="mod gaden")
+    crit = RoomCriterion.objects.create(code="walls", name="Vægge", options=5, description="1: Fin")
+    cond = RoomCondition.objects.create(
+        room=rm, recorded_by_name="Ida", recorded_at=timezone.now(), is_current=True
+    )
+    RoomConditionScore.objects.create(condition=cond, criterion=crit, score=3)
+    c = Client()
+    c.force_login(make_resident(email="leak@gahk.dk", roles=("ak",)))
+
+    for path in (
+        "/nyintern/vaerelsestjek/",
+        f"/nyintern/vaerelsestjek/se/{rm.number}",
+        f"/nyintern/vaerelsestjek/besvar/{rm.number}",
+        "/nyintern/vaerelsestjek/akoverview",
+    ):
+        html = c.get(path).content.decode()
+        for marker in ("{#", "#}", "{% comment", "{{", "{%"):
+            assert marker not in html, f"{path} leaked template syntax: {marker}"
+
+
+@pytest.mark.django_db
+def test_vaerelsestjek_overview_renders_all_five_floor_plans(make_resident: Callable) -> None:
+    """The picker regroups rooms by floor. dictsort cannot index a tuple by position — it returns an
+    empty string on failure, so the whole block silently rendered nothing while the page still 200'd.
+    Only asserting the plans are actually there catches that."""
+    import re
+
+    from core.management.commands.seed_rooms import Command as SeedRooms
+
+    SeedRooms().handle()
+    c = Client()
+    c.force_login(make_resident(email="plan@gahk.dk"))
+
+    html = c.get("/nyintern/vaerelsestjek/").content.decode()
+
+    plans = re.findall(r'src="([^"]*image/intern/[^"]*)"', html)
+    assert len(plans) == 5, f"expected five floor plans, got {plans}"
+    assert [p.rsplit("/", 1)[-1].split(".")[0] for p in plans] == ["stuen", "sal1", "sal2", "sal3", "sal4"]
+    assert "Stuen" in html and "4. sal" in html  # per-floor headings
