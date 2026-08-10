@@ -750,3 +750,67 @@ def test_cms_admin_link_in_sidebar_for_editor_roles(make_resident: Callable) -> 
     plain.force_login(make_resident(email="navcms-plain@gahk.dk", roles=[Role.AK]))
     labels = [label for _u, label in plain.get("/nyintern/").context["nav_intern"]]
     assert "Rediger indhold" not in labels
+
+
+@pytest.mark.django_db
+def test_alumneliste_default_sort_is_alphabetical_and_sortable(make_resident: Callable) -> None:
+    """Default order is by name (not room number), and columns can be sorted asc/desc (F-010)."""
+    from core.models import Room
+    from residents.models import Residency, active_period
+
+    y, m = active_period()
+    # Aaron in a high room, Zoe in a low room: name order and room order disagree.
+    r_hi = Room.objects.create(legacy_index=201, number=201, floor="2. sal", side="mod gaden")
+    r_lo = Room.objects.create(legacy_index=1, number=1, floor="stuen", side="mod gaden")
+    Residency.objects.create(
+        resident=make_resident(email="aaron@gahk.dk", first_name="Aaron", last_name="A"),
+        room=r_hi,
+        year=y,
+        month=m,
+    )
+    Residency.objects.create(
+        resident=make_resident(email="zoe@gahk.dk", first_name="Zoe", last_name="Z"),
+        room=r_lo,
+        year=y,
+        month=m,
+    )
+    c = Client()
+    c.force_login(make_resident(email="viewer-sort@gahk.dk"))
+
+    default = c.get("/nyintern/alumneliste/").content.decode()
+    assert default.index("Aaron A") < default.index("Zoe Z")  # alphabetical, not by room (201 vs 001)
+
+    by_room = c.get("/nyintern/alumneliste/", {"sort": "vaerelse", "dir": "asc"}).content.decode()
+    assert by_room.index("Zoe Z") < by_room.index("Aaron A")  # room 001 before 201
+
+    name_desc = c.get("/nyintern/alumneliste/", {"sort": "navn", "dir": "desc"}).content.decode()
+    assert name_desc.index("Zoe Z") < name_desc.index("Aaron A")  # reversed
+
+    bad = c.get("/nyintern/alumneliste/", {"sort": "'; DROP", "dir": "sideways"}).content.decode()
+    assert bad.index("Aaron A") < bad.index("Zoe Z")  # junk sort falls back to name asc, no crash
+
+    # No unrendered Django template syntax leaks onto the page (a multi-line {# #} would render verbatim).
+    assert "{#" not in default and "{%" not in default
+
+
+@pytest.mark.django_db
+def test_directory_rows_fragment_has_sortable_headers(make_resident: Callable) -> None:
+    """The htmx fragment is the whole table (headers + rows) so sort arrows update on swap."""
+    from core.models import Room
+    from residents.models import Residency, active_period
+
+    y, m = active_period()
+    room = Room.objects.create(legacy_index=1, number=1, floor="stuen", side="mod gaden")
+    Residency.objects.create(
+        resident=make_resident(email="frag@gahk.dk", first_name="Frag", last_name="Menter"),
+        room=room,
+        year=y,
+        month=m,
+    )
+    c = Client()
+    c.force_login(make_resident(email="viewer-frag@gahk.dk"))
+
+    html = c.get("/nyintern/alumneliste/rows", {"sort": "navn", "dir": "asc"}).content.decode()
+    assert "Frag Menter" in html  # rows present
+    assert "sort=vaerelse" in html  # a sortable header link is present
+    assert 'name="sort"' in html and 'value="navn"' in html  # hidden sort state for the search box
