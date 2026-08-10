@@ -6,31 +6,35 @@
   {% if not offered_rooms %}
     <p class="muted">Der er ingen værelser i udbud lige nu.</p>
   {% else %}
+  {% if existing %}
+    <p class="card muted">Du har allerede søgt denne runde. Felterne er udfyldt med din nuværende
+      ansøgning - ret dem og gem for at opdatere.</p>
+  {% endif %}
   <form method="post" class="card max-w-xl">
     {% csrf_token %}
     <p><strong>Ønsket måned:</strong> {{ target_month|maaned }}
-      <span class="muted">(næste måned — fastsættes automatisk)</span></p>
+      <span class="muted">(næste måned - fastsættes automatisk)</span></p>
     <label>Færdig med studie</label>
     <div class="flex gap-2">
       <select name="done_month" required>
         <option value="">— Måned —</option>
-        {% for num, name in months %}<option value="{{ num }}">{{ name }}</option>{% endfor %}
+        {% for num, name in months %}<option value="{{ num }}"{% if num == existing_done_month %} selected{% endif %}>{{ name }}</option>{% endfor %}
       </select>
       <select name="done_year" required>
         <option value="">— År —</option>
-        {% for y in study_years %}<option value="{{ y }}">{{ y }}</option>{% endfor %}
+        {% for y in study_years %}<option value="{{ y }}"{% if y == existing_done_year %} selected{% endif %}>{{ y }}</option>{% endfor %}
       </select>
     </div>
-    <label>Orlov (antal måneder, valgfrit)</label>
-    <input type="number" name="orlov_months" value="0" min="0">
+    <label>Orlov (antal måneder)</label>
+    <input type="number" name="orlov_months" value="{{ existing_orlov_months|default:0 }}" min="0">
     <label>Prioriteter</label>
-    {% for n in "12345" %}
+    {% for slot in priority_slots %}
       <select name="priority">
         <option value="">— Prioritet {{ forloop.counter }} —</option>
-        {% for room in offered_rooms %}<option value="{{ room.id }}">{{ room.number|stringformat:"03d" }} ({{ room.floor }})</option>{% endfor %}
+        {% for room in offered_rooms %}<option value="{{ room.id }}"{% if room.id == slot %} selected{% endif %}>{{ room.number|stringformat:"03d" }} ({{ room.floor }})</option>{% endfor %}
       </select>
     {% endfor %}
-    <p class="mt-4"><button type="submit">Send ansøgning</button></p>
+    <p class="mt-4"><button type="submit">{% if existing %}Gem ændringer{% else %}Send ansøgning{% endif %}</button></p>
   </form>
   {% endif %}
 {% endblock %}

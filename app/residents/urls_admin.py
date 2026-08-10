@@ -11,4 +11,5 @@ urlpatterns = [
     path("roles", views_admin.roles, name="roles"),
     path("preview", views_admin.preview, name="preview"),
     path("preview/set", views_admin.preview_set, name="preview_set"),
+    path("dev-clock/set", views_admin.dev_clock_set, name="dev_clock_set"),  # DEBUG-only
 ]

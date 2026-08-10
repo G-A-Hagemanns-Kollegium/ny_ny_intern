@@ -140,6 +140,19 @@ def _period_options(selected: tuple[int, int]) -> list[dict[str, str | bool]]:
     ]
 
 
+def _clash_rooms(year: int, month: int) -> list[int]:
+    """Room numbers occupied by more than one resident in (year, month). Should always be empty —
+    end_round evicts the departing occupant and the next-month editor blocks a clashing save — but if
+    one ever slips through (e.g. hand-edited data), the list must show it rather than look merely
+    disordered."""
+    counts: dict[int, int] = {}
+    for room_number in Residency.objects.filter(year=year, month=month).values_list(
+        "room__number", flat=True
+    ):
+        counts[room_number] = counts.get(room_number, 0) + 1
+    return sorted(n for n, c in counts.items() if c > 1)
+
+
 @login_required
 def directory(request: HttpRequest) -> HttpResponse:
     """Full directory page (login-required). Legacy `json()` was campus-IP gated; with real auth the
@@ -154,6 +167,8 @@ def directory(request: HttpRequest) -> HttpResponse:
             "periods": _period_options((year, month)),
             "period_value": f"{year}-{month}",
             "period_label": f"{DA_MONTHS[month].capitalize()} {year}",
+            # Only indstilling acts on (or sees) room conflicts; skip the query for everyone else.
+            "clash_rooms": _clash_rooms(year, month) if "indstilling" in effective_roles(request) else [],
         },
     )
 

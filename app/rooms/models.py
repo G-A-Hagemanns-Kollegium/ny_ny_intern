@@ -22,10 +22,15 @@ class KvotientApplication(models.Model):  # intern_kvotient_nyintern
     move_in_month = models.IntegerField()  # 0-indexed
     done_studying_month = models.IntegerField()
     k = models.FloatField()  # ranking quotient; computed at submit (formula kept)
-    apply_datetime = models.DateTimeField(default=timezone.now)
+    apply_datetime = models.DateTimeField(default=timezone.now)  # a record; NOT an allocation tiebreak
 
     class Meta:
         ordering = ["-k", "apply_datetime"]
+        # One application per resident per round. A "round" is a move_month; between rounds end_round /
+        # close_offer wipe the applications, so this never blocks a legitimate re-application later.
+        constraints = [
+            models.UniqueConstraint(fields=["resident", "move_month"], name="uniq_resident_move_month")
+        ]
 
     def __str__(self) -> str:
         return f"Kvotient {self.resident.full_name} (K={self.k:.2f})"
@@ -57,6 +62,12 @@ class KvotientOrlov(models.Model):  # intern_kvotient_orlov_nyintern (leave-of-a
 class RoomOffer(models.Model):  # intern_kvotient_offer_nyintern (a room offered in a given month)
     room = models.ForeignKey("core.Room", on_delete=models.PROTECT, related_name="offers")
     month = models.IntegerField()  # the month this room is offered for
+    # Manual tie resolution (F-004): when equal-K applicants contest this room, indstilling picks the
+    # winner (coin flip in the dorm) and it is recorded here; allocate_round then treats the room as
+    # decided. Ephemeral — the offer (and this pointer) is deleted when the round ends.
+    awarded_application = models.ForeignKey(
+        "KvotientApplication", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["room", "month"], name="uniq_room_offer_month")]

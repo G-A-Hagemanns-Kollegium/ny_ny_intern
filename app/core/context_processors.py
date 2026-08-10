@@ -68,7 +68,7 @@ def navigation(request: HttpRequest) -> dict[str, object]:
     authed = request.user.is_authenticated
     roles = effective_roles(request) if authed else set()
     previewer = can_preview(request.user) if authed else False
-    return {
+    ctx: dict[str, object] = {
         "nav_legacy": NAV_LEGACY,
         "nav_public": NAV_PUBLIC,
         "nav_intern": _nav_intern(roles) if authed else [],
@@ -77,3 +77,10 @@ def navigation(request: HttpRequest) -> dict[str, object]:
         "can_preview": previewer,
         "wiki_url": settings.WIKI_URL,
     }
+    # DEV-ONLY simulated clock bar (F-004 local testing). Only when DEBUG and logged in; inert in prod.
+    if settings.DEBUG and authed:
+        from core.clock import current_date
+
+        ctx["dev_clock_debug"] = True
+        ctx["dev_clock_date"] = current_date()
+    return ctx

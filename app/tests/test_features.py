@@ -662,3 +662,27 @@ def test_relocate_media_segments_match_image_urls(make_resident: Callable) -> No
 
     assert s.image_urls == ["/media/public/image/a.jpg", "/media/public/image/b.jpg"]
     assert ["/media/" + seg for seg in legacy_image_segments(s.image)] == s.image_urls
+
+
+@pytest.mark.django_db
+def test_room_clash_warning_is_indstilling_only(make_resident: Callable) -> None:
+    """A room clash is flagged on the alumneliste, but only to indstilling (who can fix it) — not to
+    ordinary residents."""
+    from core.models import Room
+    from residents.models import Residency, active_period
+
+    y, m = active_period()
+    room = Room.objects.create(legacy_index=98, number=98, floor="stuen", side="mod gaden")
+    a = make_resident(email="clash-a@gahk.dk")
+    b = make_resident(email="clash-b@gahk.dk")
+    Residency.objects.create(resident=a, room=room, year=y, month=m)
+    Residency.objects.create(resident=b, room=room, year=y, month=m)  # same room, same month
+
+    plain = Client()
+    plain.force_login(a)
+    assert "Værelseskonflikt" not in plain.get("/nyintern/alumneliste/").content.decode()
+
+    ind = Client()
+    ind.force_login(make_resident(email="clash-ind@gahk.dk", roles=("indstilling",)))
+    html = ind.get("/nyintern/alumneliste/").content.decode()
+    assert "Værelseskonflikt" in html and "098" in html
