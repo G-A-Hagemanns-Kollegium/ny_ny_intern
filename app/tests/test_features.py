@@ -182,20 +182,43 @@ def test_application_list_shows_receiver(make_resident: Callable) -> None:
 
 
 @pytest.mark.django_db
-def test_cms_admin_is_gated_to_administrator(make_resident: Callable) -> None:
+def test_cms_admin_is_gated_to_content_editor_roles(make_resident: Callable) -> None:
+    """Frontpage/CMS content is editable by administrator, indstilling, inspektion and pr — the
+    content-editor roles — and by nobody else (other role-holders are is_staff but not editors)."""
     from cms.models import Page
 
     Page.objects.create(header="Testside", slug="testside", body="<p>hej</p>")
-    admin = make_resident(email="admin@gahk.dk", roles=[Role.ADMINISTRATOR])
-    ak = make_resident(email="ak@gahk.dk", roles=[Role.AK])  # staff, but not administrator
 
-    ca = Client()
-    ca.force_login(admin)
-    assert ca.get("/django-admin/cms/page/").status_code == 200  # administrator can edit pages
+    for role in (Role.ADMINISTRATOR, Role.INDSTILLING, Role.INSPEKTION, Role.PR):
+        c = Client()
+        c.force_login(make_resident(email=f"{role.value}@gahk.dk", roles=[role]))
+        for model in ("page", "newsitem", "event"):  # all CMS content, not just pages
+            assert c.get(f"/django-admin/cms/{model}/").status_code == 200, f"{role} should edit {model}"
 
-    ck = Client()
-    ck.force_login(ak)
-    assert ck.get("/django-admin/cms/page/").status_code == 403  # other roles cannot
+    for role in (Role.AK, Role.OELKAELDER, Role.KOKKENGRUPPE, Role.REGNSKAB):  # staff, but not editors
+        c = Client()
+        c.force_login(make_resident(email=f"{role.value}@gahk.dk", roles=[role]))
+        assert c.get("/django-admin/cms/page/").status_code == 403, f"{role} must not edit CMS"
+
+
+@pytest.mark.django_db
+def test_pr_embedsgruppe_grants_cms_access(make_resident: Callable) -> None:
+    """Being on the "PR-gruppen" embedsgruppe next month grants the pr role, hence CMS editing."""
+    from core.models import Room, Workgroup
+    from residents.models import Residency, active_period
+    from residents.views import _sync_month_roles
+
+    pr_group = Workgroup.objects.create(name="PR-gruppen")
+    r = make_resident(email="prmember@gahk.dk")
+    y, m = active_period()
+    room = Room.objects.create(legacy_index=140, number=140, floor="stuen", side="mod gaden")
+    Residency.objects.create(resident=r, room=room, workgroup=pr_group, year=y, month=m)
+    _sync_month_roles(r.id, pr_group, y, m, is_admin=False)  # what the next-month editor runs
+
+    assert r.has_role("pr", (y, m))
+    c = Client()
+    c.force_login(r)
+    assert c.get("/django-admin/cms/page/").status_code == 200
 
 
 @pytest.mark.django_db
@@ -712,3 +735,18 @@ def test_room_clash_warning_is_indstilling_only(make_resident: Callable) -> None
     ind.force_login(make_resident(email="clash-ind@gahk.dk", roles=("indstilling",)))
     html = ind.get("/nyintern/alumneliste/").content.decode()
     assert "Værelseskonflikt" in html and "098" in html
+
+
+@pytest.mark.django_db
+def test_cms_admin_link_in_sidebar_for_editor_roles(make_resident: Callable) -> None:
+    """The 'Rediger indhold' sidebar link appears for content-editor roles and no one else."""
+    for role in (Role.ADMINISTRATOR, Role.INDSTILLING, Role.INSPEKTION, Role.PR):
+        c = Client()
+        c.force_login(make_resident(email=f"navcms-{role.value}@gahk.dk", roles=[role]))
+        labels = [label for _u, label in c.get("/nyintern/").context["nav_intern"]]
+        assert "Rediger indhold" in labels, f"{role} should see the CMS link"
+
+    plain = Client()
+    plain.force_login(make_resident(email="navcms-plain@gahk.dk", roles=[Role.AK]))
+    labels = [label for _u, label in plain.get("/nyintern/").context["nav_intern"]]
+    assert "Rediger indhold" not in labels

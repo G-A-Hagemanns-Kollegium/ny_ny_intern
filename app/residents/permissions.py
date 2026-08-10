@@ -30,6 +30,11 @@ AnyUser = AbstractBaseUser | AnonymousUser
 ALL_ROLES = frozenset(Role.values)
 PREVIEW_SESSION_KEY = "preview_roles"
 
+# Roles allowed to edit CMS / frontpage content (Django admin cms.* models, and the sidebar link to
+# it). Single source of truth, shared by cms.admin and the navigation. administrator has full access;
+# indstilling, inspektion and pr (the PR group) maintain the frontpage.
+CMS_EDITOR_ROLES = (Role.ADMINISTRATOR, Role.INDSTILLING, Role.INSPEKTION, Role.PR)
+
 
 def current_resident(request: HttpRequest) -> Resident:
     """The logged-in Resident for a request behind @login_required / @role_required.
