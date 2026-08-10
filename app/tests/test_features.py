@@ -63,7 +63,9 @@ def test_monthly_role_is_time_bound(make_resident: Callable) -> None:
 
 # ---------------------------------------------------------------- admissions (F-001)
 @pytest.mark.django_db
-def test_rundvisning_emails_committee_and_applicant() -> None:
+def test_rundvisning_emails_applicant_only() -> None:
+    """The committee is no longer notified per rundvisning request; only the applicant auto-reply
+    goes out (F-011)."""
     mail.outbox = []
     Client().post(
         "/optagelse/send_rundvisning",
@@ -81,7 +83,8 @@ def test_rundvisning_emails_committee_and_applicant() -> None:
         },
     )
     assert Application.objects.filter(type="rundvisning").count() == 1
-    assert len(mail.outbox) == 2  # committee + applicant
+    assert len(mail.outbox) == 1  # applicant auto-reply only, committee not emailed
+    assert mail.outbox[0].to == ["ny@x.dk"]
 
 
 @pytest.mark.django_db
@@ -116,6 +119,146 @@ def test_mark_received_is_post_only_and_role_gated(make_resident: Callable) -> N
     assert c.post(f"/optagelse/setasreceived/{app.id}").status_code == 302
     app.refresh_from_db()
     assert app.received_by_id == ind.id
+
+
+@pytest.mark.django_db
+def test_applications_search_spans_all_pages(make_resident: Callable) -> None:
+    """Search filters the whole queryset before pagination, so a match on page 2 is found (F-011)."""
+    # Created first so that under the default newest-first order it's buried past page 1 (50/page).
+    Application.objects.create(
+        type="rundvisning",
+        full_name="Zenobia Needle",
+        email="z@x.dk",
+        university="Roskilde Universitet",
+        submitted_at=timezone.now(),
+    )
+    for i in range(55):  # > one page (50)
+        Application.objects.create(
+            type="rundvisning", full_name=f"Filler {i}", email=f"f{i}@x.dk", submitted_at=timezone.now()
+        )
+    c = Client()
+    c.force_login(make_resident(email="ind-s@gahk.dk", roles=[Role.INDSTILLING]))
+
+    # Without search the unique applicant is buried past page 1.
+    page1 = c.get("/optagelse/listansoegninger").content.decode()
+    assert "Zenobia Needle" not in page1
+    # Searching by name finds it regardless of page.
+    hit = c.get("/optagelse/listansoegninger", {"q": "Zenobia"}).content.decode()
+    assert "Zenobia Needle" in hit and "Filler" not in hit
+    # Search also matches uddannelse (a non-name column).
+    by_uni = c.get("/optagelse/listansoegninger", {"q": "Roskilde"}).content.decode()
+    assert "Zenobia Needle" in by_uni
+
+
+@pytest.mark.django_db
+def test_applications_sortable_by_uddannelse(make_resident: Callable) -> None:
+    """Columns can be sorted; e.g. by uddannelse asc/desc (F-011). Junk sort falls back safely."""
+    Application.objects.create(
+        type="rundvisning",
+        full_name="Aaron",
+        email="a@x.dk",
+        university="Zoologi",
+        submitted_at=timezone.now(),
+    )
+    Application.objects.create(
+        type="rundvisning",
+        full_name="Bea",
+        email="b@x.dk",
+        university="Antropologi",
+        submitted_at=timezone.now(),
+    )
+    c = Client()
+    c.force_login(make_resident(email="ind-o@gahk.dk", roles=[Role.INDSTILLING]))
+
+    asc = c.get("/optagelse/listansoegninger", {"sort": "uddannelse", "dir": "asc"}).content.decode()
+    assert asc.index("Bea") < asc.index("Aaron")  # Antropologi before Zoologi
+    desc = c.get("/optagelse/listansoegninger", {"sort": "uddannelse", "dir": "desc"}).content.decode()
+    assert desc.index("Aaron") < desc.index("Bea")
+    # Junk sort/dir must not crash and falls back to the default (newest first, both present).
+    bad = c.get("/optagelse/listansoegninger", {"sort": "x", "dir": "y"})
+    assert bad.status_code == 200 and "Aaron" in bad.content.decode()
+    # No unrendered template syntax leaks onto the page.
+    assert "{%" not in asc and "{#" not in asc
+
+
+@pytest.mark.django_db
+def test_discarded_application_hidden_from_list_and_search_with_toggle(make_resident: Callable) -> None:
+    """Indstillingen can discard an application; it then drops out of the list and search unless the
+    show-discarded toggle is on, and can be un-discarded (F-011)."""
+    app = Application.objects.create(
+        type="rundvisning",
+        full_name="Spam Bot",
+        email="s@x.dk",
+        university="Nowhere",
+        submitted_at=timezone.now(),
+    )
+    ind = make_resident(email="ind-d@gahk.dk", roles=[Role.INDSTILLING])
+    c = Client()
+    c.force_login(ind)
+
+    # GET on the discard endpoint is blocked; POST toggles it on.
+    assert c.get(f"/optagelse/kasser/{app.id}").status_code == 405
+    assert c.post(f"/optagelse/kasser/{app.id}").status_code == 302
+    app.refresh_from_db()
+    assert app.discarded_by_id == ind.id and app.discarded_at is not None
+
+    # Hidden from the default list and from search.
+    default = c.get("/optagelse/listansoegninger").content.decode()
+    assert "Spam Bot" not in default
+    assert "Spam Bot" not in c.get("/optagelse/listansoegninger", {"q": "Spam"}).content.decode()
+
+    # Visible (and flagged) when the toggle is on.
+    shown = c.get("/optagelse/listansoegninger", {"show_discarded": "1"}).content.decode()
+    assert "Spam Bot" in shown and "Kasseret" in shown
+    assert (
+        "Spam Bot"
+        in c.get("/optagelse/listansoegninger", {"q": "Spam", "show_discarded": "1"}).content.decode()
+    )
+
+    # Toggling again un-discards it, and it returns to the normal list.
+    assert c.post(f"/optagelse/kasser/{app.id}").status_code == 302
+    app.refresh_from_db()
+    assert app.discarded_by_id is None and app.discarded_at is None
+    assert "Spam Bot" in c.get("/optagelse/listansoegninger").content.decode()
+
+
+@pytest.mark.django_db
+def test_applications_pending_filter(make_resident: Callable) -> None:
+    """The 'kun afventende' filter shows only not-yet-received applications, and composes with search
+    and the discarded filter (F-011)."""
+    ind = make_resident(email="ind-p@gahk.dk", roles=[Role.INDSTILLING])
+    waiting = Application.objects.create(
+        type="rundvisning", full_name="Waiting Wanda", email="w@x.dk", submitted_at=timezone.now()
+    )
+    done = Application.objects.create(
+        type="rundvisning",
+        full_name="Done Dora",
+        email="d@x.dk",
+        submitted_at=timezone.now(),
+        received_by=ind,
+        received_at=timezone.now(),
+    )
+    c = Client()
+    c.force_login(ind)
+
+    all_apps = c.get("/optagelse/listansoegninger").content.decode()
+    assert "Waiting Wanda" in all_apps and "Done Dora" in all_apps
+    pending = c.get("/optagelse/listansoegninger", {"pending": "1"}).content.decode()
+    assert "Waiting Wanda" in pending and "Done Dora" not in pending
+    assert waiting.received_by_id is None and done.received_by_id == ind.id
+
+
+@pytest.mark.django_db
+def test_discard_is_role_gated(make_resident: Callable) -> None:
+    """A plain resident cannot discard an application."""
+    app = Application.objects.create(
+        type="rundvisning", full_name="X", email="x@x.dk", submitted_at=timezone.now()
+    )
+    c = Client()
+    c.force_login(make_resident(email="plain@gahk.dk"))
+    assert c.post(f"/optagelse/kasser/{app.id}").status_code == 403
+    app.refresh_from_db()
+    assert app.discarded_by_id is None
 
 
 # ---------------------------------------------------------------- ølkælder money (F-003)

@@ -16,4 +16,5 @@ urlpatterns = [
     path("listansoegninger", views.list_applications, name="list"),
     path("showAnsoegning/<int:pk>", views.show_application, name="show"),
     path("setasreceived/<int:pk>", views.mark_received, name="setasreceived"),
+    path("kasser/<int:pk>", views.toggle_discarded, name="toggle_discarded"),
 ]
