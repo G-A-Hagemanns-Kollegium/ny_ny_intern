@@ -7,6 +7,7 @@ app_name = "soegvaerelse"
 urlpatterns = [
     path("", views.soeg, name="soeg"),
     path("mine", views.my, name="my"),
+    path("kvotient", views.kvotient, name="kvotient"),
     path("ansoegning/<int:pk>", views.detail, name="detail"),
     path("ansoegning/<int:pk>/slet", views.delete_application, name="delete_application"),
     path("admin", views.admin, name="admin"),

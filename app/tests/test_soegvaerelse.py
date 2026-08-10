@@ -516,3 +516,89 @@ def test_end_round_shows_move_overview_on_admin(make_resident: Callable) -> None
     assert "Lars Leaver" in html  # departing occupant listed as removed
     # shown once then cleared
     assert "Seneste runde" not in c.get(reverse("soegvaerelse:admin")).content.decode()
+
+
+def test_compute_k_parts_matches_compute_k() -> None:
+    """The a/b breakdown is the single source of the K number the form and applications both use."""
+    from rooms.kvotient import compute_k, compute_k_parts
+
+    parts = compute_k_parts(move_in_index=100, done_studying_index=136, target_index=112, orlov_months=0)
+    assert parts == {"a": 12, "b": 24, "k": compute_k(100, 136, 112, 0)}
+    assert compute_k_parts(112, 100, 112, 0)["k"] == 0.0  # non-positive denominator guarded
+
+
+@pytest.mark.django_db
+def test_kvotient_endpoint_shows_live_k(make_resident: Callable) -> None:
+    from datetime import date
+
+    r = make_resident(email="kv@gahk.dk", move_in_date=date(2024, 8, 1))
+    c = Client()
+    c.force_login(r)
+
+    html = c.get(
+        reverse("soegvaerelse:kvotient"), {"done_year": "2028", "done_month": "6", "orlov_months": "0"}
+    ).content.decode()
+    assert "K =" in html and "beregnet frem til" in html  # a real number + breakdown
+
+    # incomplete input → a hint, not a crash
+    assert "Udfyld" in c.get(reverse("soegvaerelse:kvotient"), {"orlov_months": "0"}).content.decode()
+    # junk orlov is tolerated (no 500)
+    assert (
+        c.get(
+            reverse("soegvaerelse:kvotient"), {"done_year": "2028", "done_month": "6", "orlov_months": "abc"}
+        ).status_code
+        == 200
+    )
+
+
+@pytest.mark.django_db
+def test_kvotient_endpoint_handles_missing_move_in_date(make_resident: Callable) -> None:
+    r = make_resident(email="kvnodate@gahk.dk")  # no move_in_date
+    c = Client()
+    c.force_login(r)
+    html = c.get(reverse("soegvaerelse:kvotient"), {"done_year": "2028", "done_month": "6"}).content.decode()
+    assert "mangler din indflytningsdato" in html
+    assert "K =" not in html
+
+
+@pytest.mark.django_db
+def test_soeg_shows_kvotient_calculator_even_without_a_round(make_resident: Callable) -> None:
+    """The proposal: a resident can see/compute their kvotient outside room-round periods too."""
+    from datetime import date
+
+    r = make_resident(email="noround@gahk.dk", move_in_date=date(2024, 8, 1))
+    c = Client()
+    c.force_login(r)
+    html = c.get(reverse("soegvaerelse:soeg")).content.decode()  # no offers exist
+
+    assert "Din kvotient" in html  # calculator present
+    assert "K = a · 100" in html  # the formula is shown
+    assert "ingen værelser i udbud" in html  # and it's clear there's no active round
+    assert 'name="priority"' not in html  # but no application form without offers
+
+
+@pytest.mark.django_db
+def test_soegvaerelse_pages_leak_no_template_syntax(make_resident: Callable) -> None:
+    """Django {# … #} is single-line only; a multi-line one renders verbatim on the page. Assert the
+    søgvaerelse pages contain no stray template syntax (the værelsestjek suite guards its own pages)."""
+    from datetime import date
+
+    from core.models import Room
+    from rooms.models import RoomOffer
+
+    r = make_resident(email="leak-sv@gahk.dk", move_in_date=date(2024, 8, 1))
+    room = Room.objects.create(legacy_index=130, number=130, floor="stuen", side="mod gaden")
+    RoomOffer.objects.create(room=room, month=month_index(*next_period()))
+    ind = make_resident(email="leak-ind@gahk.dk", roles=("indstilling",))
+
+    checks = [
+        (r, "/nyintern/soegvaerelse/"),
+        (r, "/nyintern/soegvaerelse/mine"),
+        (ind, "/nyintern/soegvaerelse/admin"),
+    ]
+    for user, path in checks:
+        c = Client()
+        c.force_login(user)
+        html = c.get(path).content.decode()
+        for marker in ("{#", "#}", "{% comment", "{{", "{%"):
+            assert marker not in html, f"{path} leaked template syntax: {marker}"

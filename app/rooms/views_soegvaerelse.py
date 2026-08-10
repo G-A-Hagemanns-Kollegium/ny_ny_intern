@@ -21,7 +21,7 @@ from core.models import Room
 from residents.models import Residency, RoleAssignment, next_period, prev_period
 from residents.permissions import current_resident, request_has_role, role_required
 
-from .kvotient import compute_k, month_choices, month_index, month_label
+from .kvotient import compute_k, compute_k_parts, month_choices, month_index, month_label
 from .models import KvotientApplication, KvotientOrlov, KvotientPriority, RoomOffer
 
 
@@ -117,6 +117,12 @@ def soeg(request: HttpRequest) -> HttpResponse:
         orlov = first_orlov.number_of_months if first_orlov else 0
         room_ids = [p.room_id for p in existing.priorities.all()]
         slots = [room_ids[i] if i < len(room_ids) else None for i in range(5)]
+    # Initial kvotient preview (F-004): show K on load from the existing application's numbers, if any.
+    # htmx recomputes it live as the resident changes the fields (see the `kvotient` fragment view).
+    initial_kv = None
+    if existing and resident.move_in_date:
+        move_in0 = month_index(resident.move_in_date.year, resident.move_in_date.month)
+        initial_kv = compute_k_parts(move_in0, existing.done_studying_month, target, orlov or 0)
     ctx = {
         "offered_rooms": offered_rooms,
         "target_month": target,
@@ -127,6 +133,9 @@ def soeg(request: HttpRequest) -> HttpResponse:
         "existing_done_year": done_year,
         "existing_orlov_months": orlov,
         "priority_slots": slots,
+        "target": target,
+        "has_move_in": bool(resident.move_in_date),
+        "kv": initial_kv,
     }
     if request.method == "POST":
         try:
@@ -168,6 +177,30 @@ def soeg(request: HttpRequest) -> HttpResponse:
         messages.success(request, f"Ansøgning {'sendt' if created else 'opdateret'} (K={k}).")
         return redirect("soegvaerelse:my")
     return render(request, "soegvaerelse/apply.html", ctx)
+
+
+@login_required
+def kvotient(request: HttpRequest) -> HttpResponse:
+    """htmx fragment: the resident's live kvotient for the given study-end + orlov (F-004). Computed
+    server-side against their real move-in date and next_period() as the target, so the number always
+    matches what a real application would produce — no formula duplicated in JS. Reachable any time,
+    so a resident can check their K even when no room round is open."""
+    resident = current_resident(request)
+    target = month_index(*next_period())
+    ctx: dict[str, object] = {"has_move_in": bool(resident.move_in_date), "kv": None, "target": target}
+    if resident.move_in_date:
+        try:
+            dy, dm = int(request.GET["done_year"]), int(request.GET["done_month"])
+        except (KeyError, ValueError):
+            dy = dm = 0  # fields not filled in yet → show the "fill in" hint
+        if dy and dm:
+            try:
+                orlov = max(0, int(request.GET.get("orlov_months") or 0))
+            except ValueError:
+                orlov = 0
+            move_in = month_index(resident.move_in_date.year, resident.move_in_date.month)
+            ctx["kv"] = compute_k_parts(move_in, month_index(dy, dm), target, orlov)
+    return render(request, "soegvaerelse/_kvotient_result.html", ctx)
 
 
 @login_required
