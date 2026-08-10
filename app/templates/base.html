@@ -21,6 +21,16 @@
       </form>
     </div>
   {% endif %}
+  {% if dev_clock_debug %}
+    <div class="bg-indigo-600 text-white text-sm px-4 py-2 flex items-center justify-between gap-3">
+      <span>🕓 Dev-ur (kun lokalt): simuleret dato <strong>{{ dev_clock_date|date:"Y-m-d" }}</strong>.</span>
+      <form method="post" action="{% url 'siteadmin:dev_clock_set' %}" class="inline shrink-0 flex items-center gap-2">
+        {% csrf_token %}
+        <button type="submit" name="action" value="advance" class="underline font-medium">+1 måned</button>
+        <button type="submit" name="action" value="reset" class="underline font-medium">Nulstil</button>
+      </form>
+    </div>
+  {% endif %}
   <header class="sticky top-0 z-20 bg-emerald-800 text-white shadow">
     <div class="flex items-center gap-3 px-4 h-14">
       <button @click="sidebar = !sidebar" aria-label="Menu"

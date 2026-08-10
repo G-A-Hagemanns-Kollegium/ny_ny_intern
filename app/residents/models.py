@@ -143,17 +143,24 @@ def active_period() -> tuple[int, int]:
 
     Per F-010: the newest monthly list governs — but future-dated lists are held back so next month's
     roster can be edited ahead of time without changing who has access now.
+
+    Reads the date via core.clock.current_date so a developer can fast-forward the month locally
+    (DEBUG only); in prod this is exactly timezone.localdate().
     """
-    now = timezone.localtime()
+    from core.clock import current_date
+
+    today = current_date()
     latest = (
-        Residency.objects.filter(models.Q(year__lt=now.year) | models.Q(year=now.year, month__lte=now.month))
+        Residency.objects.filter(
+            models.Q(year__lt=today.year) | models.Q(year=today.year, month__lte=today.month)
+        )
         .order_by("-year", "-month")
         .values("year", "month")
         .first()
     )
     if latest:
         return latest["year"], latest["month"]
-    return now.year, now.month
+    return today.year, today.month
 
 
 def next_period(period: tuple[int, int] | None = None) -> tuple[int, int]:
