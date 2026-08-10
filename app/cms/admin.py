@@ -1,20 +1,20 @@
 """CMS editing in Django admin — the single, role-gated write path back into page content.
 
 Per F-006 the CMS is otherwise a read-only renderer of code/fixture-managed content. This re-enables
-editing of Pages / news / events, but ties access to the **monthly `administrator` role** (or a
-superuser) via `has_active_role` — not Django's per-model permission bits (role-holders have `is_staff`
-but no perms, so without these overrides they'd see nothing).
+editing of Pages / news / events, tied to the **content-editor roles** — administrator, indstilling,
+inspektion and pr (the frontpage/PR group) — or a superuser, via `has_active_role`. Django's per-model
+permission bits are not used (role-holders have `is_staff` but no perms, so without these overrides
+they'd see nothing).
 
-Note: `Page.body` is rendered with `|safe`, so an administrator can inject arbitrary HTML — acceptable
-because `administrator` is the top, trusted role. Add HTML sanitization on save if you want defence in
-depth.
+`Page.body` etc. are rendered with `|safe`, but every editable field is run through `clean_html` on
+save (see the *AdminForm classes), so a content editor cannot inject scripts/dangerous HTML.
 """
 
 from django import forms
 from django.contrib import admin
 from django.http import HttpRequest
 
-from residents.permissions import has_active_role
+from residents.permissions import CMS_EDITOR_ROLES, has_active_role
 
 from .models import Event, NewsItem, Page
 from .sanitize import clean_html
@@ -47,11 +47,11 @@ class EventAdminForm(forms.ModelForm):
         return clean_html(self.cleaned_data.get("description", ""))
 
 
-class AdministratorContentAdmin(admin.ModelAdmin):
-    """Base admin whose every access check requires the real `administrator` role (or superuser)."""
+class ContentEditorAdmin(admin.ModelAdmin):
+    """Base admin whose every access check requires one of the real CMS-editor roles (or superuser)."""
 
     def _may(self, request: HttpRequest) -> bool:
-        return has_active_role(request.user, "administrator")
+        return has_active_role(request.user, *CMS_EDITOR_ROLES)
 
     def has_module_permission(self, request: HttpRequest) -> bool:
         return self._may(request)
@@ -70,7 +70,7 @@ class AdministratorContentAdmin(admin.ModelAdmin):
 
 
 @admin.register(Page)
-class PageAdmin(AdministratorContentAdmin):
+class PageAdmin(ContentEditorAdmin):
     form = PageAdminForm
     list_display = ("header", "slug", "menu_category")
     list_display_links = ("header",)
@@ -89,7 +89,7 @@ class PageAdmin(AdministratorContentAdmin):
 
 
 @admin.register(NewsItem)
-class NewsItemAdmin(AdministratorContentAdmin):
+class NewsItemAdmin(ContentEditorAdmin):
     form = NewsItemAdminForm
     list_display = ("title", "published_at")
     search_fields = ("title", "body")
@@ -97,7 +97,7 @@ class NewsItemAdmin(AdministratorContentAdmin):
 
 
 @admin.register(Event)
-class EventAdmin(AdministratorContentAdmin):
+class EventAdmin(ContentEditorAdmin):
     form = EventAdminForm
     list_display = ("title", "starts_on")
     search_fields = ("title", "description")

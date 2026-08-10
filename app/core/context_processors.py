@@ -5,7 +5,7 @@ from collections.abc import Collection
 from django.conf import settings
 from django.http import HttpRequest
 
-from residents.permissions import can_preview, effective_roles
+from residents.permissions import CMS_EDITOR_ROLES, can_preview, effective_roles
 
 # Public site nav, matching the legacy gahk.dk menu (labels + order)
 NAV_LEGACY = [
@@ -57,6 +57,8 @@ def _nav_intern(roles: Collection[str]) -> list[tuple[str, str]]:
     if "indstilling" in roles:
         items.append(("/nyintern/soegvaerelse/admin", "Værelsesudbud"))
         items.append(("/optagelse/listansoegninger", "Ansøgninger"))
+    if not set(roles).isdisjoint(CMS_EDITOR_ROLES):  # administrator/indstilling/inspektion/pr
+        items.append(("/django-admin/cms/", "Rediger indhold"))
     if "administrator" in roles:
         items.append(("/admin/", "Site-admin"))
         items.append(("/admin/roles", "Roller"))

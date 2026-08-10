@@ -18,6 +18,7 @@ class Role(models.TextChoices):
     AK = "ak", "AK"
     OELKAELDER = "oelkaelder", "Ølkælderen"
     REGNSKAB = "regnskab", "Regnskab"
+    PR = "pr", "PR"  # frontpage/CMS content editors (F-006)
     ADMINISTRATOR = "administrator", "Administrator"
     # NOTE: legacy `editpage` is intentionally omitted — there is no runtime CMS editing (F-006/F-007).
 
@@ -32,6 +33,7 @@ WORKGROUP_ROLE = {
     "AK-gruppen": Role.AK,
     "Ølkælderen": Role.OELKAELDER,
     "Regnskabsgruppen": Role.REGNSKAB,  # legacy intern_alumne_workgroup name (id 23)
+    "PR-gruppen": Role.PR,  # grants CMS/frontpage editing
 }
 WORKGROUP_ROLE_VALUES = frozenset(WORKGROUP_ROLE.values())
 
