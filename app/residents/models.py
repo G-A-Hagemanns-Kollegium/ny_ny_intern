@@ -39,6 +39,22 @@ WORKGROUP_ROLE_VALUES = frozenset(WORKGROUP_ROLE.values())
 class ResidentManager(BaseUserManager["Resident"]):
     use_in_migrations = True
 
+    def get_by_natural_key(self, username: str | None) -> "Resident":
+        """Look up the login principal (email) case-insensitively.
+
+        Email is the USERNAME_FIELD, and an email login id should not be case-sensitive - residents
+        typing a capital first letter could not log in (auth/login ticket). ModelBackend.authenticate
+        resolves the user through here, so making it case-insensitive fixes login for every path.
+
+        Exact match first: unambiguous, preserves behaviour, and avoids MultipleObjectsReturned if two
+        rows ever differ only by case. Fall back to iexact only when the exact form isn't found.
+        """
+        field = self.model.USERNAME_FIELD
+        try:
+            return self.get(**{field: username})
+        except self.model.DoesNotExist:
+            return self.get(**{f"{field}__iexact": username})
+
     def create_user(self, email: str, password: str | None = None, **extra: object) -> "Resident":
         if not email:
             raise ValueError("Residents must have an email address")
