@@ -27,6 +27,32 @@ def test_legacy_sha256_upgrades_on_login(make_resident: Callable) -> None:
 
 
 @pytest.mark.django_db
+def test_email_login_is_case_insensitive(make_resident: Callable) -> None:
+    """Email is the login username; it must not be case-sensitive (auth/login ticket) — a capital
+    first letter used to lock residents out."""
+    make_resident(email="mixed@gahk.dk", password="hemmelig")
+    c = Client()
+    assert c.login(email="Mixed@gahk.dk", password="hemmelig") is True  # capital first letter
+    c.logout()
+    assert c.login(email="MIXED@GAHK.DK", password="hemmelig") is True  # all caps
+    c.logout()
+    assert c.login(email="mixed@gahk.dk", password="hemmelig") is True  # exact still works
+    assert c.login(email="mixed@gahk.dk", password="forkert") is False  # password still enforced
+
+
+@pytest.mark.django_db
+def test_password_reset_is_case_insensitive(make_resident: Callable) -> None:
+    """Recover-password looks the account up case-insensitively too (Django's PasswordResetForm uses
+    email__iexact) — a capital first letter must still receive the reset link."""
+    make_resident(email="reset@gahk.dk", password="hemmelig")  # usable password → eligible for reset
+    mail.outbox = []
+    resp = Client().post("/nyintern/admin/password-reset", {"email": "Reset@gahk.dk"})
+    assert resp.status_code == 302  # redirects to the "done" page
+    assert len(mail.outbox) == 1  # reset link sent despite the capital
+    assert "reset@gahk.dk" in mail.outbox[0].to
+
+
+@pytest.mark.django_db
 def test_monthly_role_is_time_bound(make_resident: Callable) -> None:
     r = make_resident(roles=[Role.AK])
     y, m = active_period()
