@@ -27,6 +27,32 @@ def test_legacy_sha256_upgrades_on_login(make_resident: Callable) -> None:
 
 
 @pytest.mark.django_db
+def test_email_login_is_case_insensitive(make_resident: Callable) -> None:
+    """Email is the login username; it must not be case-sensitive (auth/login ticket) — a capital
+    first letter used to lock residents out."""
+    make_resident(email="mixed@gahk.dk", password="hemmelig")
+    c = Client()
+    assert c.login(email="Mixed@gahk.dk", password="hemmelig") is True  # capital first letter
+    c.logout()
+    assert c.login(email="MIXED@GAHK.DK", password="hemmelig") is True  # all caps
+    c.logout()
+    assert c.login(email="mixed@gahk.dk", password="hemmelig") is True  # exact still works
+    assert c.login(email="mixed@gahk.dk", password="forkert") is False  # password still enforced
+
+
+@pytest.mark.django_db
+def test_password_reset_is_case_insensitive(make_resident: Callable) -> None:
+    """Recover-password looks the account up case-insensitively too (Django's PasswordResetForm uses
+    email__iexact) — a capital first letter must still receive the reset link."""
+    make_resident(email="reset@gahk.dk", password="hemmelig")  # usable password → eligible for reset
+    mail.outbox = []
+    resp = Client().post("/nyintern/admin/password-reset", {"email": "Reset@gahk.dk"})
+    assert resp.status_code == 302  # redirects to the "done" page
+    assert len(mail.outbox) == 1  # reset link sent despite the capital
+    assert "reset@gahk.dk" in mail.outbox[0].to
+
+
+@pytest.mark.django_db
 def test_monthly_role_is_time_bound(make_resident: Callable) -> None:
     r = make_resident(roles=[Role.AK])
     y, m = active_period()
@@ -37,7 +63,9 @@ def test_monthly_role_is_time_bound(make_resident: Callable) -> None:
 
 # ---------------------------------------------------------------- admissions (F-001)
 @pytest.mark.django_db
-def test_rundvisning_emails_committee_and_applicant() -> None:
+def test_rundvisning_emails_applicant_only() -> None:
+    """The committee is no longer notified per rundvisning request; only the applicant auto-reply
+    goes out (F-011)."""
     mail.outbox = []
     Client().post(
         "/optagelse/send_rundvisning",
@@ -55,7 +83,8 @@ def test_rundvisning_emails_committee_and_applicant() -> None:
         },
     )
     assert Application.objects.filter(type="rundvisning").count() == 1
-    assert len(mail.outbox) == 2  # committee + applicant
+    assert len(mail.outbox) == 1  # applicant auto-reply only, committee not emailed
+    assert mail.outbox[0].to == ["ny@x.dk"]
 
 
 @pytest.mark.django_db
@@ -90,6 +119,202 @@ def test_mark_received_is_post_only_and_role_gated(make_resident: Callable) -> N
     assert c.post(f"/optagelse/setasreceived/{app.id}").status_code == 302
     app.refresh_from_db()
     assert app.received_by_id == ind.id
+
+
+@pytest.mark.django_db
+def test_applications_search_spans_all_pages(make_resident: Callable) -> None:
+    """Search filters the whole queryset before pagination, so a match on page 2 is found (F-011)."""
+    # Created first so that under the default newest-first order it's buried past page 1 (50/page).
+    Application.objects.create(
+        type="rundvisning",
+        full_name="Zenobia Needle",
+        email="z@x.dk",
+        university="Roskilde Universitet",
+        submitted_at=timezone.now(),
+    )
+    for i in range(55):  # > one page (50)
+        Application.objects.create(
+            type="rundvisning", full_name=f"Filler {i}", email=f"f{i}@x.dk", submitted_at=timezone.now()
+        )
+    c = Client()
+    c.force_login(make_resident(email="ind-s@gahk.dk", roles=[Role.INDSTILLING]))
+
+    # Without search the unique applicant is buried past page 1.
+    page1 = c.get("/optagelse/listansoegninger").content.decode()
+    assert "Zenobia Needle" not in page1
+    # Searching by name finds it regardless of page.
+    hit = c.get("/optagelse/listansoegninger", {"q": "Zenobia"}).content.decode()
+    assert "Zenobia Needle" in hit and "Filler" not in hit
+    # Search also matches uddannelse (a non-name column).
+    by_uni = c.get("/optagelse/listansoegninger", {"q": "Roskilde"}).content.decode()
+    assert "Zenobia Needle" in by_uni
+
+
+@pytest.mark.django_db
+def test_applications_sortable_by_uddannelse(make_resident: Callable) -> None:
+    """Columns can be sorted; e.g. by uddannelse asc/desc (F-011). Junk sort falls back safely."""
+    Application.objects.create(
+        type="rundvisning",
+        full_name="Aaron",
+        email="a@x.dk",
+        university="Zoologi",
+        submitted_at=timezone.now(),
+    )
+    Application.objects.create(
+        type="rundvisning",
+        full_name="Bea",
+        email="b@x.dk",
+        university="Antropologi",
+        submitted_at=timezone.now(),
+    )
+    c = Client()
+    c.force_login(make_resident(email="ind-o@gahk.dk", roles=[Role.INDSTILLING]))
+
+    asc = c.get("/optagelse/listansoegninger", {"sort": "uddannelse", "dir": "asc"}).content.decode()
+    assert asc.index("Bea") < asc.index("Aaron")  # Antropologi before Zoologi
+    desc = c.get("/optagelse/listansoegninger", {"sort": "uddannelse", "dir": "desc"}).content.decode()
+    assert desc.index("Aaron") < desc.index("Bea")
+    # Junk sort/dir must not crash and falls back to the default (newest first, both present).
+    bad = c.get("/optagelse/listansoegninger", {"sort": "x", "dir": "y"})
+    assert bad.status_code == 200 and "Aaron" in bad.content.decode()
+    # No unrendered template syntax leaks onto the page.
+    assert "{%" not in asc and "{#" not in asc
+
+
+@pytest.mark.django_db
+def test_discarded_application_hidden_from_list_and_search_with_toggle(make_resident: Callable) -> None:
+    """Indstillingen can discard an application; it then drops out of the list and search unless the
+    show-discarded toggle is on, and can be un-discarded (F-011)."""
+    app = Application.objects.create(
+        type="rundvisning",
+        full_name="Spam Bot",
+        email="s@x.dk",
+        university="Nowhere",
+        submitted_at=timezone.now(),
+    )
+    ind = make_resident(email="ind-d@gahk.dk", roles=[Role.INDSTILLING])
+    c = Client()
+    c.force_login(ind)
+
+    # GET on the discard endpoint is blocked; POST toggles it on.
+    assert c.get(f"/optagelse/kasser/{app.id}").status_code == 405
+    assert c.post(f"/optagelse/kasser/{app.id}").status_code == 302
+    app.refresh_from_db()
+    assert app.discarded_by_id == ind.id and app.discarded_at is not None
+
+    # Hidden from the default list and from search.
+    default = c.get("/optagelse/listansoegninger").content.decode()
+    assert "Spam Bot" not in default
+    assert "Spam Bot" not in c.get("/optagelse/listansoegninger", {"q": "Spam"}).content.decode()
+
+    # Visible (and flagged) when the toggle is on.
+    shown = c.get("/optagelse/listansoegninger", {"show_discarded": "1"}).content.decode()
+    assert "Spam Bot" in shown and "Kasseret" in shown
+    assert (
+        "Spam Bot"
+        in c.get("/optagelse/listansoegninger", {"q": "Spam", "show_discarded": "1"}).content.decode()
+    )
+
+    # Toggling again un-discards it, and it returns to the normal list.
+    assert c.post(f"/optagelse/kasser/{app.id}").status_code == 302
+    app.refresh_from_db()
+    assert app.discarded_by_id is None and app.discarded_at is None
+    assert "Spam Bot" in c.get("/optagelse/listansoegninger").content.decode()
+
+
+@pytest.mark.django_db
+def test_applications_pending_filter(make_resident: Callable) -> None:
+    """The 'kun afventende' filter shows only not-yet-received applications, and composes with search
+    and the discarded filter (F-011)."""
+    ind = make_resident(email="ind-p@gahk.dk", roles=[Role.INDSTILLING])
+    waiting = Application.objects.create(
+        type="rundvisning", full_name="Waiting Wanda", email="w@x.dk", submitted_at=timezone.now()
+    )
+    done = Application.objects.create(
+        type="rundvisning",
+        full_name="Done Dora",
+        email="d@x.dk",
+        submitted_at=timezone.now(),
+        received_by=ind,
+        received_at=timezone.now(),
+    )
+    c = Client()
+    c.force_login(ind)
+
+    all_apps = c.get("/optagelse/listansoegninger").content.decode()
+    assert "Waiting Wanda" in all_apps and "Done Dora" in all_apps
+    pending = c.get("/optagelse/listansoegninger", {"pending": "1"}).content.decode()
+    assert "Waiting Wanda" in pending and "Done Dora" not in pending
+    assert waiting.received_by_id is None and done.received_by_id == ind.id
+
+
+@pytest.mark.django_db
+def test_applications_export_honours_filters_and_date_range(make_resident: Callable) -> None:
+    """CSV/Excel export mirrors the list filters (search, kun afventende) plus a from/to date range,
+    and emits the contact columns (F-011)."""
+    ind = make_resident(email="ind-x@gahk.dk", roles=[Role.INDSTILLING])
+
+    def app(**kw: object) -> Application:
+        kw.setdefault("type", "rundvisning")
+        kw.setdefault("submitted_at", timezone.now())
+        return Application.objects.create(**kw)
+
+    app(
+        full_name="In Range",
+        email="inrange@x.dk",
+        university="DTU",
+        submitted_at=timezone.now().replace(year=2026, month=6, day=15),
+    )
+    app(
+        full_name="Too Early",
+        email="early@x.dk",
+        submitted_at=timezone.now().replace(year=2026, month=1, day=1),
+    )
+    app(
+        full_name="Received Rita",
+        email="rita@x.dk",
+        received_by=ind,
+        received_at=timezone.now(),
+        submitted_at=timezone.now().replace(year=2026, month=6, day=20),
+    )
+    c = Client()
+    c.force_login(ind)
+
+    # CSV over June 2026 → only "In Range" (Too Early is outside; Received Rita drops with pending=1).
+    csv_resp = c.get(
+        "/optagelse/eksport",
+        {"format": "csv", "from": "2026-06-01", "to": "2026-06-30", "pending": "1"},
+    )
+    assert csv_resp["Content-Type"].startswith("text/csv")
+    body = csv_resp.content.decode("utf-8-sig")
+    assert body.splitlines()[0] == "Dato,Type,Navn,E-mail,Uddannelse"  # contact columns only
+    assert "inrange@x.dk" in body
+    assert "early@x.dk" not in body and "rita@x.dk" not in body
+
+    # Excel export returns a spreadsheet.
+    xlsx = c.get("/optagelse/eksport", {"format": "xlsx"})
+    assert xlsx["Content-Type"].startswith(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    assert xlsx.content[:2] == b"PK"  # xlsx is a zip
+
+    # Role-gated.
+    other = Client()
+    other.force_login(make_resident(email="plain-x@gahk.dk"))
+    assert other.get("/optagelse/eksport", {"format": "csv"}).status_code == 403
+
+
+@pytest.mark.django_db
+def test_discard_is_role_gated(make_resident: Callable) -> None:
+    """A plain resident cannot discard an application."""
+    app = Application.objects.create(
+        type="rundvisning", full_name="X", email="x@x.dk", submitted_at=timezone.now()
+    )
+    c = Client()
+    c.force_login(make_resident(email="plain@gahk.dk"))
+    assert c.post(f"/optagelse/kasser/{app.id}").status_code == 403
+    app.refresh_from_db()
+    assert app.discarded_by_id is None
 
 
 # ---------------------------------------------------------------- ølkælder money (F-003)
@@ -156,20 +381,43 @@ def test_application_list_shows_receiver(make_resident: Callable) -> None:
 
 
 @pytest.mark.django_db
-def test_cms_admin_is_gated_to_administrator(make_resident: Callable) -> None:
+def test_cms_admin_is_gated_to_content_editor_roles(make_resident: Callable) -> None:
+    """Frontpage/CMS content is editable by administrator, indstilling, inspektion and pr — the
+    content-editor roles — and by nobody else (other role-holders are is_staff but not editors)."""
     from cms.models import Page
 
     Page.objects.create(header="Testside", slug="testside", body="<p>hej</p>")
-    admin = make_resident(email="admin@gahk.dk", roles=[Role.ADMINISTRATOR])
-    ak = make_resident(email="ak@gahk.dk", roles=[Role.AK])  # staff, but not administrator
 
-    ca = Client()
-    ca.force_login(admin)
-    assert ca.get("/django-admin/cms/page/").status_code == 200  # administrator can edit pages
+    for role in (Role.ADMINISTRATOR, Role.INDSTILLING, Role.INSPEKTION, Role.PR):
+        c = Client()
+        c.force_login(make_resident(email=f"{role.value}@gahk.dk", roles=[role]))
+        for model in ("page", "newsitem", "event"):  # all CMS content, not just pages
+            assert c.get(f"/django-admin/cms/{model}/").status_code == 200, f"{role} should edit {model}"
 
-    ck = Client()
-    ck.force_login(ak)
-    assert ck.get("/django-admin/cms/page/").status_code == 403  # other roles cannot
+    for role in (Role.AK, Role.OELKAELDER, Role.KOKKENGRUPPE, Role.REGNSKAB):  # staff, but not editors
+        c = Client()
+        c.force_login(make_resident(email=f"{role.value}@gahk.dk", roles=[role]))
+        assert c.get("/django-admin/cms/page/").status_code == 403, f"{role} must not edit CMS"
+
+
+@pytest.mark.django_db
+def test_pr_embedsgruppe_grants_cms_access(make_resident: Callable) -> None:
+    """Being on the "PR-gruppen" embedsgruppe next month grants the pr role, hence CMS editing."""
+    from core.models import Room, Workgroup
+    from residents.models import Residency, active_period
+    from residents.views import _sync_month_roles
+
+    pr_group = Workgroup.objects.create(name="PR-gruppen")
+    r = make_resident(email="prmember@gahk.dk")
+    y, m = active_period()
+    room = Room.objects.create(legacy_index=140, number=140, floor="stuen", side="mod gaden")
+    Residency.objects.create(resident=r, room=room, workgroup=pr_group, year=y, month=m)
+    _sync_month_roles(r.id, pr_group, y, m, is_admin=False)  # what the next-month editor runs
+
+    assert r.has_role("pr", (y, m))
+    c = Client()
+    c.force_login(r)
+    assert c.get("/django-admin/cms/page/").status_code == 200
 
 
 @pytest.mark.django_db
@@ -630,3 +878,138 @@ def test_vaerelsestjek_overview_renders_all_five_floor_plans(make_resident: Call
     assert len(plans) == 5, f"expected five floor plans, got {plans}"
     assert [p.rsplit("/", 1)[-1].split(".")[0] for p in plans] == ["stuen", "sal1", "sal2", "sal3", "sal4"]
     assert "Stuen" in html and "4. sal" in html  # per-floor headings
+
+
+def test_relocate_media_splits_multi_image_paths() -> None:
+    """RoomConditionScore.image is a ';'-separated list; relocate_media treated the whole blob as one
+    filename, so multi-image rows silently missed (copied 40 vs the real 5709). It must split the same
+    way image_urls does, strip a leading slash, and skip URLs."""
+    from core.management.commands.relocate_media import legacy_image_segments
+
+    field = "public/image/a.jpg;/public/image/b.jpg;https://ex.com/c.jpg;"
+    assert legacy_image_segments(field) == ["public/image/a.jpg", "public/image/b.jpg"]
+    assert legacy_image_segments("") == []
+    assert legacy_image_segments(None) == []
+    assert legacy_image_segments("/public/image/x.jpg") == ["public/image/x.jpg"]  # leading slash
+
+
+@pytest.mark.django_db
+def test_relocate_media_segments_match_image_urls(make_resident: Callable) -> None:
+    """The paths relocate_media copies to must be exactly the paths image_urls asks the browser for,
+    or files land where nothing looks for them."""
+    from core.management.commands.relocate_media import legacy_image_segments
+    from core.models import Room
+    from rooms.models import RoomCondition, RoomConditionScore, RoomCriterion
+
+    rm = Room.objects.create(legacy_index=97, number=97, floor="stuen", side="mod gaden")
+    crit = RoomCriterion.objects.create(code="floor", name="Gulve", options=5)
+    cond = RoomCondition.objects.create(room=rm, recorded_at=timezone.now(), is_current=True)
+    s = RoomConditionScore.objects.create(
+        condition=cond, criterion=crit, image="public/image/a.jpg;/public/image/b.jpg"
+    )
+
+    assert s.image_urls == ["/media/public/image/a.jpg", "/media/public/image/b.jpg"]
+    assert ["/media/" + seg for seg in legacy_image_segments(s.image)] == s.image_urls
+
+
+@pytest.mark.django_db
+def test_room_clash_warning_is_indstilling_only(make_resident: Callable) -> None:
+    """A room clash is flagged on the alumneliste, but only to indstilling (who can fix it) — not to
+    ordinary residents."""
+    from core.models import Room
+    from residents.models import Residency, active_period
+
+    y, m = active_period()
+    room = Room.objects.create(legacy_index=98, number=98, floor="stuen", side="mod gaden")
+    a = make_resident(email="clash-a@gahk.dk")
+    b = make_resident(email="clash-b@gahk.dk")
+    Residency.objects.create(resident=a, room=room, year=y, month=m)
+    Residency.objects.create(resident=b, room=room, year=y, month=m)  # same room, same month
+
+    plain = Client()
+    plain.force_login(a)
+    assert "Værelseskonflikt" not in plain.get("/nyintern/alumneliste/").content.decode()
+
+    ind = Client()
+    ind.force_login(make_resident(email="clash-ind@gahk.dk", roles=("indstilling",)))
+    html = ind.get("/nyintern/alumneliste/").content.decode()
+    assert "Værelseskonflikt" in html and "098" in html
+
+
+@pytest.mark.django_db
+def test_cms_admin_link_in_sidebar_for_editor_roles(make_resident: Callable) -> None:
+    """The 'Rediger indhold' sidebar link appears for content-editor roles and no one else."""
+    for role in (Role.ADMINISTRATOR, Role.INDSTILLING, Role.INSPEKTION, Role.PR):
+        c = Client()
+        c.force_login(make_resident(email=f"navcms-{role.value}@gahk.dk", roles=[role]))
+        labels = [label for _u, label in c.get("/nyintern/").context["nav_intern"]]
+        assert "Rediger indhold" in labels, f"{role} should see the CMS link"
+
+    plain = Client()
+    plain.force_login(make_resident(email="navcms-plain@gahk.dk", roles=[Role.AK]))
+    labels = [label for _u, label in plain.get("/nyintern/").context["nav_intern"]]
+    assert "Rediger indhold" not in labels
+
+
+@pytest.mark.django_db
+def test_alumneliste_default_sort_is_alphabetical_and_sortable(make_resident: Callable) -> None:
+    """Default order is by name (not room number), and columns can be sorted asc/desc (F-010)."""
+    from core.models import Room
+    from residents.models import Residency, active_period
+
+    y, m = active_period()
+    # Aaron in a high room, Zoe in a low room: name order and room order disagree.
+    r_hi = Room.objects.create(legacy_index=201, number=201, floor="2. sal", side="mod gaden")
+    r_lo = Room.objects.create(legacy_index=1, number=1, floor="stuen", side="mod gaden")
+    Residency.objects.create(
+        resident=make_resident(email="aaron@gahk.dk", first_name="Aaron", last_name="A"),
+        room=r_hi,
+        year=y,
+        month=m,
+    )
+    Residency.objects.create(
+        resident=make_resident(email="zoe@gahk.dk", first_name="Zoe", last_name="Z"),
+        room=r_lo,
+        year=y,
+        month=m,
+    )
+    c = Client()
+    c.force_login(make_resident(email="viewer-sort@gahk.dk"))
+
+    default = c.get("/nyintern/alumneliste/").content.decode()
+    assert default.index("Aaron A") < default.index("Zoe Z")  # alphabetical, not by room (201 vs 001)
+
+    by_room = c.get("/nyintern/alumneliste/", {"sort": "vaerelse", "dir": "asc"}).content.decode()
+    assert by_room.index("Zoe Z") < by_room.index("Aaron A")  # room 001 before 201
+
+    name_desc = c.get("/nyintern/alumneliste/", {"sort": "navn", "dir": "desc"}).content.decode()
+    assert name_desc.index("Zoe Z") < name_desc.index("Aaron A")  # reversed
+
+    bad = c.get("/nyintern/alumneliste/", {"sort": "'; DROP", "dir": "sideways"}).content.decode()
+    assert bad.index("Aaron A") < bad.index("Zoe Z")  # junk sort falls back to name asc, no crash
+
+    # No unrendered Django template syntax leaks onto the page (a multi-line {# #} would render verbatim).
+    assert "{#" not in default and "{%" not in default
+
+
+@pytest.mark.django_db
+def test_directory_rows_fragment_has_sortable_headers(make_resident: Callable) -> None:
+    """The htmx fragment is the whole table (headers + rows) so sort arrows update on swap."""
+    from core.models import Room
+    from residents.models import Residency, active_period
+
+    y, m = active_period()
+    room = Room.objects.create(legacy_index=1, number=1, floor="stuen", side="mod gaden")
+    Residency.objects.create(
+        resident=make_resident(email="frag@gahk.dk", first_name="Frag", last_name="Menter"),
+        room=room,
+        year=y,
+        month=m,
+    )
+    c = Client()
+    c.force_login(make_resident(email="viewer-frag@gahk.dk"))
+
+    html = c.get("/nyintern/alumneliste/rows", {"sort": "navn", "dir": "asc"}).content.decode()
+    assert "Frag Menter" in html  # rows present
+    assert "sort=vaerelse" in html  # a sortable header link is present
+    assert 'name="sort"' in html and 'value="navn"' in html  # hidden sort state for the search box

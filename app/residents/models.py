@@ -18,6 +18,7 @@ class Role(models.TextChoices):
     AK = "ak", "AK"
     OELKAELDER = "oelkaelder", "Ølkælderen"
     REGNSKAB = "regnskab", "Regnskab"
+    PR = "pr", "PR"  # frontpage/CMS content editors (F-006)
     ADMINISTRATOR = "administrator", "Administrator"
     # NOTE: legacy `editpage` is intentionally omitted — there is no runtime CMS editing (F-006/F-007).
 
@@ -32,12 +33,29 @@ WORKGROUP_ROLE = {
     "AK-gruppen": Role.AK,
     "Ølkælderen": Role.OELKAELDER,
     "Regnskabsgruppen": Role.REGNSKAB,  # legacy intern_alumne_workgroup name (id 23)
+    "PR-gruppen": Role.PR,  # grants CMS/frontpage editing
 }
 WORKGROUP_ROLE_VALUES = frozenset(WORKGROUP_ROLE.values())
 
 
 class ResidentManager(BaseUserManager["Resident"]):
     use_in_migrations = True
+
+    def get_by_natural_key(self, username: str | None) -> "Resident":
+        """Look up the login principal (email) case-insensitively.
+
+        Email is the USERNAME_FIELD, and an email login id should not be case-sensitive - residents
+        typing a capital first letter could not log in (auth/login ticket). ModelBackend.authenticate
+        resolves the user through here, so making it case-insensitive fixes login for every path.
+
+        Exact match first: unambiguous, preserves behaviour, and avoids MultipleObjectsReturned if two
+        rows ever differ only by case. Fall back to iexact only when the exact form isn't found.
+        """
+        field = self.model.USERNAME_FIELD
+        try:
+            return self.get(**{field: username})
+        except self.model.DoesNotExist:
+            return self.get(**{f"{field}__iexact": username})
 
     def create_user(self, email: str, password: str | None = None, **extra: object) -> "Resident":
         if not email:
@@ -143,17 +161,24 @@ def active_period() -> tuple[int, int]:
 
     Per F-010: the newest monthly list governs — but future-dated lists are held back so next month's
     roster can be edited ahead of time without changing who has access now.
+
+    Reads the date via core.clock.current_date so a developer can fast-forward the month locally
+    (DEBUG only); in prod this is exactly timezone.localdate().
     """
-    now = timezone.localtime()
+    from core.clock import current_date
+
+    today = current_date()
     latest = (
-        Residency.objects.filter(models.Q(year__lt=now.year) | models.Q(year=now.year, month__lte=now.month))
+        Residency.objects.filter(
+            models.Q(year__lt=today.year) | models.Q(year=today.year, month__lte=today.month)
+        )
         .order_by("-year", "-month")
         .values("year", "month")
         .first()
     )
     if latest:
         return latest["year"], latest["month"]
-    return now.year, now.month
+    return today.year, today.month
 
 
 def next_period(period: tuple[int, int] | None = None) -> tuple[int, int]:

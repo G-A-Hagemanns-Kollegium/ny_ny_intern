@@ -41,6 +41,11 @@ def dashboard(request: HttpRequest) -> HttpResponse:
     """Internal landing page (F-013). Shows the member's active-month roles and the shared
     WiFi/calendar info — now gated by authentication (not campus IP) with secrets read from env.
     Uses effective roles so the preview override is reflected here too."""
+    # Lazily book this month's AK deduction on the first internal page load of a new month
+    # (no scheduler in this project). Cheap and idempotent; see ak.services.
+    from ak.services import ensure_active_month_applied
+
+    ensure_active_month_applied()
     year, month = active_period()
     roles = sorted(effective_roles(request))
     return render(
@@ -102,11 +107,70 @@ DA_MONTHS = [
 ]
 
 
-def _directory_rows(year: int, month: int, query: str) -> QuerySet[Residency]:
+# Sortable columns → the ORM fields to order by. Whitelisted, so ?sort= can't inject arbitrary paths.
+SORT_FIELDS = {
+    "navn": ("resident__first_name", "resident__last_name"),
+    "vaerelse": ("room__number",),
+    "embedsgruppe": ("workgroup__name",),
+    "rengoring": ("cleaning__name",),
+    "foedselsdag": ("resident__birthday",),
+    "indflyttet": ("resident__move_in_date",),
+    "studie": ("resident__study",),
+}
+# Which alumneliste column (by its label) maps to which sort key; labels not here aren't sortable.
+_LABEL_TO_SORT = {
+    "Navn": "navn",
+    "Værelse": "vaerelse",
+    "Embedsgruppe": "embedsgruppe",
+    "Rengøring": "rengoring",
+    "Fødselsdag": "foedselsdag",
+    "Indflyttet": "indflyttet",
+    "Studie": "studie",
+}
+DEFAULT_SORT = "navn"  # alphabetical by name — the natural default for finding people
+
+
+def _parse_sort(request: HttpRequest) -> tuple[str, str]:
+    """(sort_key, direction) from ?sort=&dir=, validated against SORT_FIELDS; defaults to name asc."""
+    sort = request.GET.get("sort") or DEFAULT_SORT
+    if sort not in SORT_FIELDS:
+        sort = DEFAULT_SORT
+    direction = "desc" if request.GET.get("dir") == "desc" else "asc"
+    return sort, direction
+
+
+def _sort_headers(sort: str, direction: str) -> list[dict[str, object]]:
+    """Column-header descriptors for the template: label, whether sortable, the direction a click
+    should apply (toggle when already active), and an arrow marking the active column."""
+    headers: list[dict[str, object]] = []
+    for label, _accessor in DIRECTORY_COLUMNS:
+        key = _LABEL_TO_SORT.get(label)
+        if key is None:
+            headers.append({"label": label, "sortable": False})
+            continue
+        active = key == sort
+        headers.append(
+            {
+                "label": label,
+                "sortable": True,
+                "key": key,
+                "next_dir": "desc" if active and direction == "asc" else "asc",
+                "arrow": ("▲" if direction == "asc" else "▼") if active else "",
+            }
+        )
+    return headers
+
+
+def _directory_rows(
+    year: int, month: int, query: str, sort: str = DEFAULT_SORT, direction: str = "asc"
+) -> QuerySet[Residency]:
+    prefix = "-" if direction == "desc" else ""
+    order = [f"{prefix}{f}" for f in SORT_FIELDS.get(sort, SORT_FIELDS[DEFAULT_SORT])]
+    order.append("resident_id")  # stable tiebreak for equal sort values
     qs = (
         Residency.objects.filter(year=year, month=month)
         .select_related("resident", "resident__sponsor", "room", "workgroup", "cleaning")
-        .order_by("room__number")
+        .order_by(*order)
     )
     q = (query or "").strip()
     if q:
@@ -140,30 +204,62 @@ def _period_options(selected: tuple[int, int]) -> list[dict[str, str | bool]]:
     ]
 
 
+def _clash_rooms(year: int, month: int) -> list[int]:
+    """Room numbers occupied by more than one resident in (year, month). Should always be empty —
+    end_round evicts the departing occupant and the next-month editor blocks a clashing save — but if
+    one ever slips through (e.g. hand-edited data), the list must show it rather than look merely
+    disordered."""
+    counts: dict[int, int] = {}
+    for room_number in Residency.objects.filter(year=year, month=month).values_list(
+        "room__number", flat=True
+    ):
+        counts[room_number] = counts.get(room_number, 0) + 1
+    return sorted(n for n, c in counts.items() if c > 1)
+
+
 @login_required
 def directory(request: HttpRequest) -> HttpResponse:
     """Full directory page (login-required). Legacy `json()` was campus-IP gated; with real auth the
-    members-only login is the control (F-010). HTMX powers the live search; the period picker shows any
-    past month's list (the legacy "oldLists")."""
+    members-only login is the control (F-010). HTMX powers the live search and column sorting; the
+    period picker shows any past month's list (the legacy "oldLists"). Default order is by name."""
     year, month = _parse_period(request)
+    sort, direction = _parse_sort(request)
+    q = request.GET.get("q", "")
     return render(
         request,
         "alumneliste/directory.html",
         {
-            "rows": _directory_rows(year, month, request.GET.get("q", "")),
+            "rows": _directory_rows(year, month, q, sort, direction),
             "periods": _period_options((year, month)),
             "period_value": f"{year}-{month}",
             "period_label": f"{DA_MONTHS[month].capitalize()} {year}",
+            "q": q,
+            "sort": sort,
+            "dir": direction,
+            "headers": _sort_headers(sort, direction),
+            # Only indstilling acts on (or sees) room conflicts; skip the query for everyone else.
+            "clash_rooms": _clash_rooms(year, month) if "indstilling" in effective_roles(request) else [],
         },
     )
 
 
 @login_required
 def directory_rows(request: HttpRequest) -> HttpResponse:
-    """HTMX fragment: just the filtered table rows (for the selected period)."""
+    """HTMX fragment: the sortable table (headers + rows) for the selected period/query/sort."""
     year, month = _parse_period(request)
+    sort, direction = _parse_sort(request)
+    q = request.GET.get("q", "")
     return render(
-        request, "alumneliste/_rows.html", {"rows": _directory_rows(year, month, request.GET.get("q", ""))}
+        request,
+        "alumneliste/_directory_table.html",
+        {
+            "rows": _directory_rows(year, month, q, sort, direction),
+            "period_value": f"{year}-{month}",
+            "q": q,
+            "sort": sort,
+            "dir": direction,
+            "headers": _sort_headers(sort, direction),
+        },
     )
 
 
@@ -214,9 +310,10 @@ DIRECTORY_COLUMNS = [
 
 @login_required
 def directory_export(request: HttpRequest) -> HttpResponse:
-    """Export the selected month's alumneliste as CSV or Excel (?format=csv|xlsx)."""
+    """Export the selected month's alumneliste as CSV or Excel (?format=csv|xlsx), in the shown order."""
     year, month = _parse_period(request)
-    rows = _directory_rows(year, month, request.GET.get("q", ""))
+    sort, direction = _parse_sort(request)
+    rows = _directory_rows(year, month, request.GET.get("q", ""), sort, direction)
     headers = [label for label, _ in DIRECTORY_COLUMNS]
     fname = f"alumneliste-{year}-{month:02d}"
 
