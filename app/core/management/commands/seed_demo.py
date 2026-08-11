@@ -30,7 +30,8 @@ from django.db import models, transaction
 from django.utils import timezone
 
 from admissions.models import Application
-from ak.models import AkEntry
+from ak.models import AkEntry, AkMonthlyCharge
+from ak.services import apply_monthly_charge
 from cms.models import Event, NewsItem, Page, PylonEvent
 from core.models import Cleaning, Room, Workgroup
 from oelkaelder.models import (
@@ -335,16 +336,8 @@ class Command(BaseCommand):
                     created_at=self.now - timedelta(days=120),
                 )
             )
-            for months_ago in range(3, 0, -1):
-                entries.append(
-                    AkEntry(
-                        resident=r,
-                        delta=-2,
-                        kind=AkEntry.Kind.MONTHLY,
-                        reason="Månedlig vurdering",
-                        created_at=self.now - timedelta(days=30 * months_ago),
-                    )
-                )
+            # Some labour history so balances vary.
+            for months_ago in (2, 1):
                 if self.rng.random() < 0.6:
                     entries.append(
                         AkEntry(
@@ -356,6 +349,14 @@ class Command(BaseCommand):
                         )
                     )
         AkEntry.objects.bulk_create(entries)
+
+        # The 12-month schedule rows are created by the migration; make sure they exist (belt-and-braces
+        # for a --fresh run) then apply the monthly deduction through the real service for the recent
+        # months, so demo MONTHLY entries respect alumneliste membership.
+        for month in range(1, 13):
+            AkMonthlyCharge.objects.get_or_create(month=month, defaults={"active": True, "krydser": 2})
+        for y, m in self._iter_recent_months(3):
+            apply_monthly_charge(y, m)
 
     # ----------------------------------------------------------- ølkælder
     def _seed_oelkaelder(self, residents: list[Resident]) -> None:
