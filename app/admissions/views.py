@@ -8,10 +8,13 @@ mark-received. Mark-received is POST-only (the legacy GET was CSRF-able). All fi
 (mass-assignment, SQLi, auth, CSRF) are structural here.
 """
 
+import csv
+import io
 import json
 import logging
 import urllib.parse
 import urllib.request
+from datetime import date
 
 from django.conf import settings
 from django.contrib import messages
@@ -176,6 +179,26 @@ ADMISSION_COLUMNS = [
 DEFAULT_ADMISSION_SORT = "dato"
 DEFAULT_ADMISSION_DIR = "desc"  # newest first — the historical default (Meta.ordering)
 
+# Columns for the CSV/Excel export — contact info only (Dato, Type, Navn, E-mail, Uddannelse), in the
+# order they appear in the file. "Uddannelse" merges the tour (university) and sublet (occupation) field.
+ADMISSION_EXPORT_COLUMNS = [
+    ("Dato", lambda a: a.submitted_at.date().isoformat()),
+    ("Type", lambda a: a.get_type_display()),
+    ("Navn", lambda a: a.full_name),
+    ("E-mail", lambda a: a.email),
+    ("Uddannelse", lambda a: a.university or a.occupation),
+]
+
+
+def _parse_date(value: str | None) -> date | None:
+    """Parse a YYYY-MM-DD string from an <input type=date>; None if empty or malformed."""
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
+
 
 def _parse_admission_sort(request: HttpRequest) -> tuple[str, str]:
     """(sort_key, direction) from ?sort=&dir=, validated; defaults to newest-first by date."""
@@ -212,12 +235,18 @@ def _admission_queryset(
     direction: str,
     show_discarded: bool = False,
     only_pending: bool = False,
+    date_from: date | None = None,
+    date_to: date | None = None,
 ) -> QuerySet[Application]:
     qs = Application.objects.select_related("received_by", "discarded_by")
     if not show_discarded:
         qs = qs.filter(discarded_by__isnull=True)  # discarded drop out of list + search by default
     if only_pending:
         qs = qs.filter(received_by__isnull=True)  # "kun afventende" — not yet marked received
+    if date_from:
+        qs = qs.filter(submitted_at__date__gte=date_from)
+    if date_to:
+        qs = qs.filter(submitted_at__date__lte=date_to)
     if query:
         cond = Q()
         for field in _SEARCH_FIELDS:
@@ -229,26 +258,48 @@ def _admission_queryset(
     return qs.order_by(*order)
 
 
+def _list_filters(request: HttpRequest) -> dict:
+    """The filter state shared by the list view and its export, read straight from the query string."""
+    sort, direction = _parse_admission_sort(request)
+    return {
+        "query": request.GET.get("q", "").strip(),
+        "sort": sort,
+        "direction": direction,
+        "show_discarded": request.GET.get("show_discarded") == "1",
+        "only_pending": request.GET.get("pending") == "1",
+        "date_from": _parse_date(request.GET.get("from")),
+        "date_to": _parse_date(request.GET.get("to")),
+    }
+
+
 @role_required("indstilling")
 def list_applications(request: HttpRequest) -> HttpResponse:
-    query = request.GET.get("q", "").strip()
-    sort, direction = _parse_admission_sort(request)
-    show_discarded = request.GET.get("show_discarded") == "1"
-    only_pending = request.GET.get("pending") == "1"
-    qs = _admission_queryset(query, sort, direction, show_discarded, only_pending)
+    f = _list_filters(request)
+    qs = _admission_queryset(
+        f["query"],
+        f["sort"],
+        f["direction"],
+        f["show_discarded"],
+        f["only_pending"],
+        f["date_from"],
+        f["date_to"],
+    )
     page = Paginator(qs, 50).get_page(request.GET.get("page"))
     return render(
         request,
         "optagelse/list.html",
         {
             "page_obj": page,
-            "q": query,
-            "sort": sort,
-            "dir": direction,
-            "show_discarded": show_discarded,
-            "only_pending": only_pending,
+            "q": f["query"],
+            "sort": f["sort"],
+            "dir": f["direction"],
+            "show_discarded": f["show_discarded"],
+            "only_pending": f["only_pending"],
+            # Echo the raw date strings back so the inputs keep what the user typed.
+            "date_from": request.GET.get("from", ""),
+            "date_to": request.GET.get("to", ""),
             "discarded_count": Application.objects.filter(discarded_by__isnull=False).count(),
-            "headers": _admission_headers(sort, direction),
+            "headers": _admission_headers(f["sort"], f["direction"]),
         },
     )
 
@@ -257,6 +308,54 @@ def list_applications(request: HttpRequest) -> HttpResponse:
 def show_application(request: HttpRequest, pk: int) -> HttpResponse:
     app = get_object_or_404(Application, pk=pk)
     return render(request, "optagelse/detail.html", {"app": app})
+
+
+@role_required("indstilling")
+def export_applications(request: HttpRequest) -> HttpResponse:
+    """Export the applications as CSV or Excel (?format=csv|xlsx). Honours the same filters as the list
+    (search, sort, kasserede, afventende) plus an optional ?from=&to= date range, so Indstillingen can
+    pull the contact details for, e.g., everyone who applied in a given period (F-011)."""
+    f = _list_filters(request)
+    rows = _admission_queryset(
+        f["query"],
+        f["sort"],
+        f["direction"],
+        f["show_discarded"],
+        f["only_pending"],
+        f["date_from"],
+        f["date_to"],
+    )
+    headers = [label for label, _ in ADMISSION_EXPORT_COLUMNS]
+    span = f"{f['date_from'] or 'start'}_{f['date_to'] or 'nu'}"
+    fname = f"ansoegninger-{span}"
+
+    if request.GET.get("format") == "xlsx":
+        from openpyxl import Workbook
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Ansøgninger"
+        ws.append(headers)
+        for a in rows:
+            ws.append([fn(a) for _, fn in ADMISSION_EXPORT_COLUMNS])
+        buf = io.BytesIO()
+        wb.save(buf)
+        resp = HttpResponse(
+            buf.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        resp["Content-Disposition"] = f'attachment; filename="{fname}.xlsx"'
+        return resp
+
+    # CSV — UTF-8 with BOM so Excel opens Danish characters correctly.
+    resp = HttpResponse(content_type="text/csv; charset=utf-8")
+    resp["Content-Disposition"] = f'attachment; filename="{fname}.csv"'
+    resp.write("﻿")  # UTF-8 BOM
+    writer = csv.writer(resp)
+    writer.writerow(headers)
+    for a in rows:
+        writer.writerow([fn(a) for _, fn in ADMISSION_EXPORT_COLUMNS])
+    return resp
 
 
 @require_POST
