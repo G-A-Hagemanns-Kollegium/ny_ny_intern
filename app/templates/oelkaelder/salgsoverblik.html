@@ -3,9 +3,10 @@
 {% block title %}Salgsoverblik - GAHK Intern{% endblock %}
 {% block content_width %}max-w-5xl{% endblock %}
 {% block content %}
+  <p><a href="{% url 'oelkaelder:admin' %}">← Ølkælder-admin</a></p>
   <div class="flex items-center justify-between">
     <h1>Salgsoverblik</h1>
-    <a href="{% url 'oelkaelder:person_history' %}" class="btn">Personoversigt</a>
+    <a href="{% url 'oelkaelder:person_history' %}" class="btn btn-secondary">Personoversigt</a>
   </div>
 
   <form method="get" class="card flex flex-wrap items-end gap-3">
@@ -28,14 +29,14 @@
     <a href="?{{ base_query }}{% if base_query %}&amp;{% endif %}format=xlsx">Eksportér Excel</a>
   </p>
 
-  <table cellpadding="6" class="text-sm" style="width:100%; border-collapse:collapse">
+  <table cellpadding="6" class="text-sm zebra" style="width:100%; border-collapse:collapse">
     <thead><tr style="text-align:left; border-bottom:1px solid #e6e8ec; white-space:nowrap">
       <th>Dato</th><th>Personer</th><th style="text-align:right">I alt</th>
       <th style="text-align:right">Pr. person</th><th>Varer</th><th></th>
     </tr></thead>
     <tbody>
     {% for row in rows %}
-      <tr style="border-bottom:1px solid #f0f1f4"{% if not row.is_valid %} class="muted line-through"{% endif %}>
+      <tr{% if not row.is_valid %} class="muted line-through"{% endif %}>
         <td class="whitespace-nowrap">{{ row.created_at|date:"Y-m-d H:i" }}</td>
         <td{% if not row.has_buyers %} class="muted"{% endif %}>{{ row.people }}</td>
         <td class="text-right whitespace-nowrap">{{ row.total_ore|kr }}</td>
