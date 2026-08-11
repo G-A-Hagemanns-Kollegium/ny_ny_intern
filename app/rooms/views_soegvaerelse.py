@@ -1,4 +1,4 @@
-"""Søg værelse — room-application lottery (F-004).
+"""Søg værelse - room-application lottery (F-004).
 
 Fresh-start build (legacy priorities/offers were destroyed by the cascade-delete bug). Fixes: ORM,
 atomic multi-row submit (application + priorities + orlov), detail visible to owner OR indstilling
@@ -18,7 +18,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from core.models import Room
-from residents.models import Residency, RoleAssignment, next_period, prev_period
+from residents.models import Residency, Resident, RoleAssignment, active_period, next_period, prev_period
 from residents.permissions import current_resident, request_has_role, role_required
 
 from .kvotient import compute_k, compute_k_parts, month_choices, month_index, month_label
@@ -93,6 +93,25 @@ def allocate_round(month: int) -> Allocation:
     return Allocation(winners=winners, contested=contested)
 
 
+def computed_orlov_months(resident: Resident) -> int:
+    """Suggested orlov (F-004): every month the resident was NOT on the alumneliste between their
+    move-in month and the current active period counts as leave. The list history reaches back well
+    before any current resident's move-in, so a gap always means real absence, never missing data.
+    Returned as a default the resident (or Indstillingen) can still override on the form."""
+    if not resident.move_in_date:
+        return 0
+    move_in = month_index(resident.move_in_date.year, resident.move_in_date.month)
+    active = month_index(*active_period())
+    if active < move_in:
+        return 0
+    present = {
+        month_index(y, m)
+        for y, m in resident.residencies.values_list("year", "month")
+        if move_in <= month_index(y, m) <= active
+    }
+    return (active - move_in + 1) - len(present)  # window length minus months actually on the list
+
+
 @login_required
 def soeg(request: HttpRequest) -> HttpResponse:
     resident = current_resident(request)
@@ -117,6 +136,11 @@ def soeg(request: HttpRequest) -> HttpResponse:
         orlov = first_orlov.number_of_months if first_orlov else 0
         room_ids = [p.room_id for p in existing.priorities.all()]
         slots = [room_ids[i] if i < len(room_ids) else None for i in range(5)]
+    # Auto-orlov: months missing from the alumneliste since move-in. Pre-fills the field for a new
+    # application (editable), and is shown as the suggestion so an edited value can be reset to it.
+    suggested_orlov = computed_orlov_months(resident)
+    if orlov is None:  # no existing application → default the field to the computed suggestion
+        orlov = suggested_orlov
     # Initial kvotient preview (F-004): show K on load from the existing application's numbers, if any.
     # htmx recomputes it live as the resident changes the fields (see the `kvotient` fragment view).
     initial_kv = None
@@ -132,6 +156,7 @@ def soeg(request: HttpRequest) -> HttpResponse:
         "existing_done_month": done_month,
         "existing_done_year": done_year,
         "existing_orlov_months": orlov,
+        "suggested_orlov": suggested_orlov,
         "priority_slots": slots,
         "target": target,
         "has_move_in": bool(resident.move_in_date),
@@ -213,9 +238,23 @@ def my(request: HttpRequest) -> HttpResponse:
 @login_required
 def detail(request: HttpRequest, pk: int) -> HttpResponse:
     app = get_object_or_404(KvotientApplication, pk=pk)
-    if app.resident_id != request.user.id and not request_has_role(request, "indstilling"):
+    is_indstilling = request_has_role(request, "indstilling")
+    if app.resident_id != request.user.id and not is_indstilling:
         raise PermissionDenied
-    return render(request, "soegvaerelse/detail.html", {"app": app})
+    # So Indstillingen can see the resident's declared orlov against the auto-computed suggestion.
+    submitted_orlov = sum(o.number_of_months for o in app.orlov_periods.all())
+    suggested_orlov = computed_orlov_months(app.resident)
+    return render(
+        request,
+        "soegvaerelse/detail.html",
+        {
+            "app": app,
+            "is_indstilling": is_indstilling,
+            "submitted_orlov": submitted_orlov,
+            "suggested_orlov": suggested_orlov,
+            "orlov_differs": submitted_orlov != suggested_orlov,
+        },
+    )
 
 
 @require_POST

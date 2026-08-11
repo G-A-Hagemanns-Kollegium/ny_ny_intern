@@ -39,6 +39,12 @@
     <label>Orlov (antal måneder)</label>
     <input type="number" name="orlov_months" value="{{ existing_orlov_months|default:0 }}" min="0"
            hx-get="{% url 'soegvaerelse:kvotient' %}" hx-target="#kv-result" hx-trigger="change, keyup changed delay:400ms" hx-include="closest form">
+    {% if has_move_in %}
+      <p class="muted text-sm mt-1">
+        Automatisk beregnet: <strong>{{ suggested_orlov }}</strong> måned{{ suggested_orlov|pluralize:"er" }}
+        uden for alumnelisten siden din indflytning. Ret feltet, hvis det ikke passer.
+      </p>
+    {% endif %}
 
     <div id="kv-result" class="mt-3">{% include "soegvaerelse/_kvotient_result.html" %}</div>
 
