@@ -249,6 +249,62 @@ def test_applications_pending_filter(make_resident: Callable) -> None:
 
 
 @pytest.mark.django_db
+def test_applications_export_honours_filters_and_date_range(make_resident: Callable) -> None:
+    """CSV/Excel export mirrors the list filters (search, kun afventende) plus a from/to date range,
+    and emits the contact columns (F-011)."""
+    ind = make_resident(email="ind-x@gahk.dk", roles=[Role.INDSTILLING])
+
+    def app(**kw: object) -> Application:
+        kw.setdefault("type", "rundvisning")
+        kw.setdefault("submitted_at", timezone.now())
+        return Application.objects.create(**kw)
+
+    app(
+        full_name="In Range",
+        email="inrange@x.dk",
+        university="DTU",
+        submitted_at=timezone.now().replace(year=2026, month=6, day=15),
+    )
+    app(
+        full_name="Too Early",
+        email="early@x.dk",
+        submitted_at=timezone.now().replace(year=2026, month=1, day=1),
+    )
+    app(
+        full_name="Received Rita",
+        email="rita@x.dk",
+        received_by=ind,
+        received_at=timezone.now(),
+        submitted_at=timezone.now().replace(year=2026, month=6, day=20),
+    )
+    c = Client()
+    c.force_login(ind)
+
+    # CSV over June 2026 → only "In Range" (Too Early is outside; Received Rita drops with pending=1).
+    csv_resp = c.get(
+        "/optagelse/eksport",
+        {"format": "csv", "from": "2026-06-01", "to": "2026-06-30", "pending": "1"},
+    )
+    assert csv_resp["Content-Type"].startswith("text/csv")
+    body = csv_resp.content.decode("utf-8-sig")
+    assert body.splitlines()[0] == "Dato,Type,Navn,E-mail,Uddannelse"  # contact columns only
+    assert "inrange@x.dk" in body
+    assert "early@x.dk" not in body and "rita@x.dk" not in body
+
+    # Excel export returns a spreadsheet.
+    xlsx = c.get("/optagelse/eksport", {"format": "xlsx"})
+    assert xlsx["Content-Type"].startswith(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    assert xlsx.content[:2] == b"PK"  # xlsx is a zip
+
+    # Role-gated.
+    other = Client()
+    other.force_login(make_resident(email="plain-x@gahk.dk"))
+    assert other.get("/optagelse/eksport", {"format": "csv"}).status_code == 403
+
+
+@pytest.mark.django_db
 def test_discard_is_role_gated(make_resident: Callable) -> None:
     """A plain resident cannot discard an application."""
     app = Application.objects.create(

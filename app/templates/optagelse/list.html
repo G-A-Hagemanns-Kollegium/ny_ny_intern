@@ -8,17 +8,25 @@
   {% comment %}
     Search runs over ALL applications (server-side, before pagination) — not just the current page. The
     {% templatetag openblock %} querystring {% templatetag closeblock %} tag keeps every other active
-    filter (search, sort, kasserede, afventende) when building each link and resets the page.
+    filter (search, sort, kasserede, afventende, datointerval) when building each link and resets the
+    page. The eksport-knapper reuse this same form (formaction) so the download honours every filter,
+    including a fra/til-datointerval, and the currently typed dates without needing a separate submit.
   {% endcomment %}
-  <form method="get" class="mb-4 flex flex-wrap items-center gap-2">
+  <form method="get" class="mb-4 flex flex-wrap items-end gap-2">
     <input type="search" name="q" value="{{ q }}" placeholder="Søg navn, e-mail, uddannelse, motivation…"
            class="flex-1 min-w-[16rem] rounded-md border border-gray-300 px-3 py-2 text-sm">
+    <label class="text-sm text-gray-600">Fra
+      <input type="date" name="from" value="{{ date_from }}"
+             class="block rounded-md border border-gray-300 px-2 py-1.5 text-sm"></label>
+    <label class="text-sm text-gray-600">Til
+      <input type="date" name="to" value="{{ date_to }}"
+             class="block rounded-md border border-gray-300 px-2 py-1.5 text-sm"></label>
     <input type="hidden" name="sort" value="{{ sort }}">
     <input type="hidden" name="dir" value="{{ dir }}">
     {% if show_discarded %}<input type="hidden" name="show_discarded" value="1">{% endif %}
     {% if only_pending %}<input type="hidden" name="pending" value="1">{% endif %}
     <button type="submit" class="btn">Søg</button>
-    {% if q %}<a class="btn" href="{% querystring q=None page=None %}">Ryd</a>{% endif %}
+    {% if q or date_from or date_to %}<a class="btn" href="{% querystring q=None from=None to=None page=None %}">Ryd</a>{% endif %}
 
     {% comment %}Toggle: only not-yet-received applications.{% endcomment %}
     {% if only_pending %}
@@ -33,6 +41,11 @@
     {% else %}
       <a class="btn" href="{% querystring show_discarded=1 page=None %}">Vis kasserede{% if discarded_count %} ({{ discarded_count }}){% endif %}</a>
     {% endif %}
+
+    {% comment %}Export the current filter + date range. Submitting to the export URL carries every form field.{% endcomment %}
+    <span class="hidden sm:block flex-1"></span>
+    <button type="submit" class="btn" formaction="{% url 'admissions:export' %}" name="format" value="csv">Eksportér CSV</button>
+    <button type="submit" class="btn" formaction="{% url 'admissions:export' %}" name="format" value="xlsx">Eksportér Excel</button>
   </form>
 
   <div class="rounded-lg border border-gray-200 overflow-x-auto">
