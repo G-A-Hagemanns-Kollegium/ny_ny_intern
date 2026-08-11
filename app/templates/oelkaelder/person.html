@@ -3,9 +3,10 @@
 {% block title %}Personoversigt - GAHK Intern{% endblock %}
 {% block content_width %}max-w-5xl{% endblock %}
 {% block content %}
+  <p><a href="{% url 'oelkaelder:admin' %}">← Ølkælder-admin</a></p>
   <div class="flex items-center justify-between">
     <h1>Personoversigt</h1>
-    <a href="{% url 'oelkaelder:all_sales' %}" class="btn">Salgsoverblik</a>
+    <a href="{% url 'oelkaelder:all_sales' %}" class="btn btn-secondary">Salgsoverblik</a>
   </div>
 
   <form method="get" class="card flex flex-wrap items-end gap-3">

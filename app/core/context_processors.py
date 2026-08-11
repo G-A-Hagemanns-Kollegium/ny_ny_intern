@@ -32,38 +32,58 @@ NAV_PUBLIC = [
 ]
 
 
-def _nav_intern(roles: Collection[str]) -> list[tuple[str, str]]:
-    """Internal menu built from the *effective* role set: base items for every resident, plus each
-    embedsgruppe's admin tools. Honors the preview override (roles come from effective_roles)."""
-    items = [
-        ("/nyintern/", "Dashboard"),
-        ("/nyintern/alumneliste/", "Alumneliste"),
-        ("/nyintern/stamtree/", "Stamtræ"),
-        ("/nyintern/soegvaerelse/", "Søg værelse"),
-        ("/nyintern/ak/", "AK-krydser"),
-        ("/nyintern/oelkaelder/min-saldo", "Ølkælder"),
-        ("/nyintern/vaerelsestjek/", "Værelsestjek"),  # open to every resident, not just inspektion
-        ("/nyintern/statistik/", "Statistik"),
-        (settings.WIKI_URL, "Wiki"),
-        (settings.FEEDBACK_URL, "Fejl & ønsker"),
+NavItem = tuple[str, str, str]  # (url, label, icon-key from the base.html sprite)
+NavSection = tuple[str, list[NavItem]]
+
+
+def _nav_intern(roles: Collection[str]) -> list[NavSection]:
+    """Internal menu grouped into sidebar sections, built from the *effective* role set: base items for
+    every resident plus each embedsgruppe's admin tools. Each item is (url, label, icon); empty sections
+    are dropped. Honors the preview override (roles come from effective_roles)."""
+    oversigt: list[NavItem] = [
+        ("/nyintern/", "Dashboard", "dashboard"),
+        ("/nyintern/alumneliste/", "Alumneliste", "list"),
+        ("/nyintern/stamtree/", "Stamtræ", "tree"),
+        ("/nyintern/statistik/", "Statistik", "chart"),
+    ]
+    vaerelser: list[NavItem] = [
+        ("/nyintern/soegvaerelse/", "Søg værelse", "house"),
+        ("/nyintern/vaerelsestjek/", "Værelsestjek", "inspect"),  # open to every resident
+    ]
+    if "indstilling" in roles:
+        vaerelser.append(("/nyintern/soegvaerelse/admin", "Værelsesudbud", "offer"))
+    grupper: list[NavItem] = [
+        ("/nyintern/ak/", "AK-krydser", "check"),
+        ("/nyintern/oelkaelder/min-saldo", "Ølkælder", "beer"),
     ]
     if "ak" in roles:
-        items.append(("/nyintern/ak/admin", "AK-oversigt"))
+        grupper.append(("/nyintern/ak/admin", "AK-oversigt", "check"))
     if "oelkaelder" in roles:
-        items.append(("/nyintern/oelkaelder/admin", "Ølkælder-admin"))
-        items.append(("/nyintern/oelkaelder/admin/salgsoverblik", "Salgsoverblik"))
+        # Salgsoverblik / Personoversigt are sub-pages reached from Ølkælder-admin, not separate nav items.
+        grupper.append(("/nyintern/oelkaelder/admin", "Ølkælder-admin", "beer"))
     if "regnskab" in roles:
-        items.append(("/nyintern/regnskab/", "Regnskab"))
+        grupper.append(("/nyintern/regnskab/", "Regnskab", "receipt"))
+    administration: list[NavItem] = []
     if "indstilling" in roles:
-        items.append(("/nyintern/soegvaerelse/admin", "Værelsesudbud"))
-        items.append(("/optagelse/listansoegninger", "Ansøgninger"))
+        administration.append(("/optagelse/listansoegninger", "Ansøgninger", "inbox"))
     if not set(roles).isdisjoint(CMS_EDITOR_ROLES):  # administrator/indstilling/inspektion/pr
-        items.append(("/django-admin/cms/", "Rediger indhold"))
+        administration.append(("/django-admin/cms/", "Rediger indhold", "edit"))
     if "administrator" in roles:
-        items.append(("/admin/", "Site-admin"))
-        items.append(("/admin/roles", "Roller"))
+        administration.append(("/admin/", "Site-admin", "gear"))
+        administration.append(("/admin/roles", "Roller", "users"))
+    ressourcer: list[NavItem] = [
+        (settings.WIKI_URL, "Wiki", "book"),
+        (settings.FEEDBACK_URL, "Fejl & ønsker", "bug"),
+    ]
     # kokkengruppe: no dedicated screen today (documented gap; no menu item).
-    return items
+    sections: list[NavSection] = [
+        ("Oversigt", oversigt),
+        ("Værelser", vaerelser),
+        ("Grupper & konti", grupper),
+        ("Administration", administration),
+        ("Ressourcer", ressourcer),
+    ]
+    return [s for s in sections if s[1]]
 
 
 def navigation(request: HttpRequest) -> dict[str, object]:

@@ -1,5 +1,5 @@
 {% for r in rows %}
-  <tr style="border-bottom:1px solid #f0f1f4;{% cycle 'background:#fff' 'background:#f7f8fa' %}">
+  <tr>
     <td class="whitespace-nowrap">{{ r.resident.full_name }}{% if "indstilling" in effective_roles %}
       <a href="{% url 'edit_resident' r.resident_id %}?next={{ request.get_full_path|urlencode }}" title="Rediger beboer" class="no-underline">✎</a>{% endif %}</td>
     <td>{{ r.room.number|stringformat:"03d" }}</td>

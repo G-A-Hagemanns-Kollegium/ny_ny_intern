@@ -672,7 +672,8 @@ def test_vaerelsestjek_is_open_to_every_resident(make_resident: Callable) -> Non
     assert c.get(f"/nyintern/vaerelsestjek/se/{rm.number}").status_code == 200
 
     assert c.get("/nyintern/vaerelsestjek/akoverview").status_code == 403  # still AK-only
-    assert "Værelsestjek" in [label for _url, label in c.get("/nyintern/").context["nav_intern"]]
+    nav = c.get("/nyintern/").context["nav_intern"]
+    assert "Værelsestjek" in [label for _sec, items in nav for _u, label, _i in items]
 
 
 @pytest.mark.django_db
@@ -942,12 +943,14 @@ def test_cms_admin_link_in_sidebar_for_editor_roles(make_resident: Callable) -> 
     for role in (Role.ADMINISTRATOR, Role.INDSTILLING, Role.INSPEKTION, Role.PR):
         c = Client()
         c.force_login(make_resident(email=f"navcms-{role.value}@gahk.dk", roles=[role]))
-        labels = [label for _u, label in c.get("/nyintern/").context["nav_intern"]]
+        nav = c.get("/nyintern/").context["nav_intern"]
+        labels = [label for _sec, items in nav for _u, label, _i in items]
         assert "Rediger indhold" in labels, f"{role} should see the CMS link"
 
     plain = Client()
     plain.force_login(make_resident(email="navcms-plain@gahk.dk", roles=[Role.AK]))
-    labels = [label for _u, label in plain.get("/nyintern/").context["nav_intern"]]
+    nav = plain.get("/nyintern/").context["nav_intern"]
+    labels = [label for _sec, items in nav for _u, label, _i in items]
     assert "Rediger indhold" not in labels
 
 

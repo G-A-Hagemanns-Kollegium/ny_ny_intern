@@ -602,3 +602,69 @@ def test_soegvaerelse_pages_leak_no_template_syntax(make_resident: Callable) -> 
         html = c.get(path).content.decode()
         for marker in ("{#", "#}", "{% comment", "{{", "{%"):
             assert marker not in html, f"{path} leaked template syntax: {marker}"
+
+
+@pytest.mark.django_db
+def test_computed_orlov_counts_months_off_the_list(make_resident: Callable) -> None:
+    """Auto-orlov = every month between move-in and the active period with no alumneliste row (F-004)."""
+    from residents.models import active_period
+    from rooms.views_soegvaerelse import computed_orlov_months
+
+    r = make_resident(email="orlov@gahk.dk", move_in_date=date(2024, 8, 1))
+    rooms = [Room.objects.create(legacy_index=900 + i, number=900 + i, floor="s", side="x") for i in range(3)]
+    # On the list Aug, Oct, Dec 2024 — gaps in Sep and Nov (the newest, Dec 2024, becomes active).
+    for (yy, mm), rm in zip([(2024, 8), (2024, 10), (2024, 12)], rooms, strict=False):
+        Residency.objects.create(resident=r, room=rm, year=yy, month=mm)
+
+    y, m = active_period()
+    window = (month_index(y, m) - month_index(2024, 8)) + 1
+    assert computed_orlov_months(r) == window - 3  # 3 months present → the rest is orlov
+    assert computed_orlov_months(r) == 2  # concretely: Sep + Nov 2024
+
+
+@pytest.mark.django_db
+def test_apply_form_prefills_computed_orlov(make_resident: Callable) -> None:
+    r = make_resident(email="orlovform@gahk.dk", move_in_date=date(2024, 8, 1))
+    for (yy, mm), i in zip([(2024, 8), (2024, 12)], range(2), strict=False):
+        room = Room.objects.create(legacy_index=920 + i, number=920 + i, floor="s", side="x")
+        Residency.objects.create(resident=r, room=room, year=yy, month=mm)
+    c = Client()
+    c.force_login(r)
+    html = c.get(reverse("soegvaerelse:soeg")).content.decode()
+    assert "Automatisk beregnet" in html
+    assert 'name="orlov_months" value="3"' in html  # Sep–Nov 2024 = 3 months off the list, pre-filled
+
+
+@pytest.mark.django_db
+def test_detail_shows_suggested_vs_submitted_orlov_to_indstilling(make_resident: Callable) -> None:
+    """Indstillingen sees the resident's declared orlov next to the auto-computed suggestion (F-004)."""
+    from rooms.models import KvotientOrlov
+
+    resident = make_resident(email="applicant@gahk.dk", move_in_date=date(2024, 8, 1))
+    for (yy, mm), i in zip([(2024, 8), (2024, 12)], range(2), strict=False):  # suggestion = 3 (Sep–Nov)
+        room = Room.objects.create(legacy_index=940 + i, number=940 + i, floor="s", side="x")
+        Residency.objects.create(resident=resident, room=room, year=yy, month=mm)
+    target = month_index(*next_period())
+    app = KvotientApplication.objects.create(
+        resident=resident,
+        move_month=target,
+        move_in_month=month_index(2024, 8),
+        done_studying_month=target + 12,
+        k=50,
+    )
+    KvotientOrlov.objects.create(application=app, start_month=target, end_month=target + 1)  # declared 1
+
+    ind = make_resident(email="ind-orlov@gahk.dk", roles=["indstilling"])
+    c = Client()
+    c.force_login(ind)
+    html = c.get(reverse("soegvaerelse:detail", args=[app.id])).content.decode()
+    assert "Orlov (kontrol)" in html
+    assert "angivet <strong>1</strong>" in html and "beregnet <strong>3</strong>" in html
+    assert "beboeren har ændret værdien" in html  # 1 ≠ 3 → mismatch flagged
+
+    # The owner does not see the control line.
+    owner_c = Client()
+    owner_c.force_login(resident)
+    owner_html = owner_c.get(reverse("soegvaerelse:detail", args=[app.id])).content.decode()
+    assert "Orlov (kontrol)" not in owner_html
+    assert "<strong>Orlov:</strong> 1 måned" in owner_html  # shown as a number of months, not a range
