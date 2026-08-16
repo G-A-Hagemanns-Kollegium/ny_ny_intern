@@ -208,7 +208,7 @@ def test_lazy_auto_apply_runs_when_month_advances(make_resident: Callable) -> No
 
 @pytest.mark.django_db
 def test_ak_page_visit_triggers_lazy_apply(make_resident: Callable) -> None:
-    """Loading an internal AK page books the month even if the command never runs (no scheduler)."""
+    """Loading an internal AK page books the month even if the scheduled command never runs."""
     y, m = active_period()
     _set_schedule(m, active=True, krydser=2)
     member = make_resident(email="visit@gahk.dk")

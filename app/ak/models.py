@@ -94,10 +94,11 @@ class AkMonthlyCharge(models.Model):
 class AkAutoApply(models.Model):
     """Singleton (pk=1) marker of the last (year, month) the monthly deduction was auto-applied.
 
-    There is no scheduler in this project, so the deduction for a new month is applied lazily on the
-    first internal page load of that month (see `ak.services.ensure_active_month_applied`). This row
-    records which period has been handled, so the hot path is a single cheap lookup and the actual
-    reconciliation runs only once when the active period advances.
+    A scheduled task books the month on the 1st (DEPLOY.md §4b), and the same deduction is applied
+    lazily on the first internal page load of a new month (see `ak.services.ensure_active_month_applied`)
+    as a backstop — cron fails silently, and a skipped month leaves every balance wrong. This row
+    records which period has been handled, so whichever runs first wins, the hot path is a single
+    cheap lookup, and the reconciliation itself happens exactly once.
     """
 
     year = models.PositiveSmallIntegerField(null=True, blank=True)

@@ -17,7 +17,9 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from django.conf import settings as django_settings
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import connection
 from django.test import Client
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from pywebpush import WebPushException
 
@@ -418,6 +420,26 @@ def test_den_hurtige_pages_leak_no_template_syntax(
         assert "Kaffe i køkkenet" in body, f"{path} rendered no posts — the check would be vacuous"
         for leaked in ("{#", "#}", "{%", "%}", "{{", "}}"):
             assert leaked not in body, f"{path} leaked {leaked!r}"
+
+
+def test_the_poll_resolves_roles_once_per_request(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """The access gate, the sidebar's effective_roles and can_preview all ask for the role set. Each
+    used to hit the DB, so this endpoint — which every open tab calls every 20 seconds — cost three
+    RoleAssignment queries and three active_period lookups. residents.permissions.real_roles now
+    memoises per request; this pins that down, since the regression would be silent."""
+    author = make_resident(email="a@gahk.dk")
+    QuickPost.objects.create(author=author, content="Kaffe")
+    client.force_login(author)
+    client.get(FEED_URL + "opslag")  # warm any one-off caches
+
+    with CaptureQueriesContext(connection) as captured:
+        client.get(FEED_URL + "opslag")
+
+    sql = [q["sql"] for q in captured.captured_queries]
+    assert sum("residents_roleassignment" in s for s in sql) == 1
+    assert sum("residents_residency" in s for s in sql) == 1
 
 
 def test_feed_items_returns_only_the_post_list(
