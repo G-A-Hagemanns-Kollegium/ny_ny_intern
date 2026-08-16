@@ -9,20 +9,23 @@ Balances are derived (see Shopper.balance_ore), so there is no mutable saldo to 
 """
 
 import logging
+from collections.abc import Sequence
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from django.conf import settings
 from django.core.mail import send_mail
-from django.db import transaction
+from django.db import models, transaction
 from django.db.models import Sum
 from django.utils import timezone
 
 from .models import (
     Adjustment,
+    Deposit,
     InterestPolicy,
     LogEntry,
     Product,
+    PurchasePolicy,
     PurchaseShare,
     Shopper,
     Transaction,
@@ -122,16 +125,51 @@ def _line_ore(product: Product, line: dict[str, Any]) -> tuple[int, int]:
     return (qty, product.price_ore * qty) if qty > 0 else (0, 0)
 
 
+def bulk_balances(shoppers: Sequence[Shopper]) -> dict[int, int]:
+    """Balances for many shoppers in three queries instead of three *per shopper*.
+
+    `Shopper.balance_ore` runs three aggregates every time it is read, and the till lists every
+    active shopper and reads the balance more than once per row — so the kiosk page was issuing
+    hundreds of queries on an iPad. Same arithmetic as the property; a shopper with no rows at all
+    correctly comes out as 0.
+    """
+    ids = [s.pk for s in shoppers]
+    if not ids:
+        return {}
+
+    def totals(manager: models.Manager[Any], field: str, **extra: object) -> dict[int, int]:
+        rows = manager.filter(shopper_id__in=ids, **extra).values("shopper_id").annotate(total=Sum(field))
+        return {r["shopper_id"]: r["total"] or 0 for r in rows}
+
+    deposits = totals(Deposit.objects, "amount_ore", is_valid=True)
+    spent = totals(PurchaseShare.objects, "share_ore", transaction__is_valid=True)
+    adjustments = totals(Adjustment.objects, "amount_ore", is_valid=True)
+    return {i: deposits.get(i, 0) - spent.get(i, 0) + adjustments.get(i, 0) for i in ids}
+
+
 @transaction.atomic
 def record_purchase(shopper_ids: list[int], lines: list[dict[str, Any]]) -> Transaction:
     """lines: [{"product": id, "mode": "fixed|step|weight", "qty"/"grams"/"step_ore": ...}].
     Returns the created Transaction. Raises ValueError on bad input."""
-    shoppers = list(Shopper.objects.filter(id__in=shopper_ids, active=True))
+    shoppers = list(Shopper.objects.filter(id__in=shopper_ids, active=True).select_related("resident"))
     if not shoppers:
         raise ValueError("Vælg mindst én aktiv shopper.")
 
     # Snapshot balances before the purchase so we can detect a downward threshold crossing afterwards.
-    old_balances = {s.id: s.balance_ore for s in shoppers}
+    old_balances = bulk_balances(shoppers)
+
+    # Credit limit (PurchasePolicy, off by default). Enforced here rather than only in the till so the
+    # rule cannot be sidestepped by posting to this endpoint directly, and so a split purchase cannot
+    # smuggle a blocked shopper in alongside solvent ones — the whole sale is refused, by name, since
+    # a partial charge would leave the basket half-paid.
+    policy = PurchasePolicy.get()
+    blocked = sorted(s.resident.full_name for s in shoppers if policy.blocks(old_balances[s.pk]))
+    if blocked:
+        limit_kr = f"{policy.block_below_ore / 100:.0f}"
+        raise ValueError(
+            f"{', '.join(blocked)} skylder mere end {limit_kr} kr og kan ikke handle. "
+            "Indbetal til ølkælderkontoen først."
+        )
 
     txn = Transaction.objects.create(created_at=timezone.now())
     total = 0
