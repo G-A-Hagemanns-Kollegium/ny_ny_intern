@@ -149,3 +149,37 @@ class InterestPolicy(models.Model):
     @classmethod
     def get(cls) -> "InterestPolicy":
         return cls.objects.get_or_create(pk=1)[0]
+
+
+class PurchasePolicy(models.Model):
+    """Single-row config (pk=1) for the ølkælder credit limit — how far into debt a shopper may go
+    before the till refuses to sell to them.
+
+    Deliberately separate from InterestPolicy. Both happen to default to -100 kr, and the till used
+    to hardcode that same number, which is how "you owe enough to be charged interest" quietly
+    became "you may not buy anything" — two different policies that ØK should be able to set apart.
+
+    Off by default: the legacy till never blocked a purchase (Oelkaelder_model::addItem has no
+    balance check), so switching it on is a decision for the ølkælder officers, not a silent
+    inheritance from a hardcoded template condition.
+    """
+
+    active = models.BooleanField(default=False)
+    # Balance strictly below this refuses the sale. Negative = the shopper owes money.
+    block_below_ore = models.IntegerField(default=-10000)  # -100 kr
+
+    class Meta:
+        verbose_name = "Købsgrænse"
+        verbose_name_plural = "Købsgrænser"
+
+    def __str__(self) -> str:
+        state = f"spærret under {self.block_below_ore / 100:.2f} kr" if self.active else "slået fra"
+        return f"Købsgrænse: {state}"
+
+    @classmethod
+    def get(cls) -> "PurchasePolicy":
+        return cls.objects.get_or_create(pk=1)[0]
+
+    def blocks(self, balance_ore: int) -> bool:
+        """Whether a shopper on this balance may not buy. Always False while the policy is off."""
+        return self.active and balance_ore < self.block_below_ore
