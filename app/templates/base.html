@@ -5,9 +5,11 @@
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1F5A3A">
   <title>{% block title %}G. A. Hagemanns Kollegium{% endblock %}</title>
   <link rel="icon" href="{% static 'legacy/image/elements/lamassu.svg' %}" type="image/svg+xml">
   <link rel="stylesheet" href="{% static 'dist/app.css' %}">
+  <link rel="manifest" href="{% static 'manifest.json' %}">
   <script src="{% static 'dist/app.js' %}" defer></script>
 </head>
 <body x-data="{ sidebar: false }">
@@ -16,6 +18,7 @@
     <defs>
       <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
         <symbol id="i-dashboard" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></symbol>
+        <symbol id="i-flash" viewBox="0 0 24 24"><path d="M13 2L4.5 13.5H11l-1 8.5 8.5-11.5H12z"/></symbol>
         <symbol id="i-list" viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h9l5 5v11"/><path d="M8 8h6M8 12h8M8 16h5"/></symbol>
         <symbol id="i-tree" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.4"/><circle cx="17" cy="6" r="2.4"/><circle cx="17" cy="18" r="2.4"/><path d="M8.1 11l6.8-4M8.1 13l6.8 4"/></symbol>
         <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
@@ -113,5 +116,15 @@
       </div>
     </main>
   </div>
+  {# The one service worker for the whole intern PWA; root path so its scope covers /nyintern/. #}
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('{% url "pwa_service_worker" %}').catch(function (err) {
+          console.error('ServiceWorker registration failed:', err);
+        });
+      });
+    }
+  </script>
 </body>
 </html>

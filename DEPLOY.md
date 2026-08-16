@@ -35,8 +35,19 @@ WIFI_PASSWORD=…  GOOGLE_CALENDAR_USER=…  GOOGLE_CALENDAR_PASSWORD=…
 INDSTILLING_EMAIL=indstillingen@gahk.dk           # recipient only, not a sender
 POSTGRES_PASSWORD=<pw>                            # for the compose postgres service
 OELKAELDER_KIOSK_IPS=<the till's server-observed source IP>   # confirm from access logs, NOT ipconfig
+VAPID_PUBLIC_KEY=…  VAPID_PRIVATE_KEY=…           # Web Push for Den Hurtige — see below
+VAPID_ADMIN_EMAIL=autosvar@gahk.dk                # real address: push services report failures here
 ```
 Store real values in Coolify's secret manager / a vault — not in git.
+
+**Web Push (Den Hurtige).** The two VAPID values are the *raw base64url* key pair, not PEM files —
+`VAPID_PUBLIC_KEY` is handed to the browser as `applicationServerKey`, which must be the 65-byte
+uncompressed EC point. `app/.env.example` carries the generate/convert one-liner. Leave them unset
+and the feature degrades cleanly: the feed still works, the subscribe button just reports that push
+is not configured. **Rotating the pair invalidates every existing subscription**, so every resident
+would have to press the button again — settle on one pair before residents start subscribing.
+Push also requires HTTPS, which Traefik already terminates; on iOS the site must be added to the
+home screen before notifications are available at all.
 
 **Email — verify the senders, don't assume.** one.com authenticates as `SMTP_USER` and rejects any
 From address that account is not itself or an alias of:
