@@ -42,8 +42,8 @@ VALID_DURATIONS = {minutes for minutes, _label in DURATION_CHOICES}
 
 
 def _active_posts() -> QuerySet[QuickPost]:
-    """Live posts, with expired ones purged on the way past (lazy cleanup, no scheduler — same
-    approach as ak's ensure_active_month_applied)."""
+    """Live posts, with expired ones purged on the way past. Traffic does the cleanup; the
+    purge_quick_posts cron job (DEPLOY.md §4b) covers the weeks with none."""
     QuickPost.objects.purge_expired()
     return QuickPost.objects.active().select_related("author").prefetch_related("comments__author")
 

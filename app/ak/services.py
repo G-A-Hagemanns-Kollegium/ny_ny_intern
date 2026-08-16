@@ -61,12 +61,14 @@ def apply_monthly_charge(year: int, month: int, *, officer: Resident | None = No
 
 
 def ensure_active_month_applied() -> None:
-    """Lazily book the current month's AK deduction the first time it's needed in a new month.
+    """Book the current month's AK deduction if the scheduled task has not already done it.
 
-    Called from hot internal pages (the dashboard and the AK pages). Cheap on every request — a single
-    singleton lookup — and only does real work when the active period has advanced past what was last
-    applied. Failures are logged, not raised, so a page load is never broken by this; the marker is only
-    advanced on success, so the next request retries.
+    The `ak_monthly_assessment` cron job (DEPLOY.md §4b) normally gets there first; this is the
+    backstop that makes a missed or misconfigured cron self-healing instead of silently leaving every
+    resident's balance wrong. Called from hot internal pages (the dashboard and the AK pages) and
+    cheap there — two indexed single-row lookups, measured — because it only does real work when the
+    active period has advanced past what was last applied. Failures are logged, not raised, so a page
+    load is never broken by this; the marker is only advanced on success, so the next request retries.
     """
     year, month = active_period()
     state = AkAutoApply.get()

@@ -3,7 +3,7 @@
 Posts are deliberately ephemeral: they are relevant for the next 30-120 minutes and are then
 *hard-deleted* (see QuickPostQuerySet.purge_expired), which is the whole point of the feature — a
 thread that cannot accumulate off-topic history. Purging happens lazily on every feed load plus via
-`manage.py purge_quick_posts`, so no scheduler is needed (same approach as ak's lazy monthly charge).
+`manage.py purge_quick_posts` on a schedule (DEPLOY.md §4b), so a quiet week still drains the table.
 """
 
 from datetime import datetime, timedelta
