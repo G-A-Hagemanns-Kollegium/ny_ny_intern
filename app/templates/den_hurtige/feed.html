@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Den Hurtige - GAHK Intern{% endblock %}
+{% block content_width %}max-w-3xl{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <div>
+      <div class="eyebrow">Kollegiet lige nu</div>
+      <h1>Den Hurtige {% if limited_rollout %}<span class="chip chip-brass">Under test</span>{% endif %}</h1>
+    </div>
+  </div>
+
+  {% if limited_rollout %}
+    <p class="card chip-brass" style="border-color:#e7d8b0">
+      Siden er under afprøvning og kan kun ses af administratorgruppen. Resten af kollegiet ser den
+      ikke endnu — så regn ikke med svar på dine opslag her.
+    </p>
+  {% endif %}
+
+  <p class="muted">
+    Beskeder her er kun relevante de næste par timer, og de slettes automatisk når de udløber.
+    Skal noget gemmes, hører det hjemme i ankebogen eller på opslagstavlen (/fb).
+  </p>
+
+  {# --- Push-notifikationer. Knappen styres af frontend/src/push.ts og er et no-op uden #js-push. --- #}
+  {% if push_configured %}
+    <div class="card" id="js-push" data-vapid-key="{{ vapid_public_key }}"
+         data-url="{% url 'den_hurtige:save_subscription' %}">
+      {% csrf_token %}
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap">
+        <div>
+          <strong>Notifikationer</strong>
+          <div class="muted" style="font-size:13.5px">Få besked på telefonen når nogen slår op.</div>
+        </div>
+        <button type="button" class="btn btn-secondary" id="js-push-button" hidden></button>
+      </div>
+      <p class="muted" id="js-push-message" style="font-size:13.5px; margin-top:10px" hidden></p>
+    </div>
+  {% endif %}
+
+  {# --- Nyt opslag --- #}
+  <form class="card" method="post" action="{% url 'den_hurtige:create_post' %}"
+        enctype="multipart/form-data">
+    {% csrf_token %}
+    <h2>Slå op</h2>
+    <label for="id_content">Besked</label>
+    <textarea id="id_content" name="content" rows="3" maxlength="{{ max_content_chars }}" required
+              placeholder="Fx: Der er fælles kaffe i køkkenet om 10 minutter"></textarea>
+    <label for="id_image">Billede (valgfrit)</label>
+    <input type="file" id="id_image" name="image" accept="image/*">
+    <label for="id_duration">Relevant i</label>
+    <select id="id_duration" name="duration">
+      {% for minutes, label in duration_choices %}
+        <option value="{{ minutes }}" {% if minutes == default_duration %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <p class="mt-3"><button type="submit" class="btn">Slå op</button></p>
+  </form>
+
+  {% comment %}
+    Feed. Polled so posts from other residents appear without a refresh; frontend/src/feed.ts skips
+    the swap while someone is typing in here, so a poll never eats a half-written comment.
+    Multi-line comments must use this tag: the short form is single-line only and leaks otherwise.
+  {% endcomment %}
+  <div id="js-feed"
+       hx-get="{% url 'den_hurtige:feed_items' %}"
+       hx-trigger="every 20s"
+       hx-swap="innerHTML">
+    {% include "den_hurtige/_posts.html" %}
+  </div>
+{% endblock %}
