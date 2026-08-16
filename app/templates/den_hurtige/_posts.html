@@ -1,0 +1,58 @@
+{% comment %}
+  The post list on its own. Rendered inside feed.html on first load, and returned by
+  den_hurtige:feed_items for the poll that keeps the feed live. Keep it self-contained: it is
+  swapped into #js-feed wholesale, so anything outside this file will not refresh.
+{% endcomment %}
+{% for post in posts %}
+  <article class="card-flat" style="margin:16px 0">
+    <div class="card-head">
+      <div>
+        <h2>{{ post.author.full_name }}</h2>
+        <div class="muted" style="font-size:12.5px">{{ post.created_at|date:"H:i" }}</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px">
+        <span class="chip">Udløber om {{ post.minutes_left }} min</span>
+        {% if post.author_id == user.id or "administrator" in effective_roles %}
+          <form method="post" action="{% url 'den_hurtige:delete_post' post.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger" style="padding:4px 10px; font-size:12.5px">Slet</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card-pad">
+      <p style="white-space:pre-wrap; margin:0">{{ post.content }}</p>
+      {% if post.image %}
+        <img src="{{ post.image.url }}" alt="" style="max-width:100%; height:auto; border-radius:9px; margin-top:12px">
+      {% endif %}
+
+      {% for comment in post.comments.all %}
+        <div class="kv" style="display:block">
+          <strong style="font-size:13.5px">{{ comment.author.full_name }}</strong>
+          <span class="muted" style="font-size:12px"> · {{ comment.created_at|date:"H:i" }}</span>
+          <div style="white-space:pre-wrap; font-size:14px">{{ comment.content }}</div>
+        </div>
+      {% endfor %}
+
+      <form method="post" action="{% url 'den_hurtige:create_comment' post.pk %}" style="margin-top:12px">
+        {% csrf_token %}
+        <label class="sr-only" for="id_comment_{{ post.pk }}">Kommentar</label>
+        <input type="text" id="id_comment_{{ post.pk }}" name="content" required
+               maxlength="{{ max_content_chars }}" placeholder="Skriv en kommentar…">
+        <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:9px">
+          <span class="muted" style="font-size:13px">Underret:</span>
+          <label style="display:inline-flex; align-items:center; gap:5px; margin:0; font-weight:500">
+            <input type="radio" name="notify" value="op" checked style="width:auto"> kun {{ post.author.first_name }}
+          </label>
+          <label style="display:inline-flex; align-items:center; gap:5px; margin:0; font-weight:500">
+            <input type="radio" name="notify" value="alle" style="width:auto"> alle
+          </label>
+          <button type="submit" class="btn btn-secondary" style="margin-left:auto">Kommentér</button>
+        </div>
+      </form>
+    </div>
+  </article>
+{% empty %}
+  <div class="card muted">Ingen aktive beskeder lige nu.</div>
+{% endfor %}

@@ -5,6 +5,7 @@ admin can keep /admin later (F-002)."""
 from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path, re_path
+from django.views.generic import TemplateView
 from django.views.static import serve
 
 from cms import views as cms_views
@@ -21,6 +22,14 @@ urlpatterns = [
     # Low volume for this app; the serve view is path-traversal-safe. Files are public by URL (as the
     # legacy /public/ images were).
     re_path(r"^media/(?P<path>.*)$", serve, {"document_root": settings.MEDIA_ROOT}),
+    # PWA service worker for Den Hurtige. Must be served from the ROOT path: a service worker's
+    # default scope is its own directory, so only a root-scoped worker covers /nyintern/. Served via
+    # TemplateView because static/ would put it under /static/ and cap its scope there.
+    path(
+        "sw.js",
+        TemplateView.as_view(template_name="sw.js", content_type="application/javascript"),
+        name="pwa_service_worker",
+    ),
     # catch-all CMS page lookup by (possibly multi-segment) slug — must stay last
     re_path(r"^(?P<url_path>[\w/-]+?)/?$", cms_views.page, name="page"),
 ]

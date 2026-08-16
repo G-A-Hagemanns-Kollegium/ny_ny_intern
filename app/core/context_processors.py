@@ -5,6 +5,7 @@ from collections.abc import Collection
 from django.conf import settings
 from django.http import HttpRequest
 
+from den_hurtige.access import roles_allowed as den_hurtige_allowed
 from residents.permissions import CMS_EDITOR_ROLES, can_preview, effective_roles
 
 # Public site nav, matching the legacy gahk.dk menu (labels + order)
@@ -40,8 +41,13 @@ def _nav_intern(roles: Collection[str]) -> list[NavSection]:
     """Internal menu grouped into sidebar sections, built from the *effective* role set: base items for
     every resident plus each embedsgruppe's admin tools. Each item is (url, label, icon); empty sections
     are dropped. Honors the preview override (roles come from effective_roles)."""
-    oversigt: list[NavItem] = [
-        ("/nyintern/", "Dashboard", "dashboard"),
+    oversigt: list[NavItem] = [("/nyintern/", "Dashboard", "dashboard")]
+    # Den Hurtige is limited to the administrator group during its trial; the single switch is
+    # den_hurtige.access.ACCESS_ROLES. Asking it here keeps the sidebar from advertising a page that
+    # would answer 403, and means opening the rollout needs no change in this file.
+    if den_hurtige_allowed(roles):
+        oversigt.append(("/nyintern/den-hurtige/", "Den Hurtige", "flash"))
+    oversigt += [
         ("/nyintern/alumneliste/", "Alumneliste", "list"),
         ("/nyintern/stamtree/", "Stamtræ", "tree"),
         ("/nyintern/statistik/", "Statistik", "chart"),
