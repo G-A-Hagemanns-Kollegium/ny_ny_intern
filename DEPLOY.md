@@ -35,8 +35,19 @@ WIFI_PASSWORD=…  GOOGLE_CALENDAR_USER=…  GOOGLE_CALENDAR_PASSWORD=…
 INDSTILLING_EMAIL=indstillingen@gahk.dk           # recipient only, not a sender
 POSTGRES_PASSWORD=<pw>                            # for the compose postgres service
 OELKAELDER_KIOSK_IPS=<the till's server-observed source IP>   # confirm from access logs, NOT ipconfig
+VAPID_PUBLIC_KEY=…  VAPID_PRIVATE_KEY=…           # Web Push for Den Hurtige — see below
+VAPID_ADMIN_EMAIL=autosvar@gahk.dk                # real address: push services report failures here
 ```
 Store real values in Coolify's secret manager / a vault — not in git.
+
+**Web Push (Den Hurtige).** The two VAPID values are the *raw base64url* key pair, not PEM files —
+`VAPID_PUBLIC_KEY` is handed to the browser as `applicationServerKey`, which must be the 65-byte
+uncompressed EC point. `app/.env.example` carries the generate/convert one-liner. Leave them unset
+and the feature degrades cleanly: the feed still works, the subscribe button just reports that push
+is not configured. **Rotating the pair invalidates every existing subscription**, so every resident
+would have to press the button again — settle on one pair before residents start subscribing.
+Push also requires HTTPS, which Traefik already terminates; on iOS the site must be added to the
+home screen before notifications are available at all.
 
 **Email — verify the senders, don't assume.** one.com authenticates as `SMTP_USER` and rejects any
 From address that account is not itself or an alias of:
@@ -67,6 +78,40 @@ Fresh repo (do **not** import the legacy history — it contains plaintext secre
    MediaWiki). Mount a **`media` volume** for uploads.
 4. `web` runs `migrate` on start then gunicorn; Coolify/Traefik terminates TLS and proxies to :8000.
 5. `Scaleway` is the fallback if you prefer a first-party managed Postgres.
+
+### 4b. Scheduled tasks (Coolify → the `web` resource → **Scheduled Tasks**)
+
+Coolify runs each of these *inside the already-running `web` container* on a cron expression, and
+keeps the output in its own log view. That is why there is no cron sidecar, no host crontab (which
+would fight Coolify's control of the compose lifecycle) and no Celery beat (a broker plus a worker
+for four jobs a month). Container name: `web`. Every command below is **idempotent** — a double run
+or an overlapping run is harmless.
+
+| Command | Cron | Why |
+| --- | --- | --- |
+| `python manage.py purge_applications` | `20 3 * * *` | **The one that is genuinely missing.** F-001 says applications are kept one year; nothing has ever enforced it, so applicant PII accumulates indefinitely — the exact GDPR gap 99-index.md flags in the legacy system. |
+| `python manage.py ak_monthly_assessment` | `10 4 1 * *` | Books the month's AK deduction on the 1st instead of whenever someone happens to open an internal page. |
+| `python manage.py purge_quick_posts` | `*/30 * * * *` | Drains expired Den Hurtige posts (and their images) even in a quiet week when nobody loads the feed. |
+
+**Run `purge_applications --dry-run` by hand first.** It deletes permanently and there is no undo;
+confirm the count is what you expect before putting it on a schedule.
+
+**These do not replace the lazy guards, and the lazy guards should stay.** `ensure_active_month_applied()`
+costs two indexed single-row queries on three pages (measured), and it is the only thing that makes a
+missed cron self-healing. Cron's failure mode is silence — a bad expression, a container restarted at
+the wrong minute, a task disabled during debugging — and a skipped `ak_monthly_assessment` means every
+resident's balance is quietly wrong until someone notices. The lazy check turns that into "runs a few
+hours late". Belt and braces, and both paths are idempotent so they cannot double-charge.
+
+**Timezone.** Coolify evaluates cron on the host clock (UTC on a stock Hetzner box) while Django's
+`TIME_ZONE` is `Europe/Copenhagen`. Irrelevant for the daily and half-hourly jobs; it matters for the
+monthly one, where `10 4 1 * *` UTC is 05:10/06:10 local on the 1st — safely inside the day either
+way. Do not move it near midnight, or DST will eventually put it on the wrong side of a month
+boundary.
+
+**Deliberately not scheduled:** ølkælder interest (`apply_interest`). It is already idempotent per
+calendar month and exposed as a button for the ølkælder officers, so automating it is a policy
+decision for them, not a technical one.
 
 ## 5. Data migration to prod
 ```
@@ -101,6 +146,8 @@ Encoding: connection charset is utf8mb3 — check per-table charsets, watch lati
 - [ ] `task etl` + `etl_verify` + `relocate_media` run against a fresh dump; counts sane.
 - [ ] `createsuperuser`; assign initial roles via `/admin/roles`.
 - [ ] `sendtestemail` green for **both** sender addresses (§2); one real "glemt kodeord" round-trip.
+- [ ] Scheduled tasks created in Coolify (§4b); `purge_applications --dry-run` reviewed before the
+      daily job is enabled, and each task run once by hand so its log is known-good.
 - [ ] Interim hardening done on the *old* box until DNS flips (scope §8: lock KCFinder, gate mass-mailers,
       delete `phpinfo.php`, pull & archive access logs).
 - [ ] MediaWiki migrated + upgraded to 1.43, reachable behind the proxy.

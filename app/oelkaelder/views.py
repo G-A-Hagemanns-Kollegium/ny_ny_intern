@@ -23,12 +23,13 @@ from core.exports import csv_or_xlsx_response
 from residents.models import Resident
 from residents.permissions import current_resident, role_required
 
-from .forms import InterestPolicyForm, WarningForm
+from .forms import InterestPolicyForm, PurchasePolicyForm, WarningForm
 from .models import (
     Adjustment,
     Deposit,
     InterestPolicy,
     Product,
+    PurchasePolicy,
     PurchaseShare,
     Shopper,
     Transaction,
@@ -37,6 +38,7 @@ from .models import (
 )
 from .services import (
     apply_interest,
+    bulk_balances,
     record_adjustment,
     record_deposit,
     record_purchase,
@@ -69,10 +71,25 @@ def shop(request: HttpRequest) -> HttpResponse:
     if not _is_kiosk(request):
         raise PermissionDenied("Tillen er kun tilgængelig fra kollegiets netværk.")
     products = Product.objects.filter(active=True).order_by("-highlighted", "name")
-    shoppers = Shopper.objects.filter(active=True).select_related("resident").order_by("resident__first_name")
+    shoppers = list(
+        Shopper.objects.filter(active=True).select_related("resident").order_by("resident__first_name")
+    )
+    # Balances in three queries rather than three per shopper per read — the template shows each
+    # balance and also needs to know whether the shopper is over the credit limit.
+    policy = PurchasePolicy.get()
+    balances = bulk_balances(shoppers)
+    rows = [(s, balances[s.pk], policy.blocks(balances[s.pk])) for s in shoppers]
     # Tiles are server-rendered (the till's iPad runs iOS 10.3 and cannot use the Alpine/Tailwind
     # bundle); the template's inline ES5 only enhances them. See app/templates/oelkaelder/shop.html.
-    return render(request, "oelkaelder/shop.html", {"products": products, "shoppers": shoppers})
+    return render(
+        request,
+        "oelkaelder/shop.html",
+        {
+            "products": products,
+            "shopper_rows": rows,
+            "block_limit_kr": policy.block_below_ore // 100,
+        },
+    )
 
 
 @require_POST
@@ -169,6 +186,7 @@ def admin(request: HttpRequest) -> HttpResponse:
             "deposits": deposits,
             "warning_forms": warning_forms,
             "interest_form": InterestPolicyForm(instance=InterestPolicy.get()),
+            "purchase_policy_form": PurchasePolicyForm(instance=PurchasePolicy.get()),
             "report_links": report_links,
         },
     )
@@ -226,6 +244,18 @@ def update_interest(request: HttpRequest) -> HttpResponseRedirect:
         messages.success(request, "Renteindstillinger gemt.")
     else:
         messages.error(request, "Kunne ikke gemme renteindstillingerne.")
+    return redirect("oelkaelder:admin")
+
+
+@require_POST
+@role_required("oelkaelder")
+def update_purchase_policy(request: HttpRequest) -> HttpResponseRedirect:
+    form = PurchasePolicyForm(request.POST, instance=PurchasePolicy.get())
+    if form.is_valid():
+        form.save()
+        messages.success(request, "Købsgrænsen er gemt.")
+    else:
+        messages.error(request, "Kunne ikke gemme købsgrænsen.")
     return redirect("oelkaelder:admin")
 
 

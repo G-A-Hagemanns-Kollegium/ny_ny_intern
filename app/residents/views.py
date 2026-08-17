@@ -41,8 +41,8 @@ def dashboard(request: HttpRequest) -> HttpResponse:
     """Internal landing page (F-013). Shows the member's active-month roles and the shared
     WiFi/calendar info — now gated by authentication (not campus IP) with secrets read from env.
     Uses effective roles so the preview override is reflected here too."""
-    # Lazily book this month's AK deduction on the first internal page load of a new month
-    # (no scheduler in this project). Cheap and idempotent; see ak.services.
+    # Backstop for the ak_monthly_assessment cron job (DEPLOY.md §4b): books this month's AK
+    # deduction if the schedule missed it. Cheap and idempotent; see ak.services.
     from ak.services import ensure_active_month_applied
 
     ensure_active_month_applied()

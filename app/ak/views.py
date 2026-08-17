@@ -19,7 +19,7 @@ from .services import apply_monthly_charge, ensure_active_month_applied
 
 @login_required
 def my_ak(request: HttpRequest) -> HttpResponse:
-    ensure_active_month_applied()  # lazily book the new month's deduction (no scheduler)
+    ensure_active_month_applied()  # backstop for the monthly cron job (DEPLOY.md §4b)
     user = current_resident(request)
     return render(
         request,
@@ -80,7 +80,7 @@ def _schedule_rows(active_month: int) -> list[dict]:
 
 @role_required("ak")
 def overview(request: HttpRequest) -> HttpResponse:
-    ensure_active_month_applied()  # lazily book the new month's deduction (no scheduler)
+    ensure_active_month_applied()  # backstop for the monthly cron job (DEPLOY.md §4b)
     year, month = active_period()
     residents = Resident.objects.filter(residencies__year=year, residencies__month=month).distinct()
     balances = dict(

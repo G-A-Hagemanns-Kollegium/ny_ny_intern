@@ -16,6 +16,7 @@ urlpatterns = [
     path("admin/tilfoej", views.add_shopper, name="add_shopper"),
     path("admin/advarsel/<int:pk>", views.update_warning, name="update_warning"),
     path("admin/rente", views.update_interest, name="update_interest"),
+    path("admin/koebsgraense", views.update_purchase_policy, name="update_purchase_policy"),
     path("admin/rente/anvend", views.apply_interest_view, name="apply_interest"),
     path("admin/rapport/indbetalinger", views.report_deposits, name="report_deposits"),
     path("admin/rapport/salg", views.report_sales, name="report_sales"),

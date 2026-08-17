@@ -3,6 +3,8 @@ import "htmx.org";
 import Alpine from "alpinejs";
 import "./charts"; // interactive charts on /nyintern/statistik/ (no-op elsewhere)
 import "./imageupload"; // downscale room-inspection photo uploads client-side (no-op elsewhere)
+import "./push"; // Den Hurtige push-notification subscribe button (no-op elsewhere)
+import "./feed"; // Den Hurtige live-feed poll guard (no-op elsewhere)
 
 // Alpine for small client-only interactions; HTMX (imported above) auto-wires hx-* attributes.
 // NB: the ølkælder till (kiosk) is deliberately NOT an Alpine island — it runs on an iOS 10.3 iPad

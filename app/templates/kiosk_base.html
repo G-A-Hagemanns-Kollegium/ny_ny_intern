@@ -81,6 +81,10 @@
     #alumneliste-checkout li.picked { background: #eef6fb; }
     #alumneliste-checkout li.inaktiv { color: #ccc; }
     #alumneliste-checkout li.inaktiv .vaelg, #alumneliste-checkout li.inaktiv .fordel { background: #ddd; }
+    /* Over the credit limit. The row was already greyed out, but nothing said why — a grey row with
+       grey buttons that ignore taps reads as a broken till, not as "you owe too much". */
+    #alumneliste-checkout .spaerret { float: right; padding: 4px 14px; margin-left: 6px; border-radius: 3px;
+      background: #f5e6e6; color: #a93333; font-size: .9em; }
 
     /* ---- confirmation modal ---- */
     #checkout { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,.9); z-index: 80; }

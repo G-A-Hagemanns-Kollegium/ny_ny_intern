@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "rooms",
     "oelkaelder",
     "stats",
+    "den_hurtige",
 ]
 
 MIDDLEWARE = [
@@ -183,3 +184,34 @@ FEEDBACK_URL = os.environ.get(
 # Room-inspection photo uploads (F-005): server-side hard cap. Images are also downscaled client-side
 # before upload, so this is mainly a backstop against oversized/crafted uploads.
 ROOM_PHOTO_MAX_MB = int(os.environ.get("ROOM_PHOTO_MAX_MB", "5"))
+
+# Web Push for Den Hurtige (the PWA that replaces the Messenger group). The two keys are the RAW
+# base64url VAPID pair, NOT the .pem files: VAPID_PUBLIC_KEY is handed to the browser as
+# `applicationServerKey`, which must be the 65-byte uncompressed EC point. app/.env.example shows how
+# to derive both from an existing PEM. Unset in dev → the subscribe button reports push unavailable.
+VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "")
+# Must be a real, monitored address: push services contact it about delivery problems, and some
+# reject pushes whose VAPID `sub` claim is not a usable mailto.
+VAPID_ADMIN_EMAIL = os.environ.get("VAPID_ADMIN_EMAIL", "autosvar@gahk.dk")
+
+# Optional image on a Den Hurtige post: server-side hard cap, same backstop as the room photos.
+QUICK_POST_MAX_MB = int(os.environ.get("QUICK_POST_MAX_MB", "5"))
+
+# Django's default logging config only wires up its own `django.*` loggers; anything our code logs
+# reaches stderr only at WARNING+, via logging's last-resort handler. Den Hurtige delivers push on a
+# background thread, where "nothing happened" and "every send failed" look identical without a log
+# line — so its logger gets an explicit console handler.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {"simple": {"format": "[{levelname}] {name}: {message}", "style": "{"}},
+    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "simple"}},
+    "loggers": {
+        "den_hurtige": {
+            "handlers": ["console"],
+            "level": os.environ.get("DEN_HURTIGE_LOG_LEVEL", "INFO"),
+            "propagate": False,
+        }
+    },
+}

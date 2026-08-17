@@ -91,6 +91,20 @@
     </form>
   </div>
 
+  <div class="card mt-8" style="max-width:34rem">
+    <h2>Købsgrænse</h2>
+    <p class="muted" style="font-size:13.5px">
+      Når spærringen er slået til, kan kiosken ikke sælge til nogen hvis saldo er under grænsen —
+      hverken alene eller som del af et delt køb. De ser en besked om at indbetale først.
+      Slået fra betyder at gæld kun udløser advarselsmails og rente, som i det gamle system.
+    </p>
+    <form method="post" action="{% url 'oelkaelder:update_purchase_policy' %}">
+      {% csrf_token %}
+      {{ purchase_policy_form.as_p }}
+      <button type="submit" class="btn">Gem købsgrænse</button>
+    </form>
+  </div>
+
   <h2 class="mt-8">Rapporter</h2>
   <div class="flex flex-wrap gap-6">
     {% for label, url_name in report_links %}
