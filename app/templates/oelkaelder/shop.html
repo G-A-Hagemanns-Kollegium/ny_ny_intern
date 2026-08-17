@@ -71,8 +71,10 @@
     <p>Vælg køber, eller "fordel på" flere for at dele købet ligeligt.</p>
     <ul id="alumneliste-checkout">
       {% for s, balance, blocked in shopper_rows %}
-        {# `blocked` comes from PurchasePolicy (off by default), not a hardcoded amount: the same
-           number also drives the interest threshold, and the two are separate policies. #}
+        {% comment %}
+          `blocked` comes from PurchasePolicy (off by default), not a hardcoded amount: the same
+          number also drives the interest threshold, and the two are separate policies.
+        {% endcomment %}
         <li class="shopper {% if blocked %}inaktiv{% endif %}"
             data-id="{{ s.pk }}" data-rid="{{ s.resident_id }}" data-name="{{ s.resident.full_name }}">
           <div class="alumnumName">{{ s.resident.full_name }} <small>#{{ s.resident_id }}</small></div>
@@ -102,8 +104,10 @@
       <p>Det indtastede alumne-ID findes ikke. Prøv igen, eller vælg fra listen.</p>
       <div class="buttoncheckout" id="okwrongnumber">OK</div>
     </div>
-    {# A blocked shopper used to land in "Forkert nummer", which sent people off checking their
-       alumne-ID when the real problem was their balance. #}
+    {% comment %}
+      A blocked shopper used to land in "Forkert nummer", which sent people off checking their
+      alumne-ID when the real problem was their balance.
+    {% endcomment %}
     <div class="box" id="blocked">
       <h1>Kontoen er spærret</h1>
       <p>Du skylder mere end {{ block_limit_kr }} kr, så der kan ikke handles på kontoen.
