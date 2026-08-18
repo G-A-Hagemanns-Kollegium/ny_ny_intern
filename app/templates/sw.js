@@ -15,7 +15,7 @@
 // Bump when editing this file. A service worker is cached aggressively and updates silently, so
 // without a version marker there is no way to tell which copy is actually running — and debugging
 // "no notification arrives" against a stale worker wastes a lot of time.
-var SW_VERSION = 2;
+var SW_VERSION = 3;
 
 // Take over immediately instead of waiting for every tab to close — otherwise a fixed push handler
 // only reaches users after they close all intern tabs.
@@ -33,6 +33,9 @@ self.addEventListener('activate', function (event) {
 self.addEventListener('fetch', function (event) {});
 
 // Incoming push from den_hurtige/services.py. Payload keys: head, body, icon, url.
+// `head` is the sender's name, not the feature name: iOS and Android already label the
+// notification with the app it came from, so repeating "Den Hurtige" in the title wasted the
+// most valuable line on the lock screen. These fallbacks only fire for a payload-less push.
 self.addEventListener('push', function (event) {
   var data = {};
   if (event.data) {
@@ -48,8 +51,8 @@ self.addEventListener('push', function (event) {
 
   event.waitUntil(
     self.registration
-      .showNotification(data.head || 'Ny besked på Den Hurtige', {
-        body: data.body || 'Åbn Den Hurtige for at læse mere.',
+      .showNotification(data.head || 'Ny besked', {
+        body: data.body || 'Åbn for at læse mere.',
         icon: data.icon || '/static/icons/icon-192x192.png',
         badge: '/static/icons/badge-72x72.png', // monochrome, for the Android status bar
         // Deliberately NO `tag`: a shared tag makes each notification replace the previous one, so

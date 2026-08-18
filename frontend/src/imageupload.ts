@@ -46,6 +46,17 @@ function hook(form: HTMLFormElement) {
   });
 }
 
-for (const form of Array.from(document.querySelectorAll<HTMLFormElement>("form"))) {
-  if (form.querySelector('input[type="file"][accept^="image"]')) hook(form);
+/** Hook every not-yet-hooked image form under `root`.
+ *
+ * Exported because Den Hurtige rebuilds its reply forms on every 20s poll; without a rescan those
+ * new forms would upload full-size phone photos. Idempotent, so calling it again is free. */
+export function hookImageForms(root: ParentNode = document): void {
+  for (const form of Array.from(root.querySelectorAll<HTMLFormElement>("form"))) {
+    if (form.dataset.imgHooked === "1") continue;
+    if (!form.querySelector('input[type="file"][accept^="image"]')) continue;
+    form.dataset.imgHooked = "1";
+    hook(form);
+  }
 }
+
+hookImageForms();

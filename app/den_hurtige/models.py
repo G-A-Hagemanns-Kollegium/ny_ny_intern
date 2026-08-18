@@ -20,6 +20,31 @@ from django.utils import timezone
 DEFAULT_DURATION_MINUTES = 60
 DURATION_CHOICES = [(30, "30 minutter"), (60, "1 time"), (120, "2 timer"), (240, "4 timer")]
 
+# One-tap reactions offered by the picker. Any emoji is still accepted (forms.ReactionForm) — this
+# is only the shortlist, because in a desktop browser a bare text field gives you a cursor and no
+# help, while these are a single click. Written as escapes so the file stays ASCII-safe; the heart
+# carries U+FE0F because that is the form every mobile keyboard sends, and counts must not split.
+QUICK_EMOJI = [
+    "👍",
+    "❤️",
+    "😂",
+    "🎉",
+    "🙏",
+    "👀",
+    "🔥",
+    "😮",
+    "😢",
+    "👎",
+    "✅",
+    "❌",
+    "☕",
+    "🍺",
+    "🍕",
+    "🎂",
+    "🚲",
+    "🔑",
+]
+
 
 def get_default_expiration() -> datetime:
     """Default expiration time is 60 minutes from creation."""
@@ -88,23 +113,6 @@ class QuickPost(models.Model):
         return max(0, int((self.expires_at - timezone.now()).total_seconds() // 60))
 
 
-@receiver(post_delete, sender=QuickPost)
-def _delete_image_file(sender: type[QuickPost], instance: QuickPost, **kwargs: Any) -> None:  # noqa: ANN401
-    """Remove the attached file from storage when its post goes.
-
-    Django stopped deleting FileField files on row delete in 1.3, so without this the *text* of a
-    post expires on schedule while the *photo* stays on disk forever — the opposite of what the
-    feature promises, and an unbounded pile of orphaned uploads.
-
-    Registered as a signal rather than overridden on delete() because purge_expired() issues a bulk
-    queryset delete, which never calls Model.delete(). The trade-off is that having a post_delete
-    receiver disables Django's fast-delete path, so purging fetches rows before removing them —
-    irrelevant at a few posts an hour, and correctness is worth more here.
-    """
-    if instance.image:
-        instance.image.delete(save=False)
-
-
 class QuickComment(models.Model):
     """A comment on a QuickPost. Deleted with its post when the post expires."""
 
@@ -113,6 +121,16 @@ class QuickComment(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="quick_comments"
     )
     content = models.TextField()
+
+    # Same FileField-not-ImageField call as QuickPost.image: ImageField needs Pillow, which is not a
+    # dependency. The view validates content type and size.
+    image = models.FileField(
+        upload_to="quick_comments/%Y/%m/",
+        max_length=255,
+        blank=True,
+        help_text="Valgfrit billede.",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     # Determines notification scope: everyone subscribed, or only the original poster.
@@ -128,6 +146,59 @@ class QuickComment(models.Model):
 
     def __str__(self) -> str:
         return f"Kommentar af {self.author} på opslag #{self.post.pk}"
+
+
+@receiver(post_delete, sender=QuickPost)
+@receiver(post_delete, sender=QuickComment)
+def _delete_image_file(sender: type[models.Model], instance: models.Model, **kwargs: Any) -> None:  # noqa: ANN401
+    """Remove an attached file from storage when its message or reply goes.
+
+    Django stopped deleting FileField files on row delete in 1.3, so without this the *text* expires
+    on schedule while the *photo* stays on disk forever — the opposite of what the feature promises,
+    and an unbounded pile of orphaned uploads.
+
+    Registered as a signal rather than overridden on delete() because purge_expired() issues a bulk
+    queryset delete, which never calls Model.delete(), and replies are removed by cascade rather than
+    directly. The trade-off is that a post_delete receiver disables Django's fast-delete path, so
+    purging fetches rows before removing them — irrelevant at a few posts an hour.
+    """
+    image = getattr(instance, "image", None)
+    if image:
+        image.delete(save=False)
+
+
+class QuickReaction(models.Model):
+    """One emoji one resident put on one message.
+
+    The unique constraint is what makes the endpoint a toggle rather than a counter: tapping an emoji
+    you already used deletes the row instead of adding a second one, so a reaction cannot be
+    double-counted and no separate "have I reacted?" bookkeeping is needed.
+
+    Deliberately never notified — a dorm-wide feed where every 👍 buzzes everyone's phone is
+    exactly the noise Den Hurtige exists to remove, and it would stop people reacting at all.
+    """
+
+    post = models.ForeignKey(QuickPost, on_delete=models.CASCADE, related_name="reactions")
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="quick_reactions"
+    )
+    # Long enough for a ZWJ sequence: a family emoji is 7 code points, and skin-tone variants more.
+    emoji = models.CharField(max_length=32)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        verbose_name = "Reaktion"
+        verbose_name_plural = "Reaktioner"
+        constraints = [
+            # ONE reaction per person per message, not one of each emoji. Picking a different emoji
+            # replaces yours; picking the one you already used clears it. The constraint is what
+            # makes that safe under a double tap.
+            models.UniqueConstraint(fields=["post", "author"], name="uniq_reaction_per_author")
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.emoji} af {self.author}"
 
 
 class PushSubscription(models.Model):
