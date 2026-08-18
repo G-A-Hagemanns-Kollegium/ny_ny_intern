@@ -124,6 +124,102 @@
   .kv .l { color:var(--muted); } .kv .r { font-weight:600; }
   .code { font-family:ui-monospace,Menlo,monospace; background:var(--sunken); border:1px solid var(--border); border-radius:6px; padding:2px 8px; font-size:12.5px; }
 
+  /* --- Den Hurtige: chat layout (app/templates/den_hurtige/) ---------------------------------
+     `.main` is the scroll container, so the composer only needs position:sticky. The column is a
+     flex chain so the message list takes the slack and the composer sits on the bottom edge. */
+  .chat { display:flex; flex-direction:column; min-height:100%; gap:0; }
+  .chat-head { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:6px; }
+  .chat-head h1 { font-size:22px; font-weight:750; margin:0; }
+  .push-bar { display:flex; align-items:center; gap:10px; font-size:13px; }
+  .push-bar button { font-size:13px; font-weight:600; padding:5px 12px; border-radius:999px;
+    background:var(--surface); border:1px solid var(--border-strong); color:var(--ink); cursor:pointer; }
+  .push-bar button:hover { background:var(--green-050); border-color:var(--green-100); color:var(--green-700); }
+
+  #js-feed { flex:1; padding:6px 0 14px; }
+  .feed-empty { text-align:center; color:var(--muted); padding:40px 20px; }
+
+  .msg { display:grid; grid-template-columns:34px 1fr; gap:10px; padding:9px 10px; border-radius:var(--radius);
+    margin-top:10px; }
+  /* Continuation of the same sender: no repeated avatar/name, tighter spacing. */
+  .msg-grouped { margin-top:1px; }
+  .msg-own { background:var(--green-050); }
+  .msg-avatar { width:34px; height:34px; border-radius:50%; background:var(--brass); color:#fff;
+    display:grid; place-items:center; font-weight:700; font-size:12.5px; }
+  /* The empty slot on a grouped message keeps the text aligned without drawing a second circle. */
+  .msg-grouped .msg-avatar { background:none; }
+  .msg-body { min-width:0; }
+  .msg-head { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  .msg-name { font-weight:650; font-size:14px; }
+  .msg-meta { color:var(--faint); font-size:11.5px; }
+  .msg-text { white-space:pre-wrap; overflow-wrap:anywhere; font-size:15px; line-height:1.45; margin-top:1px; }
+  .msg-image img { max-width:min(100%, 320px); height:auto; border-radius:10px; margin-top:8px; display:block; }
+  /* Delete stays out of the way until the row is touched/hovered; always visible on coarse pointers. */
+  .msg-del { margin-left:auto; }
+  .msg-del button { background:none; border:0; color:var(--faint); font-size:17px; line-height:1;
+    padding:0 4px; cursor:pointer; opacity:0; }
+  .msg:hover .msg-del button, .msg-del button:focus-visible { opacity:1; }
+  .msg-del button:hover { color:var(--neg); }
+  @media (hover:none) { .msg-del button { opacity:.55; } }
+
+  .reactions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px; }
+  .reaction { display:inline-flex; align-items:center; gap:5px; font-size:13px; line-height:1;
+    padding:4px 9px; border-radius:999px; cursor:pointer;
+    background:var(--surface); border:1px solid var(--border-strong); color:var(--ink); }
+  .reaction:hover { border-color:var(--faint); }
+  .reaction.is-mine { background:var(--green-050); border-color:var(--green); color:var(--green-700); font-weight:650; }
+  .reaction .n { font-variant-numeric:tabular-nums; }
+  /* Picker. A bare text input was the first attempt and read as a stray form field on desktop. */
+  .emoji-picker { position:relative; display:inline-block; }
+  .reaction-add { list-style:none; border-style:dashed; color:var(--muted); user-select:none; }
+  .reaction-add::-webkit-details-marker { display:none; }
+  .emoji-picker[open] > .reaction-add { border-style:solid; border-color:var(--green); color:var(--green-700); }
+  /* Opens upward: the composer is pinned to the bottom, so recent messages sit near it. */
+  .emoji-grid { position:absolute; bottom:calc(100% + 6px); left:0; z-index:20; width:max-content;
+    display:grid; grid-template-columns:repeat(6, 1fr); gap:2px; padding:8px;
+    background:var(--surface); border:1px solid var(--border-strong); border-radius:12px; box-shadow:var(--shadow); }
+  .emoji-choice { font-size:19px; line-height:1; padding:5px 6px; border:0; border-radius:8px;
+    background:none; cursor:pointer; }
+  .emoji-choice:hover { background:var(--green-050); }
+  .emoji-other { grid-column:1 / -1; margin-top:4px; }
+  .emoji-other input { width:100%; font-size:12.5px; padding:5px 8px; text-align:center; }
+
+  .thread { margin-top:6px; }
+  .thread > summary { cursor:pointer; font-size:12.5px; font-weight:600; color:var(--green-700);
+    list-style:none; padding:2px 0; }
+  .thread > summary::-webkit-details-marker { display:none; }
+  .thread > summary::after { content:" ▾"; color:var(--faint); }
+  .thread[open] > summary::after { content:" ▴"; }
+  .reply { margin:7px 0 0 2px; padding-left:10px; border-left:2px solid var(--border); }
+  .reply-name { font-weight:650; font-size:13px; }
+  .reply .msg-text { font-size:14px; }
+  .reply-form { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:9px 0 0 12px; }
+  .reply-form input[type=text] { flex:1; min-width:9rem; }
+  .reply-attach { margin:0; cursor:pointer; font-size:15px; line-height:1; padding:0 2px; }
+  .reply-attach input { display:none; }
+  .reply-notify { display:inline-flex; align-items:center; gap:5px; margin:0; font-weight:500;
+    font-size:12.5px; color:var(--muted); }
+  .reply-notify input { width:auto; }
+
+  .composer { position:sticky; bottom:0; z-index:10; display:flex; align-items:flex-end; gap:8px;
+    background:var(--paper); border-top:1px solid var(--border); margin:0 -30px; padding:10px 30px;
+    /* Clears the iPhone home indicator in the installed PWA. */
+    padding-bottom:calc(10px + env(safe-area-inset-bottom)); }
+  .composer-main { flex:1; min-width:0; }
+  .composer textarea { resize:none; max-height:8.5rem; overflow-y:auto; padding:9px 12px; border-radius:18px; }
+  .composer-attach { margin:0; cursor:pointer; font-size:19px; line-height:1; padding:8px 2px; }
+  .composer-attach input { display:none; }
+  .composer-file { font-size:12px; color:var(--muted); padding:3px 4px 0; }
+  .composer-duration { margin:0; }
+  .composer-duration select { width:auto; font-size:12.5px; padding:6px 8px; border-radius:999px;
+    background:var(--surface-2); }
+  .composer-send { flex:none; width:38px; height:38px; border-radius:50%; padding:0; font-size:17px;
+    background:var(--green); color:#fff; border:0; cursor:pointer; }
+  .composer-send:hover { background:var(--green-700); }
+
+  @media (max-width:960px) {
+    .composer { margin:0 -18px; padding-left:18px; padding-right:18px; }
+  }
+
   /* --- banners (preview / dev clock) --- */
   .banner { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 18px; font-size:13.5px; font-weight:500; }
   .banner form { display:flex; gap:12px; align-items:center; }

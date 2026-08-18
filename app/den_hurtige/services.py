@@ -62,7 +62,14 @@ def _preview(text: str) -> str:
 
 
 def _payload(head: str, body: str) -> dict[str, str]:
-    """The JSON the service worker (app/templates/sw.js) reads: head/body/icon/url."""
+    """The JSON the service worker (app/templates/sw.js) reads: head/body/icon/url.
+
+    `head` is the sender, not the feature. Every platform already labels the notification with the
+    app it came from — iOS renders "from Den Hurtige" under the title from the manifest name — so a
+    title like "Ny besked på Den Hurtige" said it twice and pushed the part that matters (who, and
+    what they wrote) down into the body. Titling with the person and leaving the body to the message
+    is what every chat app does, and it is what makes a lock screen readable at a glance.
+    """
     return {"head": head, "body": body, "icon": static("icons/icon-192x192.png"), "url": FEED_URL}
 
 
@@ -142,7 +149,7 @@ def notify_new_post(post: "QuickPost") -> None:
     """Announce a new post to every subscriber except its author."""
     if not is_configured():
         return
-    payload = _payload("Ny besked på Den Hurtige", f"{post.author.full_name}: {_preview(post.content)}")
+    payload = _payload(post.author.full_name, _preview(post.content))
     recipients = subscribers(exclude_user_id=post.author_id)
     _run_in_background(lambda: _dispatch(recipients, payload))
 
@@ -158,8 +165,5 @@ def notify_new_comment(comment: "QuickComment") -> None:
         return  # commenting on your own post: the only recipient would be yourself
     else:
         recipients = subscribers().filter(user_id=comment.post.author_id)
-    payload = _payload(
-        "Ny kommentar på Den Hurtige",
-        f"{comment.author.full_name}: {_preview(comment.content)}",
-    )
+    payload = _payload(f"{comment.author.full_name} svarede", _preview(comment.content))
     _run_in_background(lambda: _dispatch(recipients, payload))

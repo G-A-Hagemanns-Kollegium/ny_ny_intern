@@ -18,14 +18,21 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from django.conf import settings as django_settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
-from django.test import Client
+from django.test import Client, RequestFactory
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from pywebpush import WebPushException
 
 from den_hurtige import access, services
 from den_hurtige.checks import check_vapid_public_key
-from den_hurtige.models import PushSubscription, QuickComment, QuickPost
+from den_hurtige.models import (
+    QUICK_EMOJI,
+    PushSubscription,
+    QuickComment,
+    QuickPost,
+    QuickReaction,
+)
+from den_hurtige.views import posts_for, reactions_for
 from residents.models import Resident, Role
 
 FEED_URL = "/nyintern/den-hurtige/"
@@ -159,7 +166,7 @@ def test_vapid_configuration_is_validated_at_startup(
 
 @pytest.mark.parametrize(
     "path",
-    ["", "opret", "1/kommentar", "1/slet", "abonner"],
+    ["", "opret", "1/kommentar", "1/slet", "1/reaktion", "abonner"],
 )
 def test_every_endpoint_is_closed_to_non_administrators(
     client: Client, make_resident: Callable[..., Resident], rollout_limited: None, path: str
@@ -742,3 +749,467 @@ def test_subscribe_rejects_malformed_payloads(
     client.force_login(make_resident(email="a@gahk.dk"))
     response = client.post(FEED_URL + "abonner", data=body, content_type="application/json")
     assert response.status_code == 400
+
+
+# --- emoji reactions -----------------------------------------------------------------------------
+
+THUMB = "\U0001f44d"
+PARTY = "\U0001f389"
+
+
+def react(client: Client, post: QuickPost, emoji: str) -> object:
+    return client.post(f"{FEED_URL}{post.pk}/reaktion", {"emoji": emoji})
+
+
+def test_a_reaction_toggles_off_when_tapped_again(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """The unique constraint is what makes this a toggle rather than a counter: tapping your own
+    emoji again removes it instead of adding a second row."""
+    user = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=user, content="Kaffe")
+    client.force_login(user)
+
+    react(client, post, THUMB)
+    assert QuickReaction.objects.count() == 1
+
+    react(client, post, THUMB)
+    assert QuickReaction.objects.count() == 0
+
+
+def test_reactions_count_per_emoji_and_flag_your_own(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """Counts are per emoji across people; `mine` is what makes your own pill render active."""
+    author = make_resident(email="a@gahk.dk")
+    other = make_resident(email="b@gahk.dk")
+    third = make_resident(email="c@gahk.dk")
+    post = QuickPost.objects.create(author=author, content="Fest i kaelderen")
+
+    client.force_login(author)
+    react(client, post, THUMB)
+    client.force_login(third)
+    react(client, post, PARTY)
+    client.force_login(other)
+    response = react(client, post, THUMB)  # a third person, same emoji as the author
+
+    rows = {r["emoji"]: r for r in reactions_for(post, other.pk)}
+    assert rows[THUMB]["count"] == 2
+    assert rows[PARTY]["count"] == 1
+    assert rows[THUMB]["mine"] is True  # `other` used this one
+    assert rows[PARTY]["mine"] is False  # ...but not this one
+    assert b"<html" not in response.content  # a fragment, not a whole page
+
+
+@pytest.mark.parametrize(
+    "emoji",
+    [
+        "LOL",
+        "123",
+        "",
+        "x" * 80,
+        "<b>hi</b>",
+        THUMB + " ok",  # an emoji smuggling text alongside it
+    ],
+)
+def test_only_emoji_are_accepted_as_reactions(
+    client: Client, make_resident: Callable[..., Resident], emoji: str
+) -> None:
+    """Allowing any emoji means arbitrary text reaches the database, so the validator is a real
+    gate rather than a formality."""
+    user = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=user, content="Kaffe")
+    client.force_login(user)
+
+    react(client, post, emoji)
+
+    assert not QuickReaction.objects.exists()
+
+
+@pytest.mark.parametrize(
+    "emoji",
+    [
+        THUMB,
+        "\U0001f469\u200d\U0001f467",  # ZWJ sequence
+        "\U0001f44d\U0001f3fd",  # skin-tone modifier
+        "\u2764\ufe0f",  # VS16 presentation selector
+    ],
+)
+def test_real_emoji_are_accepted(client: Client, make_resident: Callable[..., Resident], emoji: str) -> None:
+    """Plain, ZWJ-joined, skin-toned and VS16 forms all have to get through."""
+    user = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=user, content="Kaffe")
+    client.force_login(user)
+
+    react(client, post, emoji)
+
+    assert QuickReaction.objects.get().emoji == emoji
+
+
+def test_reacting_notifies_nobody(
+    client: Client, make_resident: Callable[..., Resident], pushes: list
+) -> None:
+    """Reactions are deliberately silent: a dorm-wide feed where every thumbs-up buzzes every phone
+    is the noise this feature exists to remove."""
+    author = make_resident(email="a@gahk.dk")
+    reactor = make_resident(email="b@gahk.dk")
+    subscribe(author, "https://push.example/author")
+    post = QuickPost.objects.create(author=author, content="Kaffe")
+
+    client.force_login(reactor)
+    react(client, post, THUMB)
+
+    assert pushes == []
+
+
+def test_reactions_die_with_their_post(client: Client, make_resident: Callable[..., Resident]) -> None:
+    user = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=user, content="Kaffe")
+    client.force_login(user)
+    react(client, post, THUMB)
+
+    QuickPost.objects.filter(pk=post.pk).update(expires_at=timezone.now() - timedelta(minutes=1))
+    QuickPost.objects.purge_expired()
+
+    assert not QuickReaction.objects.exists()
+
+
+# --- chat layout ---------------------------------------------------------------------------------
+
+
+def test_the_feed_reads_oldest_first(client: Client, make_resident: Callable[..., Resident]) -> None:
+    """Chat order: the newest message sits next to the composer at the bottom. The model's own
+    ordering stays newest-first for the admin, so this is asserted on the rendered page."""
+    user = make_resident(email="a@gahk.dk")
+    first = QuickPost.objects.create(author=user, content="Foerste besked")
+    second = QuickPost.objects.create(author=user, content="Anden besked")
+    client.force_login(user)
+
+    body = client.get(FEED_URL).content.decode()
+
+    assert body.index("Foerste besked") < body.index("Anden besked")
+    assert list(QuickPost.objects.all()) == [second, first]  # admin still sees newest-first
+
+
+def test_consecutive_messages_from_one_person_are_grouped(
+    make_resident: Callable[..., Resident],
+) -> None:
+    """Without grouping a short back-and-forth renders as a stack of cards — the forum look this
+    redesign removes."""
+    author = make_resident(email="a@gahk.dk")
+    other = make_resident(email="b@gahk.dk")
+    QuickPost.objects.create(author=author, content="Foerst")
+    QuickPost.objects.create(author=author, content="Og saa")  # same author, seconds apart
+    QuickPost.objects.create(author=other, content="Svar")  # a different author breaks the group
+
+    request = RequestFactory().get(FEED_URL)
+    request.user = author
+
+    assert [p.grouped for p in posts_for(request)] == [False, True, False]
+
+
+def test_the_feed_costs_no_extra_query_per_reaction(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """Reactions are counted in Python over a prefetch. A per-post aggregate would be an N+1 on a
+    page that re-renders itself every 20 seconds."""
+    user = make_resident(email="a@gahk.dk")
+    client.force_login(user)
+    for n in range(3):
+        post = QuickPost.objects.create(author=user, content=f"Besked {n}")
+        react(client, post, THUMB)
+    client.get(FEED_URL + "opslag")  # warm
+
+    with CaptureQueriesContext(connection) as captured:
+        client.get(FEED_URL + "opslag")
+
+    hits = [q for q in captured.captured_queries if "den_hurtige_quickreaction" in q["sql"]]
+    assert len(hits) == 1, "one prefetch for the whole page, not one query per message"
+
+
+def test_a_message_notification_is_titled_with_the_sender(
+    client: Client, make_resident: Callable[..., Resident], pushes: list
+) -> None:
+    """Every platform already labels a notification with the app it came from — iOS renders
+    "from Den Hurtige" under the title, taken from the manifest name. Repeating it in the title
+    spent the most valuable line on the lock screen saying nothing, and pushed who-said-what into
+    the body. Sender in the title, message in the body, as in any chat app."""
+    author = make_resident(email="a@gahk.dk", first_name="Magnus", last_name="Pedersen")
+    subscribe(make_resident(email="b@gahk.dk"), "https://push.example/other")
+
+    client.force_login(author)
+    client.post(FEED_URL + "opret", {"content": "Hello, world", "duration": "60"})
+
+    (_recipients, payload) = pushes[0]
+    assert payload["head"] == "Magnus Pedersen"
+    assert payload["body"] == "Hello, world"
+    # The two halves of the redundancy that made this look wrong on the phone:
+    assert "Den Hurtige" not in payload["head"]
+    assert "Magnus Pedersen" not in payload["body"]
+
+
+def test_a_reply_notification_says_who_replied(
+    client: Client, make_resident: Callable[..., Resident], pushes: list
+) -> None:
+    """A reply still has to be distinguishable from a new message, but "svarede" carries that
+    without naming the app again."""
+    author = make_resident(email="a@gahk.dk")
+    commenter = make_resident(email="b@gahk.dk", first_name="Magnus", last_name="Pedersen")
+    subscribe(author, "https://push.example/author")
+    post = QuickPost.objects.create(author=author, content="Kaffe")
+
+    client.force_login(commenter)
+    client.post(f"{FEED_URL}{post.pk}/kommentar", {"content": "Hello, world", "notify": "op"})
+
+    (_recipients, payload) = pushes[0]
+    assert payload["head"] == "Magnus Pedersen svarede"
+    assert payload["body"] == "Hello, world"
+    assert "Den Hurtige" not in payload["head"]
+
+
+def test_posting_shows_no_confirmation_message(
+    client: Client, make_resident: Callable[..., Resident], pushes: list
+) -> None:
+    """The message appearing in the feed is the confirmation. A toast on every send is noise in a
+    chat — but the warnings that change what was posted must still come through."""
+    user = make_resident(email="a@gahk.dk")
+    client.force_login(user)
+
+    response = client.post(
+        FEED_URL + "opret", {"content": "Kaffe i koekkenet", "duration": "60"}, follow=True
+    )
+
+    assert list(response.context["messages"]) == []
+
+
+def test_a_rejected_image_still_warns(
+    client: Client, make_resident: Callable[..., Resident], pushes: list, settings: object, tmp_path: Path
+) -> None:
+    """Removing the success toast must not silence the warnings — those tell you the post is not
+    what you thought you sent."""
+    settings.MEDIA_ROOT = tmp_path  # type: ignore[attr-defined]
+    client.force_login(make_resident(email="a@gahk.dk"))
+
+    response = client.post(
+        FEED_URL + "opret",
+        {
+            "content": "Se her",
+            "duration": "60",
+            "image": SimpleUploadedFile("evil.pdf", b"x" * 100, content_type="application/pdf"),
+        },
+        follow=True,
+    )
+
+    assert any("blev ikke gemt" in str(m) for m in response.context["messages"])
+
+
+def test_the_reaction_picker_offers_one_tap_emoji(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """A bare text input was the first attempt: on a desktop browser that is a cursor and no help.
+    The shortlist has to render as real buttons, with the free field kept for anything else."""
+    user = make_resident(email="a@gahk.dk")
+    QuickPost.objects.create(author=user, content="Kaffe")
+    client.force_login(user)
+
+    html = client.get(FEED_URL).content.decode()
+
+    assert html.count('class="emoji-choice"') == len(QUICK_EMOJI)
+    for emoji in QUICK_EMOJI:
+        assert emoji in html
+    assert 'class="emoji-other"' in html  # "any emoji" is still reachable
+    assert 'name="emoji"' in html
+
+
+def test_a_quick_emoji_button_reacts(client: Client, make_resident: Callable[..., Resident]) -> None:
+    """The shortlist posts the same endpoint as the pills, so it toggles identically."""
+    user = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=user, content="Kaffe")
+    client.force_login(user)
+
+    react(client, post, QUICK_EMOJI[0])
+
+    assert QuickReaction.objects.get().emoji == QUICK_EMOJI[0]
+
+
+def test_the_heart_in_the_shortlist_matches_what_keyboards_send(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """U+2764 without U+FE0F would count separately from the heart every phone keyboard emits,
+    silently splitting one reaction into two columns."""
+    user = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=user, content="Kaffe")
+    other = make_resident(email="b@gahk.dk")
+    client.force_login(user)
+
+    react(client, post, "\u2764\ufe0f")  # from the picker
+    client.force_login(other)
+    react(client, post, "\u2764\ufe0f")  # typed on a phone
+
+    assert "\u2764\ufe0f" in QUICK_EMOJI
+    assert [r["count"] for r in reactions_for(post, user.pk)] == [2]
+
+
+# --- one reaction per person ---------------------------------------------------------------------
+
+
+def test_a_second_emoji_replaces_your_first(client: Client, make_resident: Callable[..., Resident]) -> None:
+    """One person, one reaction per message. Picking a different emoji moves yours instead of
+    stacking a second, so nobody can carpet a message in five reactions."""
+    user = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=user, content="Kaffe")
+    client.force_login(user)
+
+    react(client, post, THUMB)
+    react(client, post, PARTY)
+
+    assert QuickReaction.objects.count() == 1
+    assert QuickReaction.objects.get().emoji == PARTY
+    assert [r["emoji"] for r in reactions_for(post, user.pk)] == [PARTY]
+
+
+def test_different_people_still_react_independently(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """The limit is per person, not per message — a message can still collect many reactions."""
+    author = make_resident(email="a@gahk.dk")
+    other = make_resident(email="b@gahk.dk")
+    post = QuickPost.objects.create(author=author, content="Kaffe")
+
+    client.force_login(author)
+    react(client, post, THUMB)
+    client.force_login(other)
+    react(client, post, PARTY)
+
+    assert QuickReaction.objects.count() == 2
+
+
+@pytest.mark.parametrize(
+    "pasted",
+    [
+        "\U0001f44d\U0001f389",  # two pasted together
+        "\U0001f44d\U0001f389\U0001f525",  # three
+        "\U0001f44d\U0001f44d",  # the same one twice
+    ],
+)
+def test_pasting_several_emoji_is_rejected(
+    client: Client, make_resident: Callable[..., Resident], pasted: str
+) -> None:
+    """The "Anden emoji" field accepts a paste, and several emoji are all category So — so a length
+    check alone let someone land three of them in a single reaction bubble."""
+    user = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=user, content="Kaffe")
+    client.force_login(user)
+
+    react(client, post, pasted)
+
+    assert not QuickReaction.objects.exists()
+
+
+@pytest.mark.parametrize(
+    "emoji",
+    [
+        "\U0001f1e9\U0001f1f0",  # flag: two regional indicators are one emoji
+        "1\ufe0f\u20e3",  # keycap: the one place a digit is legitimate
+    ],
+)
+def test_multi_codepoint_emoji_are_still_one_emoji(
+    client: Client, make_resident: Callable[..., Resident], emoji: str
+) -> None:
+    """Rejecting multiple emoji must not reject the single ones that happen to be several code
+    points — the naive fix breaks flags, keycaps and family sequences."""
+    user = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=user, content="Kaffe")
+    client.force_login(user)
+
+    react(client, post, emoji)
+
+    assert QuickReaction.objects.get().emoji == emoji
+
+
+# --- images on replies ----------------------------------------------------------------------------
+
+
+def test_a_reply_can_carry_an_image(
+    client: Client, make_resident: Callable[..., Resident], pushes: list, settings: object, tmp_path: Path
+) -> None:
+    settings.MEDIA_ROOT = tmp_path  # type: ignore[attr-defined]
+    author = make_resident(email="a@gahk.dk")
+    replier = make_resident(email="b@gahk.dk")
+    post = QuickPost.objects.create(author=author, content="Hvem har mistet en nogle?")
+    client.force_login(replier)
+
+    client.post(
+        f"{FEED_URL}{post.pk}/kommentar",
+        {
+            "content": "Den her?",
+            "image": SimpleUploadedFile("noegle.jpg", b"\xff\xd8\xffx" * 40, content_type="image/jpeg"),
+        },
+    )
+
+    comment = QuickComment.objects.get()
+    assert comment.image.name.startswith("quick_comments/")
+    assert (tmp_path / comment.image.name).is_file()
+
+
+def test_a_reply_image_is_erased_with_its_post(
+    client: Client, make_resident: Callable[..., Resident], settings: object, tmp_path: Path
+) -> None:
+    """Replies are removed by cascade, never by Model.delete(), so the file-cleanup receiver has to
+    be registered for QuickComment as well or the photo outlives the thread."""
+    settings.MEDIA_ROOT = tmp_path  # type: ignore[attr-defined]
+    user = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=user, content="Kaffe")
+    comment = QuickComment.objects.create(
+        post=post,
+        author=user,
+        content="Se her",
+        image=SimpleUploadedFile("k.jpg", b"jpegbytes", content_type="image/jpeg"),
+    )
+    stored = tmp_path / comment.image.name
+    assert stored.is_file()
+
+    post.delete()  # cascades to the reply
+
+    assert not stored.exists(), "the reply image outlived its thread"
+
+
+def test_a_bad_reply_image_is_dropped_but_the_reply_survives(
+    client: Client, make_resident: Callable[..., Resident], pushes: list, settings: object, tmp_path: Path
+) -> None:
+    settings.MEDIA_ROOT = tmp_path  # type: ignore[attr-defined]
+    author = make_resident(email="a@gahk.dk")
+    replier = make_resident(email="b@gahk.dk")
+    post = QuickPost.objects.create(author=author, content="Kaffe")
+    client.force_login(replier)
+
+    response = client.post(
+        f"{FEED_URL}{post.pk}/kommentar",
+        {
+            "content": "Jeg kommer",
+            "image": SimpleUploadedFile("evil.pdf", b"x" * 100, content_type="application/pdf"),
+        },
+        follow=True,
+    )
+
+    comment = QuickComment.objects.get()
+    assert comment.content == "Jeg kommer"
+    assert not comment.image
+    assert any("blev ikke gemt" in str(m) for m in response.context["messages"])
+
+
+def test_the_reply_form_accepts_files(client: Client, make_resident: Callable[..., Resident]) -> None:
+    """Without the multipart encoding the browser posts the filename as text and the image is
+    silently lost — the kind of thing no server-side test would otherwise notice."""
+    user = make_resident(email="a@gahk.dk")
+    QuickPost.objects.create(author=user, content="Kaffe")
+    client.force_login(user)
+
+    html = client.get(FEED_URL).content.decode()
+
+    form = html.split('class="reply-form"')[1].split("</form>")[0]
+    assert 'enctype="multipart/form-data"' in html.split('class="reply-form"')[0][-120:] or (
+        "multipart/form-data" in form
+    )
+    assert 'type="file"' in form
+    assert 'accept="image/*"' in form

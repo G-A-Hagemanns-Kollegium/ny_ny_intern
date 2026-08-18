@@ -3,69 +3,67 @@
 {% block content_width %}max-w-3xl{% endblock %}
 
 {% block content %}
-  <div class="page-head">
-    <div>
-      <div class="eyebrow">Kollegiet lige nu</div>
+  <div class="chat">
+    <div class="chat-head">
       <h1>Den Hurtige {% if limited_rollout %}<span class="chip chip-brass">Under test</span>{% endif %}</h1>
-    </div>
-  </div>
-
-  {% if limited_rollout %}
-    <p class="card chip-brass" style="border-color:#e7d8b0">
-      Siden er under afprøvning og kan kun ses af administratorgruppen. Resten af kollegiet ser den
-      ikke endnu — så regn ikke med svar på dine opslag her.
-    </p>
-  {% endif %}
-
-  <p class="muted">
-    Beskeder her er kun relevante de næste par timer, og de slettes automatisk når de udløber.
-    Skal noget gemmes, hører det hjemme i ankebogen eller på opslagstavlen (/fb).
-  </p>
-
-  {# --- Push-notifikationer. Knappen styres af frontend/src/push.ts og er et no-op uden #js-push. --- #}
-  {% if push_configured %}
-    <div class="card" id="js-push" data-vapid-key="{{ vapid_public_key }}"
-         data-url="{% url 'den_hurtige:save_subscription' %}">
-      {% csrf_token %}
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap">
-        <div>
-          <strong>Notifikationer</strong>
-          <div class="muted" style="font-size:13.5px">Få besked på telefonen når nogen slår op.</div>
+      {% if push_configured %}
+        {% comment %}
+          Slim one-line bar rather than a card: during the trial it matters that people can turn
+          notifications on, but it must not push the messages below the fold. Driven by
+          frontend/src/push.ts, which is a no-op without #js-push.
+        {% endcomment %}
+        <div class="push-bar" id="js-push" data-vapid-key="{{ vapid_public_key }}"
+             data-url="{% url 'den_hurtige:save_subscription' %}">
+          {% csrf_token %}
+          <button type="button" id="js-push-button" hidden></button>
+          <span class="muted" id="js-push-message" hidden></span>
         </div>
-        <button type="button" class="btn btn-secondary" id="js-push-button" hidden></button>
-      </div>
-      <p class="muted" id="js-push-message" style="font-size:13.5px; margin-top:10px" hidden></p>
+      {% endif %}
     </div>
-  {% endif %}
 
-  {# --- Nyt opslag --- #}
-  <form class="card" method="post" action="{% url 'den_hurtige:create_post' %}"
-        enctype="multipart/form-data">
-    {% csrf_token %}
-    <h2>Slå op</h2>
-    <label for="id_content">Besked</label>
-    <textarea id="id_content" name="content" rows="3" maxlength="{{ max_content_chars }}" required
-              placeholder="Fx: Der er fælles kaffe i køkkenet om 10 minutter"></textarea>
-    <label for="id_image">Billede (valgfrit)</label>
-    <input type="file" id="id_image" name="image" accept="image/*">
-    <label for="id_duration">Relevant i</label>
-    <select id="id_duration" name="duration">
-      {% for minutes, label in duration_choices %}
-        <option value="{{ minutes }}" {% if minutes == default_duration %}selected{% endif %}>{{ label }}</option>
-      {% endfor %}
-    </select>
-    <p class="mt-3"><button type="submit" class="btn">Slå op</button></p>
-  </form>
+    {% comment %}
+      The message list. Polled so other residents' messages appear without a refresh;
+      frontend/src/feed.ts keeps the scroll position, re-opens threads and skips the swap entirely
+      while someone is typing in here.
+    {% endcomment %}
+    <div id="js-feed"
+         hx-get="{% url 'den_hurtige:feed_items' %}"
+         hx-trigger="every 20s"
+         hx-swap="innerHTML">
+      {% include "den_hurtige/_posts.html" %}
+    </div>
 
-  {% comment %}
-    Feed. Polled so posts from other residents appear without a refresh; frontend/src/feed.ts skips
-    the swap while someone is typing in here, so a poll never eats a half-written comment.
-    Multi-line comments must use this tag: the short form is single-line only and leaks otherwise.
-  {% endcomment %}
-  <div id="js-feed"
-       hx-get="{% url 'den_hurtige:feed_items' %}"
-       hx-trigger="every 20s"
-       hx-swap="innerHTML">
-    {% include "den_hurtige/_posts.html" %}
+    {% comment %}
+      Composer, pinned to the bottom like a chat input. `.main` is the scroll container (not the
+      window), so position:sticky is enough — no fixed positioning, which would fight the iOS
+      keyboard. The duration stays a native <select> so iOS gives it the wheel picker.
+    {% endcomment %}
+    <form class="composer" method="post" action="{% url 'den_hurtige:create_post' %}"
+          enctype="multipart/form-data" id="js-composer">
+      {% csrf_token %}
+      <label class="composer-attach" for="id_image" title="Vedhæft billede">
+        <span aria-hidden="true">📎</span>
+        <span class="sr-only">Vedhæft billede</span>
+        <input type="file" id="id_image" name="image" accept="image/*">
+      </label>
+
+      <div class="composer-main">
+        <label class="sr-only" for="id_content">Besked</label>
+        <textarea id="id_content" name="content" rows="1" maxlength="{{ max_content_chars }}" required
+                  placeholder="Skriv en besked…" enterkeyhint="enter"></textarea>
+        <div class="composer-file" id="js-composer-file" hidden></div>
+      </div>
+
+      <label class="composer-duration" title="Hvor længe beskeden er relevant">
+        <span class="sr-only">Relevant i</span>
+        <select name="duration">
+          {% for minutes, label in duration_choices %}
+            <option value="{{ minutes }}" {% if minutes == default_duration %}selected{% endif %}>⏱ {{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <button type="submit" class="composer-send" title="Send" aria-label="Send">↑</button>
+    </form>
   </div>
 {% endblock %}
