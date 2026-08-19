@@ -124,18 +124,47 @@
   .kv .l { color:var(--muted); } .kv .r { font-weight:600; }
   .code { font-family:ui-monospace,Menlo,monospace; background:var(--sunken); border:1px solid var(--border); border-radius:6px; padding:2px 8px; font-size:12.5px; }
 
-  /* --- Den Hurtige: chat layout (app/templates/den_hurtige/) ---------------------------------
-     `.main` is the scroll container, so the composer only needs position:sticky. The column is a
-     flex chain so the message list takes the slack and the composer sits on the bottom edge. */
-  .chat { display:flex; flex-direction:column; min-height:100%; gap:0; }
-  .chat-head { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:6px; }
+  /* Double-tap-to-zoom off. `manipulation` keeps panning and scrolling, and only drops the
+     double-tap gesture — so a mistimed second tap on a reaction no longer zooms the page. */
+  .no-zoom { touch-action: manipulation; }
+  /* iOS zooms the whole page when you focus an input whose text is under 16px, which is a third,
+     quieter way to end up zoomed in. Every focusable control in the chat therefore sits at 16px;
+     `zoom-safe` is the escape hatch for anything that must look smaller and is not focusable. */
+  .no-zoom input, .no-zoom textarea, .no-zoom select { font-size:16px; }
+
+  /* --- Den Hurtige: chat layout (app/templates/den_hurtige/) --------------------------------- */
+  /* Chat shell: the MESSAGE LIST scrolls, the page does not.
+     Sticky header/composer inside a scrolling page was the wrong model — with a short feed nothing
+     scrolled so the composer sat mid-screen, and with a long one the column overflowed and pushed
+     it below the fold. Here the app box is exactly the viewport, the header and composer are plain
+     flex children that cannot move, and #js-feed takes the slack and scrolls on its own.
+     `min-height:0` on every link in the chain is what allows that: a flex item defaults to
+     min-height:auto and would otherwise refuse to shrink below its content, overflowing instead.
+     All scoped to .chat-page so no other intern screen changes shape. */
+  .chat-page .app { height:100dvh; min-height:0; }
+  .chat-page .main { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+  /* No vertical padding: the header and composer bring their own and bleed to the gutters, so
+     inherited padding would leave both floating away from the edges they are meant to sit on. */
+  .chat-page .content { flex:1; min-height:0; display:flex; flex-direction:column;
+    padding-top:0; padding-bottom:0; }
+  .chat { display:flex; flex-direction:column; flex:1; min-height:0; gap:0; }
+  /* Pinned like a conversation title bar. It used to scroll away instantly: the feed jumps to the
+     newest message on load, so on a phone you never saw the header at all. Bleeds to the gutters
+     the same way the composer does, so nothing shows through behind it. */
+  .chat-head { flex:none;
+    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    background:var(--paper); border-bottom:1px solid var(--border);
+    margin:0 -30px; padding:8px 30px; }
   .chat-head h1 { font-size:22px; font-weight:750; margin:0; }
   .push-bar { display:flex; align-items:center; gap:10px; font-size:13px; }
   .push-bar button { font-size:13px; font-weight:600; padding:5px 12px; border-radius:999px;
     background:var(--surface); border:1px solid var(--border-strong); color:var(--ink); cursor:pointer; }
   .push-bar button:hover { background:var(--green-050); border-color:var(--green-100); color:var(--green-700); }
 
-  #js-feed { flex:1; padding:6px 0 14px; }
+  /* The one scrolling element on the page. overscroll-behavior stops a flick at either end from
+     chaining out and bouncing the whole app, which on iOS looks like the page has come loose. */
+  #js-feed { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch; padding:6px 0 14px; }
   .feed-empty { text-align:center; color:var(--muted); padding:40px 20px; }
 
   .msg { display:grid; grid-template-columns:34px 1fr; gap:10px; padding:9px 10px; border-radius:var(--radius);
@@ -181,7 +210,7 @@
     background:none; cursor:pointer; }
   .emoji-choice:hover { background:var(--green-050); }
   .emoji-other { grid-column:1 / -1; margin-top:4px; }
-  .emoji-other input { width:100%; font-size:12.5px; padding:5px 8px; text-align:center; }
+  .emoji-other input { width:100%; padding:5px 8px; text-align:center; }
 
   .thread { margin-top:6px; }
   .thread > summary { cursor:pointer; font-size:12.5px; font-weight:600; color:var(--green-700);
@@ -200,24 +229,40 @@
     font-size:12.5px; color:var(--muted); }
   .reply-notify input { width:auto; }
 
-  .composer { position:sticky; bottom:0; z-index:10; display:flex; align-items:flex-end; gap:8px;
+  /* Grid rather than a flex row so the duration can move to its own line on a narrow screen —
+     inline, its "30 minutter" select was eating ~40% of the width and squeezing the message box
+     down to a third of the bar. */
+  .composer { flex:none;
+    display:grid; grid-template-columns:auto 1fr auto auto; align-items:end; gap:8px;
+    grid-template-areas:"attach main duration send";
     background:var(--paper); border-top:1px solid var(--border); margin:0 -30px; padding:10px 30px;
-    /* Clears the iPhone home indicator in the installed PWA. */
+    /* Clears the iPhone home indicator in the installed PWA (needs viewport-fit=cover). */
     padding-bottom:calc(10px + env(safe-area-inset-bottom)); }
-  .composer-main { flex:1; min-width:0; }
+  .composer-attach { grid-area:attach; }
+  .composer-main { grid-area:main; }
+  .composer-duration { grid-area:duration; }
+  .composer-send { grid-area:send; }
+  .composer-main { min-width:0; }
   .composer textarea { resize:none; max-height:8.5rem; overflow-y:auto; padding:9px 12px; border-radius:18px; }
   .composer-attach { margin:0; cursor:pointer; font-size:19px; line-height:1; padding:8px 2px; }
   .composer-attach input { display:none; }
   .composer-file { font-size:12px; color:var(--muted); padding:3px 4px 0; }
   .composer-duration { margin:0; }
-  .composer-duration select { width:auto; font-size:12.5px; padding:6px 8px; border-radius:999px;
+  .composer-duration select { width:auto; padding:5px 8px; border-radius:999px;
     background:var(--surface-2); }
   .composer-send { flex:none; width:38px; height:38px; border-radius:50%; padding:0; font-size:17px;
     background:var(--green); color:#fff; border:0; cursor:pointer; }
   .composer-send:hover { background:var(--green-700); }
 
   @media (max-width:960px) {
-    .composer { margin:0 -18px; padding-left:18px; padding-right:18px; }
+    .chat-head { margin:0 -18px 6px; padding:7px 18px; }
+    .chat-head h1 { font-size:18px; }
+    /* Duration drops below the message box and sits left, so the text gets the full width. */
+    .composer { margin:0 -18px; padding-left:18px; padding-right:18px;
+      grid-template-columns:auto 1fr auto;
+      grid-template-areas:"attach main send"
+                          "duration duration duration"; }
+    .composer-duration { justify-self:start; }
   }
 
   /* --- banners (preview / dev clock) --- */
@@ -228,7 +273,13 @@
   .banner-dev { background:#3730a3; color:#fff; }
 
   @media (max-width:960px) {
-    .app { grid-template-columns:1fr; grid-template-areas:"brand" "top" "main"; }
+    /* The rows have to be redeclared with the areas: the desktop grid is two rows (auto 1fr) and
+       the mobile stack is three, so without this the flexible 1fr landed on the TOP BAR and `main`
+       fell into an implicit auto row. Invisible while .app only had min-height — it just left a
+       gap under the top bar — but with the chat shell's fixed height the top-bar row swallowed the
+       screen and pushed the whole conversation off the bottom. */
+    .app { grid-template-columns:1fr; grid-template-rows:auto auto 1fr;
+      grid-template-areas:"brand" "top" "main"; }
     .hamburger { display:block; }
     .topsearch { display:none; }
     .sidebar { position:fixed; top:0; left:0; bottom:0; width:264px; z-index:50; box-shadow:var(--shadow); transform:translateX(-100%); transition:transform .2s ease; }

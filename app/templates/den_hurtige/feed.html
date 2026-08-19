@@ -2,6 +2,21 @@
 {% block title %}Den Hurtige - GAHK Intern{% endblock %}
 {% block content_width %}max-w-3xl{% endblock %}
 
+{% comment %}
+  Den Hurtige is used one-handed on a phone and behaves like an app, so the browser's zoom gestures
+  get in the way rather than helping: a pinch while scrolling, or a double tap meant for a reaction,
+  leaves the composer off-screen. Locked here rather than in base.html so the rest of intern — the
+  alumneliste, statistik, long CMS pages — keeps pinch-to-zoom, which people genuinely need there.
+
+  This meta alone is not enough: iOS has ignored `user-scalable=no` since iOS 10 (deliberately, for
+  accessibility). It covers Android and desktop; `.no-zoom` and the gesture handlers in
+  frontend/src/feed.ts cover iOS.
+{% endcomment %}
+{% block viewport %}
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+{% endblock %}
+{% block body_class %}no-zoom chat-page{% endblock %}
+
 {% block content %}
   <div class="chat">
     <div class="chat-head">

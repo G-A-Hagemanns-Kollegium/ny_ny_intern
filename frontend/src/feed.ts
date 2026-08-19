@@ -4,7 +4,8 @@
 // default would throw away the reader's scroll position, collapse any open reply thread and delete
 // a half-written reply. Everything here exists to make that poll invisible.
 //
-// Note `.main` is the scroll container, not the window — see the .app grid in styles.css.
+// Note the scroll container is #js-feed itself, not the window and not `.main`: the chat shell is
+// exactly one viewport tall and only the message list scrolls (see .chat-page in styles.css).
 
 import { hookImageForms } from "./imageupload";
 
@@ -20,7 +21,9 @@ interface BeforeSwapDetail {
 }
 
 const feed = document.getElementById(FEED_ID);
-const scroller = document.querySelector<HTMLElement>(".main");
+// The list scrolls itself, so these are the same element — kept as two names because they mean
+// different things: one is the region being swapped, the other the thing whose scrollTop we keep.
+const scroller = feed;
 
 function isEditing(container: HTMLElement): boolean {
   const active = document.activeElement;
@@ -93,6 +96,20 @@ if (feed && scroller) {
     if (wasAtBottom) toBottom(scroller);
     else scroller.scrollTop = savedScrollTop;
   });
+}
+
+// ---- zoom lockdown (iOS) ---------------------------------------------------------------------
+// Safari has ignored `user-scalable=no` since iOS 10, on purpose, so the viewport meta in feed.html
+// only covers Android and desktop. Pinch-zoom on iOS is a Safari-specific gesture event, and
+// preventing it is the one thing that actually stops it. Double-tap zoom is handled in CSS by
+// `.no-zoom { touch-action: manipulation }`, and focus-zoom by keeping inputs at 16px.
+//
+// Scoped to this page: the rest of intern keeps pinch-to-zoom, which people need on the alumneliste
+// and long CMS pages. Disabling it site-wide would be a real accessibility regression.
+if (document.body.classList.contains("no-zoom")) {
+  for (const type of ["gesturestart", "gesturechange", "gestureend"]) {
+    document.addEventListener(type, (event: Event) => event.preventDefault(), { passive: false });
+  }
 }
 
 // ---- emoji picker ---------------------------------------------------------------------------
