@@ -1,7 +1,8 @@
 """Den Hurtige — the intern feed of short-lived urgent messages that replaces the Messenger group.
 
 Anyone who can reach it may post, comment and subscribe to push — but access itself is gated by
-den_hurtige.access during the staged rollout (administrators only at first). Posts self-destruct:
+den_hurtige.access during the staged rollout (administrators and Inspektionen at first). Posts
+self-destruct:
 `feed` purges expired ones on the way in, so the thread cannot accumulate the off-topic history
 admins struggled with on Messenger. Notification fan-out lives in services.py and runs off the
 request thread.
@@ -21,11 +22,10 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from residents.models import Role
-from residents.permissions import current_resident, request_has_role
+from residents.permissions import current_resident
 
 from . import services
-from .access import access_required, is_limited, request_allowed
+from .access import access_required, can_moderate, is_limited, request_allowed
 from .forms import PushSubscriptionForm, ReactionForm
 from .models import (
     DEFAULT_DURATION_MINUTES,
@@ -119,9 +119,10 @@ def feed(request: HttpRequest) -> HttpResponse:
             "max_content_chars": MAX_CONTENT_CHARS,
             "push_configured": services.is_configured(),
             "vapid_public_key": services.vapid_public_key(),
+            "quick_emoji": QUICK_EMOJI,
+            "can_moderate": can_moderate(request),
             # Tells the testers the page is not live yet, so they do not assume silence means
             # nobody cares. Disappears on its own when ACCESS_ROLES is set to None.
-            "quick_emoji": QUICK_EMOJI,
             "limited_rollout": is_limited(),
         },
     )
@@ -143,6 +144,7 @@ def feed_items(request: HttpRequest) -> HttpResponse:
             "posts": posts_for(request),
             "max_content_chars": MAX_CONTENT_CHARS,
             "quick_emoji": QUICK_EMOJI,
+            "can_moderate": can_moderate(request),
         },
     )
 
@@ -267,9 +269,10 @@ def toggle_reaction(request: HttpRequest, pk: int) -> HttpResponse:
 @require_POST
 @access_required
 def delete_post(request: HttpRequest, pk: int) -> HttpResponseRedirect:
-    """Authors clean up after themselves; administrators moderate. Everyone else gets a 403."""
+    """Authors clean up after themselves; administrators and Inspektionen moderate. Everyone else
+    gets a 403."""
     post = get_object_or_404(QuickPost, pk=pk)
-    if post.author_id != current_resident(request).pk and not request_has_role(request, Role.ADMINISTRATOR):
+    if post.author_id != current_resident(request).pk and not can_moderate(request):
         raise PermissionDenied
     post.delete()
     messages.success(request, "Opslaget er slettet.")

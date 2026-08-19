@@ -23,7 +23,18 @@ from residents.permissions import View, effective_roles
 
 # None = every logged-in resident. A tuple = only those roles (administrator implies every role, so
 # administrators and superusers are always in).
-ACCESS_ROLES: tuple[str, ...] | None = (Role.ADMINISTRATOR,)
+ACCESS_ROLES: tuple[str, ...] | None = (Role.ADMINISTRATOR, Role.INSPEKTION)
+
+# Who may delete somebody else's message. Inspektionen keep the kollegium's house rules, so they
+# moderate the chat the same way they do everything else; administrator is listed for readability
+# even though it already implies every role (see residents.permissions.real_roles).
+MODERATOR_ROLES = (Role.ADMINISTRATOR, Role.INSPEKTION)
+
+
+def can_moderate(request: HttpRequest) -> bool:
+    """Whether this request may delete other people's messages. Uses *effective* roles, so an
+    administrator previewing as a beboer correctly loses the delete buttons."""
+    return request.user.is_authenticated and not effective_roles(request).isdisjoint(MODERATOR_ROLES)
 
 
 def is_limited() -> bool:

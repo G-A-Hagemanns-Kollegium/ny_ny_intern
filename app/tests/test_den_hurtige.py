@@ -37,6 +37,11 @@ from residents.models import Resident, Role
 
 FEED_URL = "/nyintern/den-hurtige/"
 
+# The rollout gate exactly as den_hurtige.access ships it, captured at import — before the autouse
+# fixture below lifts it. Hardcoding a copy here is what made the Inspektionen tests fail when they
+# were added to the real tuple: the fixture kept restoring a narrower, stale set.
+CONFIGURED_ACCESS_ROLES = access.ACCESS_ROLES
+
 pytestmark = pytest.mark.django_db
 
 
@@ -55,8 +60,8 @@ def rollout_open(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def rollout_limited(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Restore the trial gate — runs after the autouse fixture, so it wins."""
-    monkeypatch.setattr(access, "ACCESS_ROLES", (Role.ADMINISTRATOR,))
+    """Restore the trial gate as configured — runs after the autouse fixture, so it wins."""
+    monkeypatch.setattr(access, "ACCESS_ROLES", CONFIGURED_ACCESS_ROLES)
 
 
 def subscribe(user: Resident, endpoint: str) -> PushSubscription:
@@ -1213,3 +1218,88 @@ def test_the_reply_form_accepts_files(client: Client, make_resident: Callable[..
     )
     assert 'type="file"' in form
     assert 'accept="image/*"' in form
+
+
+# --- zoom lockdown -------------------------------------------------------------------------------
+
+
+def test_den_hurtige_locks_the_viewport(client: Client, make_resident: Callable[..., Resident]) -> None:
+    """One-handed chat use: a stray pinch or a double tap meant for a reaction leaves the composer
+    off-screen. The meta covers Android and desktop; feed.ts covers iOS, which ignores it."""
+    client.force_login(make_resident(email="a@gahk.dk"))
+
+    html = client.get(FEED_URL).content.decode()
+
+    assert "user-scalable=no" in html
+    assert "maximum-scale=1" in html
+    assert "no-zoom" in html  # what the CSS and the gesture handlers key off
+    assert "chat-page" in html  # the layout hook that fills the scroll area
+    assert "viewport-fit=cover" in html  # so the composer can use the safe-area inset
+
+
+def test_the_rest_of_intern_keeps_pinch_zoom(client: Client, make_resident: Callable[..., Resident]) -> None:
+    """Locking zoom site-wide would be a real accessibility regression — the alumneliste and long
+    CMS pages are exactly where people pinch. The override has to stay scoped to Den Hurtige."""
+    client.force_login(make_resident(email="a@gahk.dk"))
+
+    html = client.get("/nyintern/").content.decode()
+
+    assert "user-scalable=no" not in html
+    assert "no-zoom" not in html
+
+
+# --- Inspektionen: viewers and moderators ---------------------------------------------------------
+
+
+def test_inspektionen_can_open_the_chat_during_the_trial(
+    client: Client, make_resident: Callable[..., Resident], rollout_limited: None
+) -> None:
+    """Inspektionen are in the trial alongside the administrators."""
+    client.force_login(make_resident(email="insp@gahk.dk", roles=(Role.INSPEKTION,)))
+
+    assert client.get(FEED_URL).status_code == 200
+    assert FEED_URL in client.get("/nyintern/").content.decode()  # and the sidebar advertises it
+
+
+def test_inspektionen_can_delete_someone_elses_message(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """They keep the kollegium's house rules, so they moderate the chat too."""
+    author = make_resident(email="a@gahk.dk")
+    inspektion = make_resident(email="insp@gahk.dk", roles=(Role.INSPEKTION,))
+    post = QuickPost.objects.create(author=author, content="Noget upassende")
+
+    client.force_login(inspektion)
+    response = client.post(f"{FEED_URL}{post.pk}/slet")
+
+    assert response.status_code == 302
+    assert not QuickPost.objects.filter(pk=post.pk).exists()
+
+
+def test_a_plain_resident_still_cannot_delete_other_messages(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    author = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=author, content="Min besked")
+
+    client.force_login(make_resident(email="beboer@gahk.dk"))
+
+    assert client.post(f"{FEED_URL}{post.pk}/slet").status_code == 403
+    assert QuickPost.objects.filter(pk=post.pk).exists()
+
+
+@pytest.mark.parametrize(
+    ("roles", "expected"),
+    [((Role.INSPEKTION,), True), ((Role.ADMINISTRATOR,), True), ((), False), ((Role.AK,), False)],
+)
+def test_only_moderators_see_the_delete_button_on_other_messages(
+    client: Client, make_resident: Callable[..., Resident], roles: tuple, expected: bool
+) -> None:
+    """The button has to follow the permission, or people meet a 403 they could not have predicted."""
+    author = make_resident(email="a@gahk.dk")
+    QuickPost.objects.create(author=author, content="Andres besked")
+    client.force_login(make_resident(email="viewer@gahk.dk", roles=roles))
+
+    html = client.get(FEED_URL).content.decode()
+
+    assert ("Slet besked" in html) is expected

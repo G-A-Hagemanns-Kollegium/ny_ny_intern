@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% block viewport %}<meta name="viewport" content="width=device-width, initial-scale=1">{% endblock %}
   <meta name="theme-color" content="#1F5A3A">
   <title>{% block title %}G. A. Hagemanns Kollegium{% endblock %}</title>
   <link rel="icon" href="{% static 'legacy/image/elements/lamassu.svg' %}" type="image/svg+xml">
@@ -12,7 +12,7 @@
   <link rel="manifest" href="{% static 'manifest.json' %}">
   <script src="{% static 'dist/app.js' %}" defer></script>
 </head>
-<body x-data="{ sidebar: false }">
+<body class="{% block body_class %}{% endblock %}" x-data="{ sidebar: false }">
   {# Icon sprite: referenced from the sidebar via <use href="#i-…">. Stroke inherits the item colour. #}
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <defs>
