@@ -215,3 +215,6 @@ LOGGING = {
         }
     },
 }
+
+# CMS image uploads (editors add pictures from the admin instead of committing them to the repo).
+CMS_IMAGE_MAX_MB = int(os.environ.get("CMS_IMAGE_MAX_MB", "5"))
