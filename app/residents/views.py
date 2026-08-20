@@ -31,7 +31,7 @@ from .models import (
     active_period,
     next_period,
 )
-from .permissions import effective_roles, role_required
+from .permissions import current_resident, effective_roles, role_required
 
 logger = logging.getLogger(__name__)
 
@@ -434,14 +434,31 @@ def _room_taken(room: Room, year: int, month: int, exclude_resident_id: int | No
     return qs.exists()
 
 
+def _target_period(request: HttpRequest, current: tuple[int, int]) -> tuple[int, int]:
+    """Which month the list editor is working on: next (the default) or the one in effect.
+
+    Deliberately only those two. Editing an arbitrary past month would rewrite history — room
+    occupancy and embedsgruppe are what the stamtræ, kvotient and role assignments are read from —
+    and nothing in the kollegium's workflow needs it. Anything unrecognised falls back to next month.
+    """
+    if request.POST.get("period", request.GET.get("period", "")) == "current":
+        return current
+    return next_period(current)
+
+
 @role_required("indstilling")  # administrator/superuser pass via all-access
 def next_month_list(request: HttpRequest) -> HttpResponse | HttpResponseRedirect:
-    """Indstilling (and admin) prepare next month's alumneliste: copy the list forward, then edit each
-    resident's room, embedsgruppe (workgroup) and cleaning, and add/remove people. A privileged
-    embedsgruppe grants the matching role for next month; `administrator` is carried forward. Changes
-    take effect only when next month becomes the active period (see active_period)."""
+    """Indstilling (and admin) edit an alumneliste: copy the list forward, then set each resident's
+    room, embedsgruppe (workgroup) and cleaning, and add/remove people. A privileged embedsgruppe
+    grants the matching role for that month; `administrator` is carried forward.
+
+    Works on **next month** by default, and on the **current** one when asked (?period=current), so a
+    mistake in the live list can be fixed instead of waiting for the month to roll over. Editing the
+    live list takes effect immediately — including role assignments — which is why the template says
+    so plainly and why self-removal is refused below."""
     cy, cm = active_period()
-    ny, nm = next_period((cy, cm))
+    ny, nm = _target_period(request, (cy, cm))
+    editing_current = (ny, nm) == (cy, cm)
     rooms = list(Room.objects.order_by("number"))
     workgroups = list(Workgroup.objects.order_by("name"))
     cleanings = list(Cleaning.objects.order_by("name"))
@@ -476,9 +493,16 @@ def next_month_list(request: HttpRequest) -> HttpResponse | HttpResponseRedirect
         elif action == "save":  # edit room/workgroup/cleaning + remove people
             removed: set[int] = set()
             intended: dict[int, tuple[Room, Workgroup | None, Cleaning | None]] = {}
+            me = current_resident(request).pk
             for res in Residency.objects.filter(year=ny, month=nm):
                 rid = res.resident_id
                 if request.POST.get(f"remove_{rid}"):
+                    if editing_current and rid == me:
+                        # Removing yourself from the *live* list revokes your own indstilling role
+                        # on the next request — you would be locked out of the page mid-edit with
+                        # no way back. Removing yourself from next month is fine and still allowed.
+                        messages.error(request, "Du kan ikke fjerne dig selv fra den nuværende måned.")
+                        continue
                     removed.add(rid)
                     continue
                 room: Room | None = _pick(room_by_id, request.POST.get(f"room_{rid}", "")) or res.room
@@ -567,8 +591,12 @@ def next_month_list(request: HttpRequest) -> HttpResponse | HttpResponseRedirect
                 messages.error(request, f"Værelse {room.number:03d} er allerede optaget i {ny}-{nm:02d}.")
             else:
                 wg = _pick(wg_by_id, request.POST.get("workgroup", ""))
+                # Fylgje is set here rather than left for a follow-up edit: whoever adds a newcomer
+                # knows who introduced them right then, and a separate trip through the edit form is
+                # exactly the step that gets skipped, leaving holes in the stamtræ (F-011).
+                sponsor = _pick({r.id: r for r in Resident.objects.all()}, request.POST.get("sponsor", ""))
                 with transaction.atomic():
-                    r = Resident(email=email, first_name=first, last_name=last)
+                    r = Resident(email=email, first_name=first, last_name=last, sponsor=sponsor)
                     r.set_unusable_password()  # they set one via the welcome/password-reset link (F-014)
                     r.save()
                     Residency.objects.create(
@@ -590,7 +618,7 @@ def next_month_list(request: HttpRequest) -> HttpResponse | HttpResponseRedirect
                         "og tjek serverloggen.",
                     )
 
-        return redirect("next_month_list")
+        return redirect(f"{reverse('next_month_list')}?period={'current' if editing_current else 'next'}")
 
     next_rows = list(
         Residency.objects.filter(year=ny, month=nm)
@@ -613,6 +641,10 @@ def next_month_list(request: HttpRequest) -> HttpResponse | HttpResponseRedirect
             "available": available,
             "target": f"{ny}-{nm:02d}",
             "current_period": f"{cy}-{cm:02d}",
+            "editing_current": editing_current,
+            # Fylgje picker on the "create a new resident" form, so lineage is recorded at the point
+            # the person is added rather than in a follow-up edit nobody remembers to make.
+            "all_residents": Resident.objects.order_by("first_name", "last_name"),
             "priv_names": sorted(WORKGROUP_ROLE.keys()),
         },
     )

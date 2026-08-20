@@ -26,6 +26,7 @@ from pywebpush import WebPushException
 from den_hurtige import access, services
 from den_hurtige.checks import check_vapid_public_key
 from den_hurtige.models import (
+    DEFAULT_DURATION_MINUTES,
     QUICK_EMOJI,
     PushSubscription,
     QuickComment,
@@ -312,7 +313,9 @@ def test_create_post_rejects_an_unknown_duration(
 
     client.post(FEED_URL + "opret", {"content": "Fest", "duration": "99999"})
 
-    assert QuickPost.objects.get().minutes_left <= 60  # clamped back to the default
+    # Against the constant, not a hardcoded 60: this assertion went stale the moment the
+    # default duration changed.
+    assert QuickPost.objects.get().minutes_left <= DEFAULT_DURATION_MINUTES
 
 
 def test_create_post_stores_an_attached_image(
