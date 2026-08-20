@@ -36,14 +36,20 @@
         </a>
       {% endif %}
 
-      {% include "den_hurtige/_reactions.html" with reactions=post.reaction_rows %}
-
       {% comment %}
-        Native <details> for the thread: no JS, works on iOS, keyboard accessible. frontend/src/feed.ts
-        re-opens whatever was open after a poll swap, otherwise reading a thread would be interrupted
-        every 20 seconds.
+        Reactions and the reply toggle share one row. Both are always rendered — the picker and
+        a "Svar" link exist even with nothing on the message — so as two stacked rows they cost
+        about 54px of every message before a word of content. Side by side that halves.
       {% endcomment %}
-      <details class="thread" id="thread-{{ post.pk }}">
+      <div class="msg-actions">
+        {% include "den_hurtige/_reactions.html" with reactions=post.reaction_rows %}
+
+        {% comment %}
+          Native <details> for the thread: no JS, works on iOS, keyboard accessible. frontend/src/feed.ts
+          re-opens whatever was open after a poll swap, otherwise reading a thread would be
+          interrupted every 20 seconds.
+        {% endcomment %}
+        <details class="thread" id="thread-{{ post.pk }}">
         <summary>
           {% with n=post.comments.all|length %}
             {% if n %}{{ n }} svar{% else %}Svar{% endif %}
@@ -81,7 +87,8 @@
             <input type="checkbox" name="notify" value="alle"> Underret alle
           </label>
         </form>
-      </details>
+        </details>
+      </div>
     </div>
   </article>
 {% empty %}

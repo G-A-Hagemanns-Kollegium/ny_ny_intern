@@ -17,8 +17,15 @@ from django.utils import timezone
 
 # How long a post stays visible. The default matches the Messenger group's informal "relevant the
 # next 30-60 min" convention; the compose form lets the author pick from DURATION_CHOICES.
-DEFAULT_DURATION_MINUTES = 60
-DURATION_CHOICES = [(30, "30 minutter"), (60, "1 time"), (120, "2 timer"), (240, "4 timer")]
+DEFAULT_DURATION_MINUTES = 1440
+DURATION_CHOICES = [
+    (30, "30 min"),
+    (60, "1 time"),
+    (120, "2 timer"),
+    (240, "4 timer"),
+    (720, "12 timer"),
+    (1440, "1 døgn"),
+]
 
 # One-tap reactions offered by the picker. Any emoji is still accepted (forms.ReactionForm) — this
 # is only the shortlist, because in a desktop browser a bare text field gives you a cursor and no
