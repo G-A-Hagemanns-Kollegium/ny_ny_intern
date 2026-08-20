@@ -167,8 +167,8 @@
     -webkit-overflow-scrolling:touch; padding:6px 0 14px; }
   .feed-empty { text-align:center; color:var(--muted); padding:40px 20px; }
 
-  .msg { display:grid; grid-template-columns:34px 1fr; gap:10px; padding:9px 10px; border-radius:var(--radius);
-    margin-top:10px; }
+  .msg { display:grid; grid-template-columns:34px 1fr; gap:10px; padding:6px 10px; border-radius:var(--radius);
+    margin-top:6px; }
   /* Continuation of the same sender: no repeated avatar/name, tighter spacing. */
   .msg-grouped { margin-top:1px; }
   .msg-own { background:var(--green-050); }
@@ -190,7 +190,11 @@
   .msg-del button:hover { color:var(--neg); }
   @media (hover:none) { .msg-del button { opacity:.55; } }
 
-  .reactions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px; }
+  /* Reactions + reply toggle on one line. `.thread` only claims the full width once it is open,
+     so the collapsed state stays beside the pills and the expanded one gets room for replies. */
+  .msg-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:5px; }
+  .msg-actions .thread[open] { flex-basis:100%; }
+  .reactions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
   .reaction { display:inline-flex; align-items:center; gap:5px; font-size:13px; line-height:1;
     padding:4px 9px; border-radius:999px; cursor:pointer;
     background:var(--surface); border:1px solid var(--border-strong); color:var(--ink); }
@@ -212,7 +216,7 @@
   .emoji-other { grid-column:1 / -1; margin-top:4px; }
   .emoji-other input { width:100%; padding:5px 8px; text-align:center; }
 
-  .thread { margin-top:6px; }
+  .thread { min-width:0; }
   .thread > summary { cursor:pointer; font-size:12.5px; font-weight:600; color:var(--green-700);
     list-style:none; padding:2px 0; }
   .thread > summary::-webkit-details-marker { display:none; }
@@ -255,8 +259,22 @@
   .composer-send:hover { background:var(--green-700); }
 
   @media (max-width:960px) {
-    .chat-head { margin:0 -18px 6px; padding:7px 18px; }
-    .chat-head h1 { font-size:18px; }
+    /* The branding bar is 60px of "GAHK Intern" above a page whose own header already says where
+       you are. On a phone that is a quarter of the chat gone before the first message, so it goes
+       — the hamburger and the topbar still carry every link it held. */
+    .chat-page .brandcell { display:none; }
+    .chat-head { margin:0 -18px; padding:5px 18px; }
+    .chat-head h1 { font-size:16px; }
+    .push-bar button { padding:3px 10px; font-size:12px; }
+    /* Tighter message boxes: smaller avatar, less padding, tighter leading. */
+    .msg { grid-template-columns:26px 1fr; gap:8px; padding:4px 8px; margin-top:4px; }
+    .msg-avatar { width:26px; height:26px; font-size:11px; }
+    .msg-name { font-size:13.5px; }
+    .msg-text { font-size:14.5px; line-height:1.35; }
+    .msg-actions { gap:8px; margin-top:4px; }
+    .reaction, .reaction-add { padding:3px 8px; font-size:12.5px; }
+    .thread > summary { font-size:12px; }
+    #js-feed { padding:2px 0 8px; }
     /* Duration drops below the message box and sits left, so the text gets the full width. */
     .composer { margin:0 -18px; padding-left:18px; padding-right:18px;
       grid-template-columns:auto 1fr auto;
