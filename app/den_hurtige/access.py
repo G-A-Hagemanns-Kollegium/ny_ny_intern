@@ -1,14 +1,19 @@
 """Who may reach Den Hurtige — the single switch for its staged rollout.
 
-The feature is being trialled with the administrator group before the whole kollegium is invited, so
-that a bad notification experience (or a Brave user who cannot subscribe) is discovered by three
-people rather than a hundred.
+The feature is being trialled with the administrator group and Inspektionen before the whole
+kollegium is invited, so that a bad notification experience (or a Brave user who cannot subscribe)
+is discovered by three people rather than a hundred.
 
     TO OPEN IT TO EVERY RESIDENT: set ACCESS_ROLES = None.
 
-That one edit widens the views, the sidebar entry and the live-feed poll together. Once the rollout
-is finished, this module and the `access_required` decorator can be deleted outright and the views
-can go back to plain @login_required.
+That one edit widens the views, the sidebar entry and the live-feed poll together. Note that it does
+NOT widen individual channels: den_hurtige.channels carries its own per-channel `roles`, which
+stacks on top of this one — so a channel restricted to a role stays restricted after the rollout
+ends. This gate is about the feature; that one is about one feed within it.
+
+Once the rollout is finished, `ACCESS_ROLES = None` leaves the module doing useful work still —
+MODERATOR_ROLES lives here, and `roles_allowed` is the function den_hurtige.channels.allowed
+mirrors — so it need not be deleted along with the trial.
 """
 
 from collections.abc import Collection
@@ -23,6 +28,10 @@ from residents.permissions import View, effective_roles
 
 # None = every logged-in resident. A tuple = only those roles (administrator implies every role, so
 # administrators and superusers are always in).
+#
+# Still gated while channels are being tried out: the trial group sees all five feeds, so the tab
+# strip's live-post counts will mostly read zero until the rollout opens. That is the trial, not a
+# bug — whether topic channels help is a question only a full kollegium can answer.
 ACCESS_ROLES: tuple[str, ...] | None = (Role.ADMINISTRATOR, Role.INSPEKTION)
 
 # Who may delete somebody else's message. Inspektionen keep the kollegium's house rules, so they

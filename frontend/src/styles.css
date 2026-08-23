@@ -156,10 +156,35 @@
     background:var(--paper); border-bottom:1px solid var(--border);
     margin:0 -30px; padding:8px 30px; }
   .chat-head h1 { font-size:22px; font-weight:750; margin:0; }
+  /* Channel strip. `order:1` with the header's flex-wrap puts it on its own line below the title
+     rather than squeezing between the title and the push controls, and 100% width is what forces
+     that wrap. Scrolls sideways instead of wrapping again, so adding a fourth channel lengthens
+     the strip rather than growing the header and eating the feed. */
+  .chat-tabs { order:1; width:100%; display:flex; gap:6px; overflow-x:auto; scrollbar-width:none;
+    padding-bottom:2px; }
+  .chat-tabs::-webkit-scrollbar { display:none; }
+  .chat-tab { flex:none; display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
+    padding:5px 12px; border-radius:999px; font-size:13.5px; font-weight:600;
+    color:var(--muted); border:1px solid transparent; text-decoration:none; }
+  .chat-tab:hover { background:var(--green-050); color:var(--green-700); }
+  .chat-tab.active { background:var(--surface); border-color:var(--border-strong); color:var(--ink); }
+  .chat-tab .ni { width:15px; height:15px; }
+  /* Live (unexpired) posts in that channel, not an unread count — see views.channel_counts. */
+  .chat-tab-count { font-size:11.5px; font-weight:700; padding:0 6px; border-radius:999px;
+    background:var(--green-100); color:var(--green-700); }
+  .chat-tab.active .chat-tab-count { background:var(--brass); color:#fff; }
+
+  .chat-mute button { font-size:13px; padding:5px 12px; border-radius:999px; }
+
   .push-bar { display:flex; align-items:center; gap:10px; font-size:13px; }
   .push-bar button { font-size:13px; font-weight:600; padding:5px 12px; border-radius:999px;
     background:var(--surface); border:1px solid var(--border-strong); color:var(--ink); cursor:pointer; }
   .push-bar button:hover { background:var(--green-050); border-color:var(--green-100); color:var(--green-700); }
+  /* Already subscribed: this drops to a quiet link so the per-channel bell is the loud control.
+     See frontend/src/push.ts for why it is demoted rather than removed. */
+  .push-bar button.is-quiet { background:none; border-color:transparent; color:var(--muted);
+    font-weight:500; text-decoration:underline; padding:5px 4px; }
+  .push-bar button.is-quiet:hover { background:none; color:var(--ink); }
 
   /* The one scrolling element on the page. overscroll-behavior stops a flick at either end from
      chaining out and bouncing the whole app, which on iOS looks like the page has come loose. */
@@ -265,7 +290,9 @@
     .chat-page .brandcell { display:none; }
     .chat-head { margin:0 -18px; padding:5px 18px; }
     .chat-head h1 { font-size:16px; }
-    .push-bar button { padding:3px 10px; font-size:12px; }
+    .chat-tab { padding:4px 10px; font-size:12.5px; }
+    .chat-tab .ni { width:13px; height:13px; }
+    .push-bar button, .chat-mute button { padding:3px 10px; font-size:12px; }
     /* Tighter message boxes: smaller avatar, less padding, tighter leading. */
     .msg { grid-template-columns:26px 1fr; gap:8px; padding:4px 8px; margin-top:4px; }
     .msg-avatar { width:26px; height:26px; font-size:11px; }

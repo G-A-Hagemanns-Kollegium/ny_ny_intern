@@ -8,6 +8,7 @@ class DenHurtigeConfig(AppConfig):
     verbose_name = "Den Hurtige"
 
     def ready(self) -> None:
-        from .checks import check_vapid_public_key
+        from .checks import check_channels, check_vapid_public_key
 
         register(check_vapid_public_key)
+        register(check_channels)
