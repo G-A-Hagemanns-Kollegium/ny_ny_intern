@@ -25,6 +25,7 @@ from django.db.models import QuerySet
 from django.templatetags.static import static
 from pywebpush import WebPushException, webpush
 
+from . import channels
 from .models import PushSubscription
 
 if TYPE_CHECKING:
@@ -36,7 +37,6 @@ logger = logging.getLogger(__name__)
 # it rather than deliver it to a phone that comes back online tomorrow.
 TTL_SECONDS = 3600
 
-FEED_URL = "/nyintern/den-hurtige/"
 BODY_PREVIEW_CHARS = 120
 
 # Endpoints a browser has permanently discarded. 410 Gone is the documented signal; FCM also answers
@@ -61,7 +61,7 @@ def _preview(text: str) -> str:
     return text[: BODY_PREVIEW_CHARS - 1].rstrip() + "…"
 
 
-def _payload(head: str, body: str) -> dict[str, str]:
+def _payload(head: str, body: str, url: str) -> dict[str, str]:
     """The JSON the service worker (app/templates/sw.js) reads: head/body/icon/url.
 
     `head` is the sender, not the feature. Every platform already labels the notification with the
@@ -69,14 +69,34 @@ def _payload(head: str, body: str) -> dict[str, str]:
     title like "Ny besked på Den Hurtige" said it twice and pushed the part that matters (who, and
     what they wrote) down into the body. Titling with the person and leaving the body to the message
     is what every chat app does, and it is what makes a lock screen readable at a glance.
+
+    `url` is the *channel's* URL, so tapping the notification opens the feed the message is actually
+    in rather than the default one. sw.js needs no change for this — it already reads `url` from the
+    payload and hands it to notificationclick. Note there is still deliberately no `tag`: see sw.js
+    for why (a shared tag makes each notification replace the last, so a second post would silently
+    overwrite the first — as true within one channel as it was across the whole feed).
     """
-    return {"head": head, "body": body, "icon": static("icons/icon-192x192.png"), "url": FEED_URL}
+    return {"head": head, "body": body, "icon": static("icons/icon-192x192.png"), "url": url}
 
 
-def subscribers(exclude_user_id: int | None = None) -> QuerySet[PushSubscription]:
-    """Every subscribed device, optionally minus one user's (normally the author — they just pressed
-    the button, so a push back to their own phone is pure noise)."""
-    qs = PushSubscription.objects.all()
+def _channel_url(slug: str) -> str:
+    """Deep link for a channel's push notification. A post filed under a channel that has since
+    been retired from the registry links to the default feed rather than a 404."""
+    channel = channels.lookup(slug) or channels.DEFAULT
+    return channel.url
+
+
+def subscribers(channel: str, exclude_user_id: int | None = None) -> QuerySet[PushSubscription]:
+    """Every device that should hear about something in `channel`.
+
+    Muting is per resident and stored as a row's *presence* (ChannelMute), so every channel notifies
+    everyone until someone opts out — the opposite of a subscribe model, and deliberately so: a new
+    channel that notifies nobody until people find it is a new channel nobody posts in.
+
+    `exclude_user_id` drops one user's devices, normally the author's — they just pressed the
+    button, so a push back to their own phone is pure noise.
+    """
+    qs = PushSubscription.objects.exclude(user__channel_mutes__channel=channel)
     if exclude_user_id is not None:
         qs = qs.exclude(user_id=exclude_user_id)
     return qs
@@ -146,24 +166,33 @@ def _run_in_background(fn: Callable[[], object]) -> None:
 
 
 def notify_new_post(post: "QuickPost") -> None:
-    """Announce a new post to every subscriber except its author."""
+    """Announce a new post to every subscriber except its author, minus anyone who muted the
+    channel it was posted in."""
     if not is_configured():
         return
-    payload = _payload(post.author.full_name, _preview(post.content))
-    recipients = subscribers(exclude_user_id=post.author_id)
+    payload = _payload(post.author.full_name, _preview(post.content), _channel_url(post.channel))
+    recipients = subscribers(post.channel, exclude_user_id=post.author_id)
     _run_in_background(lambda: _dispatch(recipients, payload))
 
 
 def notify_new_comment(comment: "QuickComment") -> None:
     """Announce a comment. `notify_everyone` decides the audience; the commenter never gets their
-    own comment back, and a reply to your own post notifies nobody."""
+    own comment back, and a reply to your own post notifies nobody.
+
+    A direct reply reaches the original poster even if they muted the channel: they are not being
+    broadcast at, they are being answered, and a mute is about the channel's chatter rather than
+    about replies to one's own message.
+    """
     if not is_configured():
         return
+    channel = comment.post.channel
     if comment.notify_everyone:
-        recipients = subscribers(exclude_user_id=comment.author_id)
+        recipients = subscribers(channel, exclude_user_id=comment.author_id)
     elif comment.author_id == comment.post.author_id:
         return  # commenting on your own post: the only recipient would be yourself
     else:
-        recipients = subscribers().filter(user_id=comment.post.author_id)
-    payload = _payload(f"{comment.author.full_name} svarede", _preview(comment.content))
+        recipients = PushSubscription.objects.filter(user_id=comment.post.author_id)
+    payload = _payload(
+        f"{comment.author.full_name} svarede", _preview(comment.content), _channel_url(channel)
+    )
     _run_in_background(lambda: _dispatch(recipients, payload))

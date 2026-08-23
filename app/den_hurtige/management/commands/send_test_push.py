@@ -17,7 +17,7 @@ import json
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 from pywebpush import WebPushException
 
-from den_hurtige import services
+from den_hurtige import channels, services
 from den_hurtige.models import PushSubscription
 from residents.models import Resident
 
@@ -51,7 +51,13 @@ class Command(BaseCommand):
                 "press 'Slå notifikationer til' first."
             )
 
-        payload = services._payload("Test fra Den Hurtige", "Hvis du kan se denne, virker push.")
+        # Deep-links to the default channel: this is a delivery test, and the notification should
+        # land somewhere real when tapped.
+        payload = services._payload(
+            "Test fra Den Hurtige",
+            "Hvis du kan se denne, virker push.",
+            channels.DEFAULT.url,
+        )
         body = json.dumps(payload)
 
         failures = 0

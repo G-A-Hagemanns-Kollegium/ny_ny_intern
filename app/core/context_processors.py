@@ -92,14 +92,37 @@ def _nav_intern(roles: Collection[str]) -> list[NavSection]:
     return [s for s in sections if s[1]]
 
 
+def _active_nav_url(sections: list[NavSection], path: str) -> str:
+    """Which sidebar item to highlight for `path` — the longest one that is a prefix of it.
+
+    base.html used to compare `request.path == url`, which broke as soon as a nav destination grew
+    sub-pages: /nyintern/den-hurtige/i-byen/ is a real page under the "Den Hurtige" item but is not
+    that item's URL, so nothing lit up. Longest-prefix keeps the more specific item winning where
+    two nest (/nyintern/ak/ vs /nyintern/ak/admin) — the behaviour exact matching already had.
+
+    External links (the wiki, the feedback form) are skipped: they are never the current page, and
+    an https:// prefix could not match a path anyway.
+    """
+    best = ""
+    for _section, items in sections:
+        for url, _label, _icon in items:
+            if "://" in url:
+                continue
+            if path.startswith(url) and len(url) > len(best):
+                best = url
+    return best
+
+
 def navigation(request: HttpRequest) -> dict[str, object]:
     authed = request.user.is_authenticated
     roles = effective_roles(request) if authed else set()
     previewer = can_preview(request.user) if authed else False
+    nav_intern = _nav_intern(roles) if authed else []
     ctx: dict[str, object] = {
         "nav_legacy": NAV_LEGACY,
         "nav_public": NAV_PUBLIC,
-        "nav_intern": _nav_intern(roles) if authed else [],
+        "nav_intern": nav_intern,
+        "active_nav_url": _active_nav_url(nav_intern, request.path),
         "effective_roles": sorted(roles),
         "preview_active": bool(previewer and "preview_roles" in request.session),
         "can_preview": previewer,

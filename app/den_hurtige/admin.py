@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import PushSubscription, QuickComment, QuickPost
+from .models import ChannelMute, PushSubscription, QuickComment, QuickPost
 
 
 class QuickCommentInline(admin.TabularInline):
@@ -11,8 +11,11 @@ class QuickCommentInline(admin.TabularInline):
 
 @admin.register(QuickPost)
 class QuickPostAdmin(admin.ModelAdmin):
-    list_display = ("author", "created_at", "expires_at", "is_expired")
-    list_filter = ("created_at",)
+    list_display = ("author", "channel", "created_at", "expires_at", "is_expired")
+    # `channel` is a free CharField (the registry lives in code, not this table), so the filter
+    # lists the slugs actually in use rather than the ones currently defined — which is the more
+    # useful question in the admin anyway: it shows leftovers from a retired channel.
+    list_filter = ("channel", "created_at")
     search_fields = ("content", "author__first_name", "author__last_name", "author__email")
     readonly_fields = ("created_at",)
     inlines = [QuickCommentInline]
@@ -35,3 +38,13 @@ class PushSubscriptionAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request: object) -> bool:
         return False
+
+
+@admin.register(ChannelMute)
+class ChannelMuteAdmin(admin.ModelAdmin):
+    """Mostly a support tool: "why am I not getting notifications from i-byen?" is answered here."""
+
+    list_display = ("resident", "channel", "created_at")
+    list_filter = ("channel",)
+    search_fields = ("resident__first_name", "resident__last_name", "resident__email")
+    readonly_fields = ("created_at",)

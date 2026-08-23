@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Den Hurtige - GAHK Intern{% endblock %}
+{% block title %}{{ channel.name }} - Den Hurtige - GAHK Intern{% endblock %}
 {% block content_width %}max-w-3xl{% endblock %}
 
 {% comment %}
@@ -20,7 +20,28 @@
 {% block content %}
   <div class="chat">
     <div class="chat-head">
-      <h1>Den Hurtige {% if limited_rollout %}<span class="chip chip-brass">Under test</span>{% endif %}</h1>
+      <h1>{{ channel.name }} {% if limited_rollout %}<span class="chip chip-brass">Under test</span>{% endif %}</h1>
+
+      {% comment %}
+        Channel switcher. A strip of links rather than a second sidebar entry per channel: switching
+        feed is a thing you do constantly and navigating a menu for it would be absurd, and the
+        sidebar is already long. Plain <a> hrefs, so each channel is a real URL you can share and
+        the browser's back button does the obvious thing.
+
+        The count is live (unexpired) posts, not unread ones — see views.channel_counts for why.
+      {% endcomment %}
+      {% if tabs|length > 1 %}
+        <nav class="chat-tabs" aria-label="Kanaler">
+          {% for tab in tabs %}
+            <a class="chat-tab{% if tab.current %} active{% endif %}" href="{{ tab.channel.url }}"
+               title="{{ tab.channel.description }}"{% if tab.current %} aria-current="page"{% endif %}>
+              <svg class="ni" aria-hidden="true"><use href="#i-{{ tab.channel.icon }}"></use></svg>
+              <span>{{ tab.channel.name }}</span>
+              {% if tab.live %}<span class="chat-tab-count">{{ tab.live }}</span>{% endif %}
+            </a>
+          {% endfor %}
+        </nav>
+      {% endif %}
       {% if push_configured %}
         {% comment %}
           Slim one-line bar rather than a card: during the trial it matters that people can turn
@@ -33,6 +54,18 @@
           <button type="button" id="js-push-button" hidden></button>
           <span class="muted" id="js-push-message" hidden></span>
         </div>
+        {% comment %}
+          Per-channel mute. Separate from the subscribe button above, which is per *device* and
+          governs push at all; this is per resident and governs one channel. A plain form POST, not
+          htmx: it is pressed roughly twice a year and a full reload costs nothing.
+        {% endcomment %}
+        <form class="chat-mute" method="post" action="{% url 'den_hurtige:toggle_mute' channel.slug %}">
+          {% csrf_token %}
+          <button type="submit" class="btn-secondary"
+                  title="{% if muted %}Slå notifikationer fra {{ channel.name }} til igen{% else %}Slå notifikationer fra {{ channel.name }} fra{% endif %}">
+            {% if muted %}🔕 Lyd fra{% else %}🔔 Lyd til{% endif %}
+          </button>
+        </form>
       {% endif %}
     </div>
 
@@ -42,7 +75,7 @@
       while someone is typing in here.
     {% endcomment %}
     <div id="js-feed"
-         hx-get="{% url 'den_hurtige:feed_items' %}"
+         hx-get="{% url 'den_hurtige:feed_items' %}?kanal={{ channel.slug }}"
          hx-trigger="every 20s"
          hx-swap="innerHTML">
       {% include "den_hurtige/_posts.html" %}
@@ -56,6 +89,11 @@
     <form class="composer" method="post" action="{% url 'den_hurtige:create_post' %}"
           enctype="multipart/form-data" id="js-composer">
       {% csrf_token %}
+      {% comment %}
+        Which feed this lands in. Rendered server-side, so the composer cannot disagree with the
+        page it is on — there is no client state to fall out of sync.
+      {% endcomment %}
+      <input type="hidden" name="kanal" value="{{ channel.slug }}">
       <label class="composer-attach" for="id_image" title="Vedhæft billede">
         <span aria-hidden="true">📎</span>
         <span class="sr-only">Vedhæft billede</span>
@@ -65,7 +103,7 @@
       <div class="composer-main">
         <label class="sr-only" for="id_content">Besked</label>
         <textarea id="id_content" name="content" rows="1" maxlength="{{ max_content_chars }}" required
-                  placeholder="Skriv en besked…" enterkeyhint="enter"></textarea>
+                  placeholder="Skriv i {{ channel.name }}…" enterkeyhint="enter"></textarea>
         <div class="composer-file" id="js-composer-file" hidden></div>
       </div>
 

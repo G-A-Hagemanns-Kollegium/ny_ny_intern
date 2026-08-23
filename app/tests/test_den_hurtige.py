@@ -23,11 +23,13 @@ from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from pywebpush import WebPushException
 
-from den_hurtige import access, services
-from den_hurtige.checks import check_vapid_public_key
+from den_hurtige import access, channels, services
+from den_hurtige.channels import Channel
+from den_hurtige.checks import check_channels, check_vapid_public_key
 from den_hurtige.models import (
     DEFAULT_DURATION_MINUTES,
     QUICK_EMOJI,
+    ChannelMute,
     PushSubscription,
     QuickComment,
     QuickPost,
@@ -41,7 +43,12 @@ FEED_URL = "/nyintern/den-hurtige/"
 # The rollout gate exactly as den_hurtige.access ships it, captured at import — before the autouse
 # fixture below lifts it. Hardcoding a copy here is what made the Inspektionen tests fail when they
 # were added to the real tuple: the fixture kept restoring a narrower, stale set.
-CONFIGURED_ACCESS_ROLES = access.ACCESS_ROLES
+#
+# The `or` is the other half of that lesson. When the rollout ends the shipped value becomes None,
+# and `rollout_limited` would then restore "no gate at all" — quietly turning every test in the
+# staged-rollout section into one that asserts nothing while still passing. Falling back to an
+# explicit tuple keeps them exercising the gate mechanism itself, which outlives this trial.
+GATED_ROLES = access.ACCESS_ROLES or (Role.ADMINISTRATOR, Role.INSPEKTION)
 
 pytestmark = pytest.mark.django_db
 
@@ -50,7 +57,7 @@ pytestmark = pytest.mark.django_db
 def rollout_open(monkeypatch: pytest.MonkeyPatch) -> None:
     """Lift the staged-rollout gate for the whole module.
 
-    Den Hurtige is limited to the administrator group while it is trialled
+    Den Hurtige is limited to the trial group while it is being tried out
     (den_hurtige.access.ACCESS_ROLES), but that restriction is temporary and every test outside the
     "staged rollout" section is about behaviour that outlives it. Without this they would all have
     to hand their residents an administrator role, which would quietly stop them testing what a
@@ -61,8 +68,8 @@ def rollout_open(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def rollout_limited(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Restore the trial gate as configured — runs after the autouse fixture, so it wins."""
-    monkeypatch.setattr(access, "ACCESS_ROLES", CONFIGURED_ACCESS_ROLES)
+    """Turn the gate back on — runs after the autouse fixture, so it wins."""
+    monkeypatch.setattr(access, "ACCESS_ROLES", GATED_ROLES)
 
 
 def subscribe(user: Resident, endpoint: str) -> PushSubscription:
@@ -172,7 +179,7 @@ def test_vapid_configuration_is_validated_at_startup(
 
 @pytest.mark.parametrize(
     "path",
-    ["", "opret", "1/kommentar", "1/slet", "1/reaktion", "abonner"],
+    ["", "opret", "1/kommentar", "1/slet", "1/reaktion", "abonner", "lyd/generelt", "tv-rezz/"],
 )
 def test_every_endpoint_is_closed_to_non_administrators(
     client: Client, make_resident: Callable[..., Resident], rollout_limited: None, path: str
@@ -182,7 +189,8 @@ def test_every_endpoint_is_closed_to_non_administrators(
     client.force_login(make_resident(email="beboer@gahk.dk"))
 
     url = FEED_URL + path
-    response = client.get(url) if path == "" else client.post(url)
+    # The two page routes are GETs (the bare feed and a named channel); the rest are POSTs.
+    response = client.get(url) if path in ("", "tv-rezz/") else client.post(url)
 
     assert response.status_code == 403
 
@@ -613,7 +621,9 @@ def test_dispatch_drops_a_gone_subscription_and_keeps_going(
 
     monkeypatch.setattr(services, "_send", fake_send)
 
-    sent = services._dispatch(services.subscribers().order_by("pk"), {"head": "h", "body": "b"})
+    sent = services._dispatch(
+        services.subscribers(channels.DEFAULT.slug).order_by("pk"), {"head": "h", "body": "b"}
+    )
 
     assert seen == ["https://push.example/dead", "https://push.example/alive"]
     assert sent == 1
@@ -634,7 +644,7 @@ def test_dispatch_keeps_a_subscription_that_failed_transiently(
 
     monkeypatch.setattr(services, "_send", fake_send)
 
-    assert services._dispatch(services.subscribers(), {"head": "h", "body": "b"}) == 0
+    assert services._dispatch(services.subscribers(channels.DEFAULT.slug), {"head": "h", "body": "b"}) == 0
     assert PushSubscription.objects.filter(pk=kept.pk).exists()
 
 
@@ -646,7 +656,9 @@ def test_dispatch_sends_the_payload_as_json(
     bodies: list[str] = []
     monkeypatch.setattr(services, "_send", lambda sub, body: bodies.append(body))
 
-    services._dispatch(services.subscribers(), {"head": "Hej", "body": "kaffe", "url": FEED_URL})
+    services._dispatch(
+        services.subscribers(channels.DEFAULT.slug), {"head": "Hej", "body": "kaffe", "url": FEED_URL}
+    )
 
     assert json.loads(bodies[0]) == {"head": "Hej", "body": "kaffe", "url": FEED_URL}
 
@@ -913,7 +925,7 @@ def test_consecutive_messages_from_one_person_are_grouped(
     request = RequestFactory().get(FEED_URL)
     request.user = author
 
-    assert [p.grouped for p in posts_for(request)] == [False, True, False]
+    assert [p.grouped for p in posts_for(request, channels.DEFAULT)] == [False, True, False]
 
 
 def test_the_feed_costs_no_extra_query_per_reaction(
@@ -1306,3 +1318,371 @@ def test_only_moderators_see_the_delete_button_on_other_messages(
     html = client.get(FEED_URL).content.decode()
 
     assert ("Slet besked" in html) is expected
+
+
+# --- channels -----------------------------------------------------------------------------------
+
+
+OTHER = "tv-rezz"
+
+
+def test_the_bare_url_renders_the_default_channel(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """static/manifest.json uses /nyintern/den-hurtige/ as the PWA's `id`, so it must keep answering
+    with a real page forever: a changed id makes every phone treat the next deploy as a *different*
+    installed app. Not a redirect, not an index of channels — the default feed itself."""
+    client.force_login(make_resident(email="a@gahk.dk"))
+
+    response = client.get(FEED_URL)
+
+    assert response.status_code == 200
+    assert response.context["channel"].slug == channels.DEFAULT.slug
+
+
+def test_posts_do_not_leak_between_channels(client: Client, make_resident: Callable[..., Resident]) -> None:
+    author = make_resident(email="a@gahk.dk")
+    QuickPost.objects.create(author=author, content="Kaffe i koekkenet", channel="generelt")
+    QuickPost.objects.create(author=author, content="Vi tager i byen", channel=OTHER)
+    client.force_login(author)
+
+    default_body = client.get(FEED_URL).content.decode()
+    other_body = client.get(f"{FEED_URL}{OTHER}/").content.decode()
+
+    assert "Kaffe i koekkenet" in default_body
+    assert "Vi tager i byen" not in default_body
+    assert "Vi tager i byen" in other_body
+    assert "Kaffe i koekkenet" not in other_body
+
+
+def test_the_composer_posts_into_the_channel_it_was_rendered_in(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """The channel travels in a hidden field rendered server-side, so it cannot disagree with the
+    page — and the redirect goes back to that channel rather than dumping you on the default."""
+    client.force_login(make_resident(email="a@gahk.dk"))
+
+    response = client.post(FEED_URL + "opret", {"content": "Afgang 21", "kanal": OTHER})
+
+    assert QuickPost.objects.get().channel == OTHER
+    assert response["Location"] == f"{FEED_URL}{OTHER}/"
+
+
+def test_a_post_with_an_unknown_channel_lands_in_the_default_one(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """An urgent message must not be lost to a hidden field the author never saw — the same call
+    create_post already makes for an unrecognised duration."""
+    client.force_login(make_resident(email="a@gahk.dk"))
+
+    client.post(FEED_URL + "opret", {"content": "Uden kanal", "kanal": "findes-ikke"})
+
+    assert QuickPost.objects.get().channel == channels.DEFAULT.slug
+
+
+def test_the_composer_offers_the_channels_own_default_duration(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """A plan for tonight and a lost bike key go stale on different schedules."""
+    client.force_login(make_resident(email="a@gahk.dk"))
+
+    default_page = client.get(FEED_URL)
+    other_page = client.get(f"{FEED_URL}{OTHER}/")
+
+    assert default_page.context["default_duration"] == channels.DEFAULT.default_duration
+    assert other_page.context["default_duration"] == channels.BY_SLUG[OTHER].default_duration
+
+
+def test_replying_and_deleting_return_to_the_posts_own_channel(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """Actions on a post take the channel from the post, never from the request."""
+    author = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=author, content="Vi tager i byen", channel=OTHER)
+    client.force_login(author)
+
+    reply = client.post(f"{FEED_URL}{post.pk}/kommentar", {"content": "Jeg er med"})
+    assert reply["Location"] == f"{FEED_URL}{OTHER}/"
+
+    assert client.post(f"{FEED_URL}{post.pk}/slet")["Location"] == f"{FEED_URL}{OTHER}/"
+
+
+def test_an_unknown_channel_is_404_on_the_page_and_204_on_the_poll(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """The poll must never swap an error body into the middle of the feed — the same reason an
+    expired session gets a 204 there rather than a redirect to the login page."""
+    client.force_login(make_resident(email="a@gahk.dk"))
+
+    assert client.get(FEED_URL + "findes-ikke/").status_code == 404
+    assert client.get(FEED_URL + "opslag?kanal=findes-ikke").status_code == 204
+
+
+def test_the_poll_without_a_channel_serves_the_default_one(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """A tab left open across the deploy that added channels keeps polling the old URL. It must get
+    the default feed, not a 204 that silently freezes the page."""
+    author = make_resident(email="a@gahk.dk")
+    QuickPost.objects.create(author=author, content="Kaffe i koekkenet")
+    client.force_login(author)
+
+    response = client.get(FEED_URL + "opslag")
+
+    assert response.status_code == 200
+    assert "Kaffe i koekkenet" in response.content.decode()
+
+
+def test_expired_posts_are_purged_across_every_channel_not_just_the_one_being_read(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """The sharp edge of the whole feature. Scoping the purge to the channel being viewed would
+    leave a quiet channel's expired posts — and their images — sitting there until the half-hourly
+    cron, quietly turning "gone in an hour" into "gone in an hour, in the busy channel"."""
+    author = make_resident(email="a@gahk.dk")
+    stale = QuickPost.objects.create(
+        author=author,
+        content="Udloebet i den anden kanal",
+        channel=OTHER,
+        expires_at=timezone.now() - timedelta(minutes=1),
+    )
+    client.force_login(author)
+
+    client.get(FEED_URL)  # reading the DEFAULT channel
+
+    assert not QuickPost.objects.filter(pk=stale.pk).exists()
+
+
+def test_the_tab_strip_counts_live_posts_per_channel(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """Live, not unread: an expired post must stop being counted without anyone visiting."""
+    author = make_resident(email="a@gahk.dk")
+    QuickPost.objects.create(author=author, content="En", channel=OTHER)
+    QuickPost.objects.create(author=author, content="To", channel=OTHER)
+    QuickPost.objects.create(
+        author=author,
+        content="Doed",
+        channel=OTHER,
+        expires_at=timezone.now() - timedelta(minutes=1),
+    )
+    client.force_login(author)
+
+    tabs = {tab.channel.slug: tab.live for tab in client.get(FEED_URL).context["tabs"]}
+
+    assert tabs[OTHER] == 2
+    assert tabs[channels.DEFAULT.slug] == 0
+
+
+def test_the_tab_strip_costs_one_query(client: Client, make_resident: Callable[..., Resident]) -> None:
+    """One aggregate for every channel, not one count per tab — this page polls itself."""
+    author = make_resident(email="a@gahk.dk")
+    for slug in ("generelt", OTHER):
+        QuickPost.objects.create(author=author, content=f"Besked i {slug}", channel=slug)
+    client.force_login(author)
+    client.get(FEED_URL)  # warm
+
+    with CaptureQueriesContext(connection) as captured:
+        client.get(FEED_URL)
+
+    counting = [q for q in captured.captured_queries if "COUNT" in q["sql"].upper()]
+    assert len(counting) == 1, counting
+
+
+def test_a_channel_can_be_restricted_to_a_role(
+    client: Client, make_resident: Callable[..., Resident], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The per-channel gate stacks on top of den_hurtige.access. 404 rather than 403 on purpose: a
+    403 would confirm the channel exists to someone who may not read it."""
+    secret = Channel("internt", "Internt", "flash", "", 60, roles=(Role.INSPEKTION,))
+    monkeypatch.setattr(channels, "CHANNELS", (*channels.CHANNELS, secret))
+    monkeypatch.setattr(channels, "BY_SLUG", {**channels.BY_SLUG, "internt": secret})
+
+    client.force_login(make_resident(email="beboer@gahk.dk"))
+    assert client.get(FEED_URL + "internt/").status_code == 404
+    assert client.get(FEED_URL + "opslag?kanal=internt").status_code == 204
+    assert "Internt" not in client.get(FEED_URL).content.decode()
+
+    client.force_login(make_resident(email="insp@gahk.dk", roles=(Role.INSPEKTION,)))
+    assert client.get(FEED_URL + "internt/").status_code == 200
+
+
+# --- channel mutes ------------------------------------------------------------------------------
+
+
+def test_every_channel_notifies_until_it_is_muted(
+    client: Client, make_resident: Callable[..., Resident], pushes: list
+) -> None:
+    """Opt-out, not opt-in: a new channel that notifies nobody until people find it is a new channel
+    nobody posts in."""
+    author = make_resident(email="a@gahk.dk")
+    other = make_resident(email="b@gahk.dk")
+    subscribe(other, "https://push.example/b")
+    client.force_login(author)
+
+    client.post(FEED_URL + "opret", {"content": "Afgang 21", "kanal": OTHER})
+
+    assert pushes[0][0] == [other.pk]
+
+
+def test_a_mute_silences_only_the_channel_it_names(
+    client: Client, make_resident: Callable[..., Resident], pushes: list
+) -> None:
+    author = make_resident(email="a@gahk.dk")
+    quiet = make_resident(email="b@gahk.dk")
+    subscribe(quiet, "https://push.example/b")
+    ChannelMute.objects.create(resident=quiet, channel=OTHER)
+    client.force_login(author)
+
+    client.post(FEED_URL + "opret", {"content": "Afgang 21", "kanal": OTHER})
+    assert pushes[-1][0] == []
+
+    client.post(FEED_URL + "opret", {"content": "Kaffe", "kanal": "generelt"})
+    assert pushes[-1][0] == [quiet.pk]
+
+
+def test_a_direct_reply_reaches_a_muted_poster(
+    client: Client, make_resident: Callable[..., Resident], pushes: list
+) -> None:
+    """A mute is about the channel's chatter, not about answers to your own message — you are not
+    being broadcast at, you are being replied to."""
+    poster = make_resident(email="a@gahk.dk")
+    subscribe(poster, "https://push.example/a")
+    ChannelMute.objects.create(resident=poster, channel=OTHER)
+    post = QuickPost.objects.create(author=poster, content="Hvem er med?", channel=OTHER)
+    client.force_login(make_resident(email="b@gahk.dk"))
+
+    client.post(f"{FEED_URL}{post.pk}/kommentar", {"content": "Jeg er"})
+
+    assert pushes[-1][0] == [poster.pk]
+
+
+def test_notify_everyone_still_respects_a_mute(
+    client: Client, make_resident: Callable[..., Resident], pushes: list
+) -> None:
+    """Underret alle is a broadcast, and a mute is exactly a refusal of this channel's broadcasts."""
+    poster = make_resident(email="a@gahk.dk")
+    quiet = make_resident(email="b@gahk.dk")
+    subscribe(quiet, "https://push.example/b")
+    ChannelMute.objects.create(resident=quiet, channel=OTHER)
+    post = QuickPost.objects.create(author=poster, content="Hvem er med?", channel=OTHER)
+    client.force_login(poster)
+
+    client.post(f"{FEED_URL}{post.pk}/kommentar", {"content": "Vi ses", "notify": "alle"})
+
+    assert pushes[-1][0] == []
+
+
+def test_the_mute_button_toggles_both_ways(client: Client, make_resident: Callable[..., Resident]) -> None:
+    resident = make_resident(email="a@gahk.dk")
+    client.force_login(resident)
+    url = f"{FEED_URL}lyd/{OTHER}"
+
+    client.post(url)
+    assert ChannelMute.objects.filter(resident=resident, channel=OTHER).exists()
+
+    client.post(url)
+    assert not ChannelMute.objects.filter(resident=resident, channel=OTHER).exists()
+
+
+def test_muting_a_channel_that_is_already_muted_does_not_double_up(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """Two taps racing each other on a slow connection must not hit uniq_channel_mute and 500 on
+    what is meant to be a toggle."""
+    resident = make_resident(email="a@gahk.dk")
+    ChannelMute.objects.create(resident=resident, channel=OTHER)
+
+    ChannelMute.objects.get_or_create(resident=resident, channel=OTHER)
+
+    assert ChannelMute.objects.filter(resident=resident, channel=OTHER).count() == 1
+
+
+def test_muting_an_unknown_channel_is_404(client: Client, make_resident: Callable[..., Resident]) -> None:
+    client.force_login(make_resident(email="a@gahk.dk"))
+
+    assert client.post(FEED_URL + "lyd/findes-ikke").status_code == 404
+    assert not ChannelMute.objects.exists()
+
+
+def test_a_notification_deep_links_to_the_channel_the_message_is_in(
+    client: Client, make_resident: Callable[..., Resident], pushes: list
+) -> None:
+    """sw.js hands notificationclick whatever `url` the payload carries, so tapping must open the
+    feed the message is actually in rather than the default one."""
+    author = make_resident(email="a@gahk.dk")
+    subscribe(make_resident(email="b@gahk.dk"), "https://push.example/b")
+    client.force_login(author)
+
+    client.post(FEED_URL + "opret", {"content": "Afgang 21", "kanal": OTHER})
+
+    assert pushes[-1][1]["url"] == f"{FEED_URL}{OTHER}/"
+
+
+def test_a_notification_carries_no_tag(
+    client: Client, make_resident: Callable[..., Resident], pushes: list
+) -> None:
+    """Deliberate, and worth pinning: a shared tag makes each notification replace the previous one,
+    so a second post would silently overwrite the first. As true per channel as it was feed-wide."""
+    author = make_resident(email="a@gahk.dk")
+    subscribe(make_resident(email="b@gahk.dk"), "https://push.example/b")
+    client.force_login(author)
+
+    client.post(FEED_URL + "opret", {"content": "Kaffe"})
+
+    assert "tag" not in pushes[-1][1]
+
+
+# --- the channel registry -----------------------------------------------------------------------
+
+
+def test_the_shipped_channel_registry_is_valid() -> None:
+    assert check_channels(None) == []
+
+
+@pytest.mark.parametrize(
+    ("registry", "expected"),
+    [
+        pytest.param(
+            (Channel("dup", "A", "flash", "", 60), Channel("dup", "B", "flash", "", 60)),
+            "den_hurtige.E007",
+            id="duplicate slug",
+        ),
+        pytest.param(
+            (Channel("opret", "Opret", "flash", "", 60),),
+            "den_hurtige.E008",
+            id="slug shadowed by a fixed URL segment",
+        ),
+        pytest.param(
+            (Channel("odd", "Odd", "flash", "", 7),),
+            "den_hurtige.E009",
+            id="duration the composer does not offer",
+        ),
+    ],
+)
+def test_a_broken_channel_registry_is_caught_at_startup(
+    monkeypatch: pytest.MonkeyPatch, registry: tuple, expected: str
+) -> None:
+    """The registry is a tuple in code, so it has no unique constraint, no FK and no choices= behind
+    it. These checks are what replaces them — each failure mode is otherwise entirely silent."""
+    monkeypatch.setattr(channels, "CHANNELS", registry)
+
+    assert expected in [error.id for error in check_channels(None)]
+
+
+def test_the_default_channel_must_match_the_model_field_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Every row written before the channel field existed carries the model default. If the two
+    disagree, those posts sit in a channel no tab links to."""
+    monkeypatch.setattr(channels, "DEFAULT", Channel("andet", "Andet", "flash", "", 60))
+
+    assert "den_hurtige.E010" in [error.id for error in check_channels(None)]
+
+
+def test_every_channel_url_resolves(client: Client, make_resident: Callable[..., Resident]) -> None:
+    """A slug urls.py cannot route would put a dead link in the tab strip on every page load."""
+    client.force_login(make_resident(email="a@gahk.dk"))
+
+    for channel in channels.CHANNELS:
+        assert client.get(channel.url).status_code == 200, channel.slug
