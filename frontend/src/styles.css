@@ -220,6 +220,11 @@
   .msg-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:5px; }
   .msg-actions .thread[open] { flex-basis:100%; }
   .reactions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  /* Reactions + reply toggle on one line. `.thread` only claims the full width once it is open,
+     so the collapsed state stays beside the pills and the expanded one gets room for replies. */
+  .msg-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:5px; }
+  .msg-actions .thread[open] { flex-basis:100%; }
+  .reactions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
   .reaction { display:inline-flex; align-items:center; gap:5px; font-size:13px; line-height:1;
     padding:4px 9px; border-radius:999px; cursor:pointer;
     background:var(--surface); border:1px solid var(--border-strong); color:var(--ink); }
@@ -241,6 +246,7 @@
   .emoji-other { grid-column:1 / -1; margin-top:4px; }
   .emoji-other input { width:100%; padding:5px 8px; text-align:center; }
 
+  .thread { min-width:0; }
   .thread { min-width:0; }
   .thread > summary { cursor:pointer; font-size:12.5px; font-weight:600; color:var(--green-700);
     list-style:none; padding:2px 0; }
