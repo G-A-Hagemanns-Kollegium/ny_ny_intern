@@ -1,19 +1,19 @@
-"""Who may reach Den Hurtige — the single switch for its staged rollout.
+"""Who may reach Den Hurtige — the single switch for the whole feature.
 
-The feature is being trialled with the administrator group and Inspektionen before the whole
-kollegium is invited, so that a bad notification experience (or a Brave user who cannot subscribe)
-is discovered by three people rather than a hundred.
+The staged rollout is over. The feature was trialled with the administrator group and Inspektionen
+first, so that a bad notification experience (or a Brave user who cannot subscribe) was found by
+three people rather than a hundred; ACCESS_ROLES is now None and every resident is in.
 
-    TO OPEN IT TO EVERY RESIDENT: set ACCESS_ROLES = None.
+    TO RE-GATE IT: set ACCESS_ROLES to a tuple of roles.
 
-That one edit widens the views, the sidebar entry and the live-feed poll together. Note that it does
-NOT widen individual channels: den_hurtige.channels carries its own per-channel `roles`, which
-stacks on top of this one — so a channel restricted to a role stays restricted after the rollout
-ends. This gate is about the feature; that one is about one feed within it.
+That one edit narrows the views, the sidebar entry and the live-feed poll together. It has never
+governed individual channels, in either direction: den_hurtige.channels carries its own per-channel
+`roles` which stacks on top of this one, so opening the rollout did NOT open a channel restricted to
+a role. This gate is about the feature; that one is about one feed within it.
 
-Once the rollout is finished, `ACCESS_ROLES = None` leaves the module doing useful work still —
-MODERATOR_ROLES lives here, and `roles_allowed` is the function den_hurtige.channels.allowed
-mirrors — so it need not be deleted along with the trial.
+The module stays rather than being deleted with the trial, as the original plan had it, because two
+things here are still load-bearing: MODERATOR_ROLES, and `roles_allowed` — the function
+den_hurtige.channels.allowed mirrors.
 """
 
 from collections.abc import Collection
@@ -29,10 +29,11 @@ from residents.permissions import View, effective_roles
 # None = every logged-in resident. A tuple = only those roles (administrator implies every role, so
 # administrators and superusers are always in).
 #
-# Still gated while channels are being tried out: the trial group sees all five feeds, so the tab
-# strip's live-post counts will mostly read zero until the rollout opens. That is the trial, not a
-# bug — whether topic channels help is a question only a full kollegium can answer.
-ACCESS_ROLES: tuple[str, ...] | None = (Role.ADMINISTRATOR, Role.INSPEKTION)
+# Open to the whole kollegium. Two things follow that are worth expecting rather than debugging:
+# the "Under test" chip disappears on its own (the feed reads is_limited()), and the channel
+# picker's live-post counts stop reading zero — five feeds only look alive with a whole house in
+# them, which is the question the trial could not answer.
+ACCESS_ROLES: tuple[str, ...] | None = None
 
 # Who may delete somebody else's message. Inspektionen keep the kollegium's house rules, so they
 # moderate the chat the same way they do everything else; administrator is listed for readability
