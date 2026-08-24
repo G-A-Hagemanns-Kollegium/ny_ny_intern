@@ -20,28 +20,41 @@
 {% block content %}
   <div class="chat">
     <div class="chat-head">
-      <h1>{{ channel.name }} {% if limited_rollout %}<span class="chip chip-brass">Under test</span>{% endif %}</h1>
-
       {% comment %}
-        Channel switcher. A strip of links rather than a second sidebar entry per channel: switching
-        feed is a thing you do constantly and navigating a menu for it would be absurd, and the
-        sidebar is already long. Plain <a> hrefs, so each channel is a real URL you can share and
-        the browser's back button does the obvious thing.
+        The channel picker doubles as the page title, so it costs no vertical space at all: a
+        <details> summary sitting exactly where the <h1> used to, with the menu absolutely
+        positioned over the feed rather than pushing it down.
 
-        The count is live (unexpired) posts, not unread ones — see views.channel_counts for why.
+        A <details> rather than a native <select> because a <select> can only render text: these
+        five channels are told apart by their icons, and the live-post counts would have gone too.
+        It also needs no JavaScript to navigate (the options are plain links), matches the pattern
+        already used for reply threads and the emoji picker, and is dismissed by the same
+        click-away handler in frontend/src/feed.ts.
       {% endcomment %}
+      <h1 class="sr-only">{{ channel.name }} — Den Hurtige</h1>
       {% if tabs|length > 1 %}
-        <nav class="chat-tabs" aria-label="Kanaler">
-          {% for tab in tabs %}
-            <a class="chat-tab{% if tab.current %} active{% endif %}" href="{{ tab.channel.url }}"
-               title="{{ tab.channel.description }}"{% if tab.current %} aria-current="page"{% endif %}>
-              <svg class="ni" aria-hidden="true"><use href="#i-{{ tab.channel.icon }}"></use></svg>
-              <span>{{ tab.channel.name }}</span>
-              {% if tab.live %}<span class="chat-tab-count">{{ tab.live }}</span>{% endif %}
-            </a>
-          {% endfor %}
-        </nav>
+        <details class="channel-picker">
+          <summary>
+            <svg class="ni" aria-hidden="true"><use href="#i-{{ channel.icon }}"></use></svg>
+            <span>{{ channel.name }}</span>
+            <span class="caret" aria-hidden="true">▾</span>
+          </summary>
+          <nav class="channel-menu" aria-label="Kanaler">
+            {% for tab in tabs %}
+              <a class="channel-option{% if tab.current %} active{% endif %}" href="{{ tab.channel.url }}"
+                 {% if tab.current %}aria-current="page"{% endif %}>
+                <svg class="ni" aria-hidden="true"><use href="#i-{{ tab.channel.icon }}"></use></svg>
+                <span class="channel-option-name">{{ tab.channel.name }}</span>
+                {% if tab.live %}<span class="channel-count">{{ tab.live }}</span>{% endif %}
+              </a>
+            {% endfor %}
+          </nav>
+        </details>
+      {% else %}
+        <span class="channel-single">{{ channel.name }}</span>
       {% endif %}
+      {% if limited_rollout %}<span class="chip chip-brass">Under test</span>{% endif %}
+
       {% if push_configured %}
         {% comment %}
           Slim one-line bar rather than a card: during the trial it matters that people can turn

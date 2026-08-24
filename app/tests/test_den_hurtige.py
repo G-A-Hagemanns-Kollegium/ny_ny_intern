@@ -1453,7 +1453,7 @@ def test_expired_posts_are_purged_across_every_channel_not_just_the_one_being_re
     assert not QuickPost.objects.filter(pk=stale.pk).exists()
 
 
-def test_the_tab_strip_counts_live_posts_per_channel(
+def test_the_channel_picker_counts_live_posts_per_channel(
     client: Client, make_resident: Callable[..., Resident]
 ) -> None:
     """Live, not unread: an expired post must stop being counted without anyone visiting."""
@@ -1474,8 +1474,8 @@ def test_the_tab_strip_counts_live_posts_per_channel(
     assert tabs[channels.DEFAULT.slug] == 0
 
 
-def test_the_tab_strip_costs_one_query(client: Client, make_resident: Callable[..., Resident]) -> None:
-    """One aggregate for every channel, not one count per tab — this page polls itself."""
+def test_the_channel_picker_costs_one_query(client: Client, make_resident: Callable[..., Resident]) -> None:
+    """One aggregate for every channel, not one count per entry — this page polls itself."""
     author = make_resident(email="a@gahk.dk")
     for slug in ("generelt", OTHER):
         QuickPost.objects.create(author=author, content=f"Besked i {slug}", channel=slug)
@@ -1678,6 +1678,20 @@ def test_the_default_channel_must_match_the_model_field_default(
     monkeypatch.setattr(channels, "DEFAULT", Channel("andet", "Andet", "flash", "", 60))
 
     assert "den_hurtige.E010" in [error.id for error in check_channels(None)]
+
+
+def test_every_channel_is_reachable_from_every_other_one(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """The header must always offer the full set. A horizontally scrolling tab strip failed this in
+    practice rather than in code — at five channels it ran off the edge of a phone with nothing to
+    say the rest were there — so the picker that replaced it is pinned here."""
+    client.force_login(make_resident(email="a@gahk.dk"))
+
+    for page in channels.CHANNELS:
+        body = client.get(page.url).content.decode()
+        for target in channels.CHANNELS:
+            assert f'href="{target.url}"' in body, f"{target.slug} unreachable from {page.slug}"
 
 
 def test_every_channel_url_resolves(client: Client, make_resident: Callable[..., Resident]) -> None:
