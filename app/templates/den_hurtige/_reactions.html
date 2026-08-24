@@ -1,6 +1,14 @@
 {% comment %}
   One message's reaction row. Swapped on its own (hx-swap="outerHTML" onto this id) so tapping an
   emoji never re-renders the feed — that would collapse open threads and fight the 20s poll.
+
+  Two panels hang off this row, both built as `.pop`: a native <details> whose panel is
+  position:fixed and centred (a sheet on a phone) behind a backdrop, rather than absolutely
+  positioned beside its own summary. That is a fix, not decoration. The panel used to be anchored to
+  the "+" button, which sits *after* the pills — so on a message that already had several reactions
+  it opened far to the right and ran off the edge of the screen, and #js-feed's own overflow could
+  clip it as well. Fixed positioning escapes both. Tapping the backdrop closes it, via the handler
+  in frontend/src/feed.ts.
 {% endcomment %}
 <div class="reactions" id="reactions-{{ post.pk }}">
   {% for r in reactions %}
@@ -13,22 +21,52 @@
   {% endfor %}
 
   {% comment %}
-    Picker as a native <details>: no JS, keyboard accessible, and it closes by itself because
-    choosing an emoji swaps this whole row away. A bare text input was the first attempt and was
-    wrong on desktop — a browser gives you a cursor and no emoji help at all, so the common ones are
-    one click here. The free field at the bottom keeps "any emoji" true, and on a phone focusing it
-    opens the system emoji keyboard.
+    Who reacted, and with what. Rendered inline rather than fetched on demand so it cannot go stale
+    against the row around it: the same `reactions` list renders both the pills and this panel, so
+    the two can never disagree about counts or ordering, and the 20-second poll refreshes it for
+    free. Tapping a pill stays the toggle — this is a separate control, because a tap that both
+    changed your reaction and opened a panel would be neither.
   {% endcomment %}
-  <details class="emoji-picker" id="picker-{{ post.pk }}">
+  {% if reactions %}
+    <details class="pop who-picker">
+      <summary class="reaction reaction-who" title="Se hvem der har reageret"
+               aria-label="Se hvem der har reageret"><span aria-hidden="true">👥</span></summary>
+      <div class="pop-backdrop"></div>
+      <div class="pop-panel">
+        <div class="pop-title">Reaktioner</div>
+        <ul class="who-list">
+          {% for r in reactions %}
+            <li class="who-row">
+              <span class="who-emoji" aria-hidden="true">{{ r.emoji }}</span>
+              <span class="who-names">{{ r.people|join:", " }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </details>
+  {% endif %}
+
+  {% comment %}
+    Picker as a native <details>: nothing opens it but the browser, it is keyboard accessible, and it
+    closes by itself because choosing an emoji swaps this whole row away. A bare text input was the
+    first attempt and was wrong on desktop — a browser gives you a cursor and no emoji help at all,
+    so the common ones are one tap here. The free field at the bottom keeps "any emoji" true, and on
+    a phone focusing it opens the system emoji keyboard.
+  {% endcomment %}
+  <details class="pop emoji-picker" id="picker-{{ post.pk }}">
     <summary class="reaction reaction-add" title="Tilføj reaktion" aria-label="Tilføj reaktion">☺<span aria-hidden="true">+</span></summary>
-    <div class="emoji-grid">
-      {% for e in quick_emoji %}
-        <button type="button" class="emoji-choice"
-                hx-post="{% url 'den_hurtige:toggle_reaction' post.pk %}"
-                hx-vals='{"emoji": "{{ e }}"}'
-                hx-target="#reactions-{{ post.pk }}" hx-swap="outerHTML"
-                aria-label="Reagér med {{ e }}">{{ e }}</button>
-      {% endfor %}
+    <div class="pop-backdrop"></div>
+    <div class="pop-panel">
+      <div class="pop-title">Vælg en reaktion</div>
+      <div class="emoji-grid">
+        {% for e in quick_emoji %}
+          <button type="button" class="emoji-choice"
+                  hx-post="{% url 'den_hurtige:toggle_reaction' post.pk %}"
+                  hx-vals='{"emoji": "{{ e }}"}'
+                  hx-target="#reactions-{{ post.pk }}" hx-swap="outerHTML"
+                  aria-label="Reagér med {{ e }}">{{ e }}</button>
+        {% endfor %}
+      </div>
       <form class="emoji-other"
             hx-post="{% url 'den_hurtige:toggle_reaction' post.pk %}"
             hx-target="#reactions-{{ post.pk }}" hx-swap="outerHTML">

@@ -101,13 +101,38 @@ if (document.body.classList.contains("no-zoom")) {
 }
 
 // ---- emoji picker ---------------------------------------------------------------------------
-// <details> has no concept of "click away to dismiss", so a picker would otherwise stay open behind
+// <details> has no concept of "click away to dismiss", so a panel would otherwise stay open behind
 // whatever you did next, and two could be open at once.
+//
+// The test is "outside the PANEL", not "outside the <details>". The reaction overlays put a
+// full-screen backdrop *inside* their own <details> (it has to be a real element — a click on a
+// ::before pseudo-element reports the originating element as its target), so a `details.contains`
+// check would treat a tap on the backdrop as a tap inside the picker and never close it. Excluding
+// the summary keeps the browser's own toggle working: without it, the tap that opens a panel would
+// be seen as an outside click on the panel and shut it again immediately.
+const DISMISSABLE = "details.pop[open], details.channel-picker[open]";
+const PANELS = ":scope > .pop-panel, :scope > .channel-menu";
+
 document.addEventListener("click", (event) => {
   const target = event.target as Node;
-  const dismissable = "details.emoji-picker[open], details.channel-picker[open]";
-  for (const picker of document.querySelectorAll<HTMLDetailsElement>(dismissable)) {
-    if (!picker.contains(target)) picker.open = false;
+  for (const picker of document.querySelectorAll<HTMLDetailsElement>(DISMISSABLE)) {
+    const summary = picker.querySelector(":scope > summary");
+    if (summary?.contains(target)) continue;
+    const panel = picker.querySelector(PANELS);
+    if (panel?.contains(target)) continue;
+    picker.open = false;
+  }
+});
+
+// Escape closes the topmost open panel, which is what a modal-looking overlay is expected to do and
+// the only way out for anyone not using a pointer.
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  const open = document.querySelectorAll<HTMLDetailsElement>(DISMISSABLE);
+  const last = open[open.length - 1];
+  if (last) {
+    last.open = false;
+    last.querySelector<HTMLElement>(":scope > summary")?.focus();
   }
 });
 

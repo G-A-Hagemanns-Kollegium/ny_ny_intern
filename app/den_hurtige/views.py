@@ -19,7 +19,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.files.uploadedfile import UploadedFile
-from django.db.models import Count, QuerySet
+from django.db.models import Count, Prefetch, QuerySet
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -54,6 +54,14 @@ VALID_DURATIONS = {minutes for minutes, _label in DURATION_CHOICES}
 GROUPING_WINDOW = timedelta(minutes=5)
 
 
+# Reactions with their author already joined. select_related inside the Prefetch rather than a
+# nested "reactions__author" on purpose: a nested prefetch is a SECOND query that only runs when the
+# item actually has reactions, so adding the first reaction to a page would add a query — precisely
+# what test_the_feed_costs_no_extra_query_per_reaction forbids. Joining keeps it at one query
+# whether there are reactions or none. The author is needed because the reader panel names people.
+REACTIONS = Prefetch("reactions", queryset=QuickReaction.objects.select_related("author"))
+
+
 def _active_posts(channel: Channel) -> QuerySet[QuickPost]:
     """One channel's live posts, with expired ones purged on the way past. Traffic does the cleanup;
     the purge_quick_posts cron job (DEPLOY.md §4b) covers the weeks with none.
@@ -68,7 +76,7 @@ def _active_posts(channel: Channel) -> QuerySet[QuickPost]:
         QuickPost.objects.filter(channel=channel.slug)
         .active()
         .select_related("author")
-        .prefetch_related("comments__author", "reactions")
+        .prefetch_related("comments__author", REACTIONS)
         # Chat order: oldest first, newest at the bottom by the composer. QuickPost.Meta.ordering
         # stays newest-first for the admin and everything else that lists posts as records.
         .order_by("created_at")
@@ -337,12 +345,16 @@ def toggle_reaction(request: HttpRequest, pk: int) -> HttpResponse:
         apply_toggle(QuickReaction.objects, author=resident, emoji=form.cleaned_data["emoji"], post=post)
     # An invalid emoji falls through to a plain re-render: the row is still correct, and a one-tap
     # control has nowhere useful to put a validation error.
+    # NOT prefetched, and NOT reactions_for(): a prefetch is evaluated when the item is fetched,
+    # which here is *before* apply_toggle writes. Reading .reactions.all() would then hit a cache
+    # built a moment too early and re-render the row exactly as it was before the tap. Ask the
+    # database again, joining the author in one query for the reader panel.
     return render(
         request,
         "den_hurtige/_reactions.html",
         {
             "post": post,
-            "reactions": reactions_for(post, resident.pk),
+            "reactions": reaction_rows(post.reactions.select_related("author"), resident.pk),
             "quick_emoji": QUICK_EMOJI,
         },
     )

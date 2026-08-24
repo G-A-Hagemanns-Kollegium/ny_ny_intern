@@ -169,6 +169,10 @@ async function init(root: HTMLElement): Promise<void> {
   // Danish copy lives in the template, so all user-facing text stays where the rest of it is.
   const onLabel = root.dataset.onLabel ?? "Slå notifikationer til";
   const offLabel = root.dataset.offLabel ?? "Slå notifikationer fra";
+  // Narrow-screen wording for the same action. The full label sits next to a long channel name
+  // and the per-channel bell, and the three together overflowed a phone — which silently turned
+  // the chat header into two rows and took that height off the feed.
+  const offLabelShort = root.dataset.offLabelShort ?? offLabel;
   const successText = root.dataset.successText ?? "Du får nu besked.";
   // "på denne enhed" because that is what it means: consent is per topic, but a push subscription is
   // per browser, so turning it off here does not touch your other devices.
@@ -217,8 +221,22 @@ async function init(root: HTMLElement): Promise<void> {
   // server's subscription: the endpoint stays alive, so the server keeps encrypting and sending to
   // it forever and never sees the 410 that would reap the row. This path calls unsubscribe() and
   // deletes it.
+  const label = (cls: string, text: string): HTMLSpanElement => {
+    const span = document.createElement("span");
+    span.className = cls;
+    span.textContent = text;
+    return span;
+  };
+
   const render = (): void => {
-    button.textContent = enabled ? offLabel : onLabel;
+    // Both wordings are rendered and CSS shows one (see .label-long/.label-short): the button text
+    // is set from JS, so a media query cannot reach it any other way, and matchMedia here would
+    // have to be re-run on every resize and orientation change.
+    button.textContent = "";
+    button.append(
+      label("label-long", enabled ? offLabel : onLabel),
+      label("label-short", enabled ? offLabelShort : onLabel),
+    );
     // Styling hook for the "already on" state. Keyed on topic consent, not on the browser
     // subscription: a device subscribed for the *other* feature must not look enabled here.
     button.classList.toggle("is-quiet", enabled);

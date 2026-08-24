@@ -162,8 +162,13 @@
   /* Pinned like a conversation title bar. It used to scroll away instantly: the feed jumps to the
      newest message on load, so on a phone you never saw the header at all. Bleeds to the gutters
      the same way the composer does, so nothing shows through behind it. */
+  /* One line, always. flex-wrap:wrap used to be load-bearing — the old channel tab strip forced a
+     second row with `order:1; width:100%` — but with the picker there is nothing left that wants to
+     wrap, and wrapping was instead happening by accident: a long channel name next to "Slå fra på
+     denne enhed" and the bell overflows a phone, and the row silently became two, taking that much
+     height off the feed. Now the name ellipsises instead (see .channel-name). */
   .chat-head { flex:none; position:relative;
-    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:nowrap;
     background:var(--paper); border-bottom:1px solid var(--border);
     margin:0 -30px; padding:8px 30px; }
   /* Channel picker. Sits exactly where the <h1> used to and replaces it, so five channels cost
@@ -171,14 +176,17 @@
      than pushing it down. It superseded a horizontally scrolling tab strip, which at five channels
      ran off the edge of a phone with nothing to say the rest were there.
      `position:relative` on .chat-head is what the menu positions against. */
-  .channel-picker { position:relative; }
+  /* min-width:0 on both: a flex item defaults to min-width:auto and refuses to shrink below its
+     content, so without these the name would push the row wide rather than ellipsising. */
+  .channel-picker { position:relative; min-width:0; }
+  .channel-name, .channel-single { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .channel-picker > summary { list-style:none; display:inline-flex; align-items:center; gap:8px;
     cursor:pointer; font-size:22px; font-weight:750; line-height:1.2; padding:2px 6px 2px 0;
-    -webkit-tap-highlight-color:transparent; }
+    min-width:0; -webkit-tap-highlight-color:transparent; }
   /* Safari draws its own disclosure triangle unless both of these are cleared. */
   .channel-picker > summary::-webkit-details-marker { display:none; }
   .channel-picker > summary::marker { content:""; }
-  .channel-picker > summary .caret { font-size:13px; color:var(--muted); font-weight:600; }
+  .channel-picker > summary .caret { font-size:13px; color:var(--muted); font-weight:600; flex:none; }
   .channel-picker[open] > summary .caret { transform:rotate(180deg); }
   /* max-height matters more than it looks: the document is locked against scrolling (see the shell
      rules above), so a menu taller than the viewport would simply be unreachable below the fold. */
@@ -202,11 +210,21 @@
     background:var(--green-100); color:var(--green-700); }
   .channel-option.active .channel-count { background:var(--brass); color:#fff; }
 
+  .chat-mute { flex:none; }
+  /* The push button renders both wordings; one is hidden per breakpoint. Wide screens get the full
+     "Slå fra på denne enhed"; phones get the shorter one, and the per-channel bell drops to its
+     icon alone (its state is the icon, and the button keeps a title). Together that is what buys
+     the channel name enough room to sit on one line beside them. */
+  .label-short { display:none; }
+  /* Everything except the channel name keeps its natural width, so the name is the one thing
+     that gives way when the row is tight. Includes the "Under test" chip for whenever the
+     rollout gate is turned back on. */
+  .chat-head .chip { flex:none; }
   .chat-mute button { font-size:13px; padding:5px 12px; border-radius:999px; }
 
   /* margin-left:auto groups the push controls on the right, so the picker and the "Under test"
      chip stay together on the left instead of being spread apart by space-between. */
-  .push-bar { margin-left:auto; display:flex; align-items:center; gap:10px; font-size:13px; }
+  .push-bar { margin-left:auto; flex:none; display:flex; align-items:center; gap:8px; font-size:13px; }
   .push-bar button { font-size:13px; font-weight:600; padding:5px 12px; border-radius:999px;
     background:var(--surface); border:1px solid var(--border-strong); color:var(--ink); cursor:pointer; }
   .push-bar button:hover { background:var(--green-050); border-color:var(--green-100); color:var(--green-700); }
@@ -261,19 +279,50 @@
   .reaction:hover { border-color:var(--faint); }
   .reaction.is-mine { background:var(--green-050); border-color:var(--green); color:var(--green-700); font-weight:650; }
   .reaction .n { font-variant-numeric:tabular-nums; }
-  /* Picker. A bare text input was the first attempt and read as a stray form field on desktop. */
-  .emoji-picker { position:relative; display:inline-block; }
-  .reaction-add { list-style:none; border-style:dashed; color:var(--muted); user-select:none; }
-  .reaction-add::-webkit-details-marker { display:none; }
-  .emoji-picker[open] > .reaction-add { border-style:solid; border-color:var(--green); color:var(--green-700); }
-  /* Opens upward: the composer is pinned to the bottom, so recent messages sit near it. */
-  .emoji-grid { position:absolute; bottom:calc(100% + 6px); left:0; z-index:20; width:max-content;
-    display:grid; grid-template-columns:repeat(6, 1fr); gap:2px; padding:8px;
-    background:var(--surface); border:1px solid var(--border-strong); border-radius:12px; box-shadow:var(--shadow); }
-  .emoji-choice { font-size:19px; line-height:1; padding:5px 6px; border:0; border-radius:8px;
+  /* --- Overlay panels hanging off a reaction row (.pop) --------------------------------------
+     Both the emoji picker and the "who reacted" list are a native <details> whose panel is
+     position:fixed over a full-screen backdrop, NOT absolutely positioned beside its summary.
+     The old anchored panel was reported unusable and deserved to be: it hung off the "+" button,
+     which sits after the pills, so a message with several reactions opened it far to the right and
+     off the edge of the phone — and #js-feed is an overflow:auto scroll container, which could clip
+     it too. Fixed positioning escapes both, because no ancestor here has a transform (that would
+     make one a containing block and quietly re-anchor the panel).
+     The matching requirement is that NO ancestor of a .pop may create a stacking context — no
+     z-index on a positioned box, no transform, filter, will-change or contain. This widget is
+     embedded in two different page layouts, and opslagstavlen's card broke it exactly that way
+     (see .notice-foot below): the backdrop and panel are confined to the nearest stacking context,
+     so anything outside it stays undimmed and can paint over the panel.
+     The backdrop is a real element, not a ::before on the <details>: a click on a pseudo-element
+     targets its originating element, so a ::before backdrop would report itself as "inside the
+     picker" and tap-away could never close it. See the handler in frontend/src/feed.ts. */
+  .pop { position:relative; display:inline-block; }
+  .pop > summary { list-style:none; }
+  .pop > summary::-webkit-details-marker { display:none; }
+  .pop[open] > summary { border-style:solid; border-color:var(--green); color:var(--green-700); }
+  .pop-backdrop { position:fixed; inset:0; z-index:60; background:rgba(15, 30, 22, .38); }
+  .pop-panel { position:fixed; z-index:61; left:50%; top:50%; transform:translate(-50%, -50%);
+    width:max-content; max-width:min(340px, calc(100vw - 32px)); max-height:70dvh; overflow-y:auto;
+    overscroll-behavior:contain; padding:12px;
+    background:var(--surface); border:1px solid var(--border-strong); border-radius:14px;
+    box-shadow:var(--shadow); }
+  .pop-title { font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--faint); margin-bottom:8px; }
+
+  .reaction-add { border-style:dashed; color:var(--muted); user-select:none; }
+  .reaction-who { border-style:dashed; color:var(--muted); user-select:none; }
+
+  .emoji-grid { display:grid; grid-template-columns:repeat(6, 1fr); gap:2px; }
+  .emoji-choice { font-size:22px; line-height:1; padding:7px 6px; border:0; border-radius:8px;
     background:none; cursor:pointer; }
   .emoji-choice:hover { background:var(--green-050); }
-  .emoji-other { grid-column:1 / -1; margin-top:4px; }
+  .emoji-other { margin-top:8px; }
+  .emoji-other input { width:100%; }
+
+  /* Who reacted, grouped by emoji in the same order as the pills (core.reactions.reaction_rows). */
+  .who-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+  .who-row { display:flex; align-items:flex-start; gap:9px; font-size:14px; line-height:1.35; }
+  .who-emoji { font-size:17px; line-height:1.2; flex:none; }
+  .who-names { color:var(--ink); overflow-wrap:anywhere; }
   .emoji-other input { width:100%; padding:5px 8px; text-align:center; }
 
   .thread { min-width:0; }
@@ -325,6 +374,10 @@
        — the hamburger and the topbar still carry every link it held. */
     .chat-page .brandcell { display:none; }
     .chat-head { margin:0 -18px; padding:5px 18px; }
+    .chat-head { gap:6px; }
+    .label-long { display:none; }
+    .label-short { display:inline; }
+    .mute-label { display:none; }
     .channel-picker > summary, .channel-single { font-size:16px; }
     .channel-menu { min-width:210px; }
     .push-bar button, .chat-mute button { padding:3px 10px; font-size:12px; }
@@ -334,7 +387,13 @@
     .msg-name { font-size:13.5px; }
     .msg-text { font-size:14.5px; line-height:1.35; }
     .msg-actions { gap:8px; margin-top:4px; }
-    .reaction, .reaction-add { padding:3px 8px; font-size:12.5px; }
+    .reaction, .reaction-add, .reaction-who { padding:3px 8px; font-size:12.5px; }
+    /* Bottom sheet on a phone: easier to reach one-handed than a centred box, and anchoring to the
+       bottom keeps it out of the way of the emoji keyboard the free-text field opens. */
+    .pop-panel { left:0; right:0; bottom:0; top:auto; transform:none; width:auto; max-width:none;
+      max-height:62dvh; border-radius:16px 16px 0 0; padding:14px 16px calc(16px + env(safe-area-inset-bottom)); }
+    .emoji-grid { grid-template-columns:repeat(8, 1fr); gap:4px; }
+    .emoji-choice { font-size:25px; padding:8px 4px; }
     .thread > summary { font-size:12px; }
     #js-feed { padding:2px 0 8px; }
     /* Duration drops below the message box and sits left, so the text gets the full width. */
@@ -420,8 +479,16 @@
   .notice-card.is-clickable { position: relative; cursor: pointer; }
   .notice-card.is-clickable:hover { border-color: var(--green-100); box-shadow: var(--shadow); }
   .notice-card.is-clickable .notice-link::after { content: ""; position: absolute; inset: 0; z-index: 0; }
+  /* Raised by POSITION ONLY — deliberately no z-index. Both of these come after .notice-link in the
+     markup, and positioned elements with `z-index:auto` paint (and hit-test) above a positioned
+     `z-index:0` sibling in tree order, so they stay clickable without one.
+     `z-index:1` here used to look equivalent and was not: a z-index on a positioned element creates
+     a STACKING CONTEXT, which trapped the reaction overlays rendered inside .notice-foot. Their
+     backdrop could then only dim what was inside this one box, leaving every other card's actions
+     and pills sitting undimmed on top of it — and the panel itself could be painted under a later
+     card. See the .pop rules above: nothing wrapping a .pop may create a stacking context. */
   .notice-card.is-clickable .notice-actions,
-  .notice-card.is-clickable .notice-foot { position: relative; z-index: 1; }
+  .notice-card.is-clickable .notice-foot { position: relative; }
   /* Trade-off worth knowing: the overlay means dragging across the excerpt starts a link-drag rather
      than a text selection. Accepted because the excerpt is 40 words and the detail page — which has
      no overlay — is where you copy a room number out of a table. */

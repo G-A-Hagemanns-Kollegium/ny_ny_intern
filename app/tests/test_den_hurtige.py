@@ -1490,3 +1490,90 @@ def test_every_channel_url_resolves(client: Client, make_resident: Callable[...,
 
     for channel in channels.CHANNELS:
         assert client.get(channel.url).status_code == 200, channel.slug
+
+
+# --- who reacted --------------------------------------------------------------------------------
+
+
+def test_reaction_rows_name_the_people_behind_each_emoji(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """The panel and the pills are rendered from one list, so `people` must group and order exactly
+    as the counts do — most-used first, ties by first use."""
+    author = make_resident(email="a@gahk.dk", first_name="Anton", last_name="Storgaard")
+    mette = make_resident(email="b@gahk.dk", first_name="Mette", last_name="Hansen")
+    anders = make_resident(email="c@gahk.dk", first_name="Anders", last_name="Bo")
+    post = QuickPost.objects.create(author=author, content="Kaffe?")
+    QuickReaction.objects.create(post=post, author=author, emoji=PARTY)
+    QuickReaction.objects.create(post=post, author=mette, emoji=THUMB)
+    QuickReaction.objects.create(post=post, author=anders, emoji=THUMB)
+
+    rows = reactions_for(post, author.pk)
+
+    # THUMB has two, so it sorts ahead of PARTY even though PARTY was used first.
+    assert [r["emoji"] for r in rows] == [THUMB, PARTY]
+    assert rows[0]["people"] == ["Mette Hansen", "Anders Bo"]  # in the order they reacted
+    assert rows[1]["people"] == ["Anton Storgaard"]
+
+
+def test_the_feed_shows_who_reacted_and_with_what(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    author = make_resident(email="a@gahk.dk", first_name="Anton", last_name="Storgaard")
+    post = QuickPost.objects.create(author=author, content="Kaffe?")
+    QuickReaction.objects.create(post=post, author=author, emoji=THUMB)
+    client.force_login(author)
+
+    body = client.get(FEED_URL).content.decode()
+
+    assert "who-list" in body
+    assert "Anton Storgaard" in body
+
+
+def test_no_reader_panel_when_nobody_has_reacted(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """An empty panel behind a button that says "see who reacted" is worse than no button."""
+    author = make_resident(email="a@gahk.dk")
+    QuickPost.objects.create(author=author, content="Kaffe?")
+    client.force_login(author)
+
+    body = client.get(FEED_URL).content.decode()
+
+    assert "who-picker" not in body
+
+
+def test_both_reaction_panels_are_overlays_with_a_backdrop(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """The panels are fixed-position overlays over a backdrop, not absolutely positioned beside
+    their summary: anchored to the "+" button — which sits after the pills — a message with several
+    reactions opened the picker off the right edge of a phone. The backdrop must be a real element,
+    because a click on a ::before pseudo-element targets its originating element and so could never
+    be told apart from a click inside the picker (see frontend/src/feed.ts)."""
+    author = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=author, content="Kaffe?")
+    QuickReaction.objects.create(post=post, author=author, emoji=THUMB)
+    client.force_login(author)
+
+    body = client.get(FEED_URL).content.decode()
+
+    assert body.count('class="pop-backdrop"') == 2  # one per panel
+    assert body.count('class="pop-panel"') == 2
+    assert 'class="pop who-picker"' in body
+    assert 'class="pop emoji-picker"' in body
+
+
+def test_the_reaction_row_survives_a_toggle_with_its_reader_panel(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """The toggle re-renders only this row, so it has to carry the panel back with it — otherwise
+    reacting would make the "who reacted" button vanish until the next poll."""
+    author = make_resident(email="a@gahk.dk", first_name="Anton", last_name="Storgaard")
+    post = QuickPost.objects.create(author=author, content="Kaffe?")
+    client.force_login(author)
+
+    body = react(client, post, THUMB).content.decode()  # type: ignore[attr-defined]
+
+    assert "who-list" in body
+    assert "Anton Storgaard" in body

@@ -36,7 +36,7 @@
         <details class="channel-picker">
           <summary>
             <svg class="ni" aria-hidden="true"><use href="#i-{{ channel.icon }}"></use></svg>
-            <span>{{ channel.name }}</span>
+            <span class="channel-name">{{ channel.name }}</span>
             <span class="caret" aria-hidden="true">▾</span>
           </summary>
           <nav class="channel-menu" aria-label="Kanaler">
@@ -71,6 +71,7 @@
              data-subscribed="{% if push_subscribed %}1{% else %}0{% endif %}"
              data-on-label="Slå notifikationer til"
              data-off-label="Slå fra på denne enhed"
+             data-off-label-short="Slå fra på enheden"
              data-success-text="Du får nu besked når nogen slår op."
              data-off-text="Notifikationer er slået fra på denne enhed.">
           {% csrf_token %}
@@ -86,7 +87,7 @@
           {% csrf_token %}
           <button type="submit" class="btn-secondary"
                   title="{% if muted %}Slå notifikationer fra {{ channel.name }} til igen{% else %}Slå notifikationer fra {{ channel.name }} fra{% endif %}">
-            {% if muted %}🔕 Lyd fra{% else %}🔔 Lyd til{% endif %}
+            {% if muted %}🔕 <span class="mute-label">Lyd fra</span>{% else %}🔔 <span class="mute-label">Lyd til</span>{% endif %}
           </button>
         </form>
       {% endif %}

@@ -2,7 +2,9 @@
   One notice's reaction row. Swapped on its own (hx-swap="outerHTML" onto this id) so tapping an
   emoji never re-renders the page — that would throw away anything half-typed in the comment box.
 
-  Shares the .reaction*/.emoji-* CSS with Den Hurtige: same widget, same markup, same behaviour.
+  Shares the .reaction*/.pop/.emoji-* CSS with Den Hurtige: same widget, same markup, same
+  behaviour. See den_hurtige/_reactions.html for why both panels are fixed-position overlays rather
+  than absolutely positioned beside their summary.
 {% endcomment %}
 <div class="reactions" id="reactions-{{ notice.pk }}">
   {% for r in reactions %}
@@ -15,20 +17,48 @@
   {% endfor %}
 
   {% comment %}
-    Picker as a native <details>: no JS, keyboard accessible, and it closes by itself because
-    choosing an emoji swaps this whole row away. The free field keeps "any emoji" true, and on a
-    phone focusing it opens the system emoji keyboard.
+    Who reacted, and with what. Rendered inline from the same `reactions` list that renders the
+    pills, so the panel can never disagree with them about counts or ordering. Tapping a pill stays
+    the toggle — this is a separate control.
   {% endcomment %}
-  <details class="emoji-picker" id="picker-{{ notice.pk }}">
+  {% if reactions %}
+    <details class="pop who-picker">
+      <summary class="reaction reaction-who" title="Se hvem der har reageret"
+               aria-label="Se hvem der har reageret"><span aria-hidden="true">👥</span></summary>
+      <div class="pop-backdrop"></div>
+      <div class="pop-panel">
+        <div class="pop-title">Reaktioner</div>
+        <ul class="who-list">
+          {% for r in reactions %}
+            <li class="who-row">
+              <span class="who-emoji" aria-hidden="true">{{ r.emoji }}</span>
+              <span class="who-names">{{ r.people|join:", " }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </details>
+  {% endif %}
+
+  {% comment %}
+    Picker as a native <details>: nothing opens it but the browser, it is keyboard accessible, and it
+    closes by itself because choosing an emoji swaps this whole row away. The free field keeps "any
+    emoji" true, and on a phone focusing it opens the system emoji keyboard.
+  {% endcomment %}
+  <details class="pop emoji-picker" id="picker-{{ notice.pk }}">
     <summary class="reaction reaction-add" title="Tilføj reaktion" aria-label="Tilføj reaktion">☺<span aria-hidden="true">+</span></summary>
-    <div class="emoji-grid">
-      {% for e in quick_emoji %}
-        <button type="button" class="emoji-choice"
-                hx-post="{% url 'opslagstavle:toggle_reaction' notice.pk %}"
-                hx-vals='{"emoji": "{{ e }}"}'
-                hx-target="#reactions-{{ notice.pk }}" hx-swap="outerHTML"
-                aria-label="Reagér med {{ e }}">{{ e }}</button>
-      {% endfor %}
+    <div class="pop-backdrop"></div>
+    <div class="pop-panel">
+      <div class="pop-title">Vælg en reaktion</div>
+      <div class="emoji-grid">
+        {% for e in quick_emoji %}
+          <button type="button" class="emoji-choice"
+                  hx-post="{% url 'opslagstavle:toggle_reaction' notice.pk %}"
+                  hx-vals='{"emoji": "{{ e }}"}'
+                  hx-target="#reactions-{{ notice.pk }}" hx-swap="outerHTML"
+                  aria-label="Reagér med {{ e }}">{{ e }}</button>
+        {% endfor %}
+      </div>
       <form class="emoji-other"
             hx-post="{% url 'opslagstavle:toggle_reaction' notice.pk %}"
             hx-target="#reactions-{{ notice.pk }}" hx-swap="outerHTML">

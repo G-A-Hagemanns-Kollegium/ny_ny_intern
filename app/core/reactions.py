@@ -17,12 +17,23 @@ from collections.abc import Iterable
 from typing import Any, Protocol
 
 
+class _Author(Protocol):
+    @property
+    def full_name(self) -> str: ...
+
+
 class _Reaction(Protocol):
     """What this module needs of a reaction row: which emoji, and whose it is.
 
     Declared as read-only properties rather than plain attributes on purpose: a Protocol attribute is
     *invariant*, so `emoji: str` would refuse a Django model whose field descriptor is not exactly
     `str`. This function only ever reads them, so read-only is both truer and more permissive.
+
+    `author` (the object) is needed as well as `author_id` because the reader panel names people.
+    That makes the loaded author a requirement of every caller, which is deliberate: it is enforced
+    by the Prefetch(..., select_related("author")) both apps pass, and folding the join into the
+    reactions query rather than nesting a second prefetch keeps the query count flat whether an item
+    has reactions or none — which is exactly what the "no extra query per reaction" tests assert.
     """
 
     @property
@@ -31,32 +42,42 @@ class _Reaction(Protocol):
     @property
     def author_id(self) -> int: ...
 
+    @property
+    def author(self) -> _Author: ...
+
 
 def reaction_rows(reactions: Iterable[_Reaction], user_id: int) -> list[dict[str, object]]:
-    """[{emoji, count, mine}] for one item, most-used first.
+    """[{emoji, count, mine, people}] for one item, most-used first.
 
     Takes an iterable of reaction rows rather than the item itself, so callers pass a *prefetched*
     collection and this stays a pure function (unit-testable without a database). That is not just
     tidiness: a list page renders every item, so resolving counts with a per-item aggregate would be
     an N+1 — on Den Hurtige's 20-second poll it was six queries every twenty seconds per open tab.
 
+    `people` is who used that emoji, in the order they reacted, for the reader panel that answers
+    "who liked this?". Built here rather than in a second function so the panel can never disagree
+    with the pills about ordering or grouping — they are the same list, rendered twice.
+
     Ties break on first use, which keeps the row from reshuffling under a thumb.
     """
     order: list[str] = []
     counts: dict[str, int] = {}
+    people: dict[str, list[str]] = {}
     mine: set[str] = set()
     for reaction in reactions:
         if reaction.emoji not in counts:
             order.append(reaction.emoji)
             counts[reaction.emoji] = 0
+            people[reaction.emoji] = []
         counts[reaction.emoji] += 1
+        people[reaction.emoji].append(reaction.author.full_name)
         if reaction.author_id == user_id:
             mine.add(reaction.emoji)
     # First-use position captured *before* sorting: `order` is what we are sorting, so looking an
     # index up inside the key function would read a half-reordered list.
     first_seen = {e: i for i, e in enumerate(order)}
     order.sort(key=lambda e: (-counts[e], first_seen[e]))
-    return [{"emoji": e, "count": counts[e], "mine": e in mine} for e in order]
+    return [{"emoji": e, "count": counts[e], "mine": e in mine, "people": people[e]} for e in order]
 
 
 def apply_toggle(manager: Any, *, author: Any, emoji: str, **owner: Any) -> None:  # noqa: ANN401

@@ -1192,3 +1192,54 @@ def test_the_moderation_controls_stay_reachable_on_a_clickable_card(
 
     assert "notice-actions" in body
     assert "/fastgoer" in body
+
+
+# --- who reacted --------------------------------------------------------------------------------
+
+
+def test_the_board_shows_who_reacted_and_with_what(client: Client, beboer: Resident) -> None:
+    """Same widget as Den Hurtige, from the same core.reactions rows — so the panel names people
+    here too rather than only showing a count."""
+    notice = make_notice(beboer)
+    reactor = Resident.objects.create(email="m@gahk.dk", first_name="Mette", last_name="Hansen")
+    NoticeReaction.objects.create(notice=notice, author=reactor, emoji="👍")
+    client.force_login(beboer)
+
+    body = client.get(BOARD).content.decode()
+
+    assert "who-list" in body
+    assert "Mette Hansen" in body
+
+
+def test_the_board_reaction_panels_are_overlays_with_a_backdrop(client: Client, beboer: Resident) -> None:
+    """Anchored beside its summary the picker opened off the edge of a phone once an item had a few
+    reactions; both panels are fixed-position overlays over a real backdrop element instead."""
+    notice = make_notice(beboer)
+    NoticeReaction.objects.create(notice=notice, author=beboer, emoji="👍")
+    client.force_login(beboer)
+
+    body = client.get(BOARD).content.decode()
+
+    assert 'class="pop who-picker"' in body
+    assert 'class="pop emoji-picker"' in body
+    assert body.count('class="pop-backdrop"') == 2
+
+
+def test_no_reader_panel_on_the_board_when_nobody_has_reacted(client: Client, beboer: Resident) -> None:
+    make_notice(beboer)
+    client.force_login(beboer)
+
+    assert "who-picker" not in client.get(BOARD).content.decode()
+
+
+def test_toggling_a_reaction_returns_the_row_as_it_now_is(client: Client, beboer: Resident) -> None:
+    """Regression: the toggle renders the row from a queryset read AFTER the write. Fetching the
+    notice with the reactions prefetch instead built that cache before apply_toggle ran, so the tap
+    came back with the row exactly as it had been — the new reaction missing until the next load."""
+    notice = make_notice(beboer)
+    client.force_login(beboer)
+
+    body = client.post(f"{BOARD}{notice.pk}/reaktion", {"emoji": "👍"}).content.decode()
+
+    assert "👍" in body or "👍" in body
+    assert "Bo Beboer" in body  # the reader panel, populated from the same fresh read

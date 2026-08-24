@@ -19,6 +19,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
+from django.db.models import Prefetch
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -73,10 +74,18 @@ def _decorate(notices: list[Notice], request: HttpRequest) -> list[Notice]:
     return notices
 
 
+# Reactions with their author already joined. select_related inside the Prefetch rather than a
+# nested "reactions__author": a nested prefetch is a SECOND query that only runs once an item has
+# reactions, so the first reaction on a page would add a query — exactly what
+# test_the_board_costs_no_extra_query_per_reaction forbids. The author is needed because the reader
+# panel names people. Mirrors den_hurtige.views.REACTIONS.
+REACTIONS = Prefetch("reactions", queryset=NoticeReaction.objects.select_related("author"))
+
+
 def _list_queryset() -> NoticeQuerySet:
     """The columns and relations every listing needs. `prefetch_related("reactions")` is what keeps
     the reaction rows from being an N+1 across a page of posts."""
-    return Notice.objects.select_related("author", "pinned_by").prefetch_related("reactions")
+    return Notice.objects.select_related("author", "pinned_by").prefetch_related(REACTIONS)
 
 
 @login_required
@@ -264,12 +273,16 @@ def toggle_reaction(request: HttpRequest, pk: int) -> HttpResponse:
         apply_toggle(NoticeReaction.objects, author=resident, emoji=form.cleaned_data["emoji"], notice=notice)
     # An invalid emoji falls through to a plain re-render: the row is still correct, and a one-tap
     # control has nowhere useful to put a validation error.
+    # NOT prefetched, and NOT reactions_for(): a prefetch is evaluated when the item is fetched,
+    # which here is *before* apply_toggle writes. Reading .reactions.all() would then hit a cache
+    # built a moment too early and re-render the row exactly as it was before the tap. Ask the
+    # database again, joining the author in one query for the reader panel.
     return render(
         request,
         "opslagstavle/_reactions.html",
         {
             "notice": notice,
-            "reactions": reaction_rows(notice.reactions.all(), resident.pk),
+            "reactions": reaction_rows(notice.reactions.select_related("author"), resident.pk),
             "quick_emoji": EMOJI_SHORTLIST,
         },
     )
