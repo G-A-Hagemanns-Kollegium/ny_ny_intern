@@ -16,6 +16,7 @@ urlpatterns = [
     path("beboer/<int:pk>/rediger", views.edit_resident, name="edit_resident"),
     path("stamtree/", views.stamtree, name="stamtree"),
     path("den-hurtige/", include("den_hurtige.urls")),
+    path("opslagstavle/", include("opslagstavle.urls")),
     path("ak/", include("ak.urls")),
     path("oelkaelder/", include("oelkaelder.urls")),
     path("statistik/", include("stats.urls")),

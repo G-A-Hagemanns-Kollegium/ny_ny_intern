@@ -33,6 +33,10 @@
 
   /* Insert at the caret rather than appending: an editor adding a picture mid-article should not
      find it at the bottom of the page. */
+  // NOTE: frontend/src/opslagstavle.ts has the same job for the board's Markdown toolbar, using
+  // setRangeText (which keeps the native undo stack). The duplication is deliberate: the Django
+  // admin does not load the Vite bundle, so sharing would mean building this file through Vite
+  // for ten lines of selection arithmetic. Keep the two in mind together.
   function insertAtCursor(textarea, text) {
     var start = textarea.selectionStart;
     var end = textarea.selectionEnd;

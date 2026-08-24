@@ -1,0 +1,121 @@
+"""Demo content for opslagstavlen, used by `manage.py seed_demo`.
+
+Lives here rather than inside seed_demo so the long Danish post bodies sit with the feature they
+belong to, and so seed_demo keeps one line per domain.
+
+Two of these posts exist for a reason beyond looking realistic:
+
+  * one is **pinned**, so the pinned-first layout, the 📌 marker and the pin cap are all visible on a
+    fresh checkout rather than only after someone thinks to pin something;
+  * one carries **three images**, so the feed's collapse-to-a-thumbnail behaviour is visible too;
+  * one is **six years old**, so `manage.py purge_notices --dry-run` reports a real number locally.
+    Without it that command prints zeros until the retention window has actually elapsed, and nobody
+    can tell whether it works or is broken.
+
+No *uploaded* images: this project has no Pillow, and `_seed_room_conditions` sets no photos for the
+same reason. The multi-image post references files already in `static/legacy/` instead.
+"""
+
+import random
+from datetime import datetime, timedelta
+
+from residents.models import Resident, Role
+
+from .models import RETENTION_DAYS, Category, Notice, NoticeComment, NoticeReaction
+
+VAERELSESRUNDE_BODY = """Runden er afsluttet. Fordelingen blev:
+
+| Værelse | Beboer |
+|---|---|
+| 003 | Bo Beboer |
+| 104 | Ann Anden |
+| 210 | Carl Christensen |
+
+Spørgsmål til **Indstillingen**."""
+
+FAELLESSPISNING_BODY = """Vi mødes i spisesalen kl. 18.
+
+- Tilmelding på sedlen i køkkenet
+- 40 kr. pr. person
+- Tag gerne en ven med
+
+> Husk at melde fra senest torsdag hvis du ikke kan."""
+
+# Several images, so a fresh checkout shows the feed's collapse-to-a-thumbnail behaviour without
+# anyone having to upload anything. Static files rather than uploads because this project has no
+# Pillow and the seed writes no media — /static/ images render and count exactly like uploads do
+# (core.markdown.image_sources allows both origins).
+ETAGEPLANER_BODY = """Planerne over etagerne hænger nu også her:
+
+![Stuen](/static/legacy/image/intern/stuen.png)
+
+![1. sal](/static/legacy/image/intern/sal1.png)
+
+![2. sal](/static/legacy/image/intern/sal2.png)
+
+Skriv en kommentar hvis noget mangler."""
+
+CYKELKAELDER_BODY = """## Kort version
+
+Cykler skal mærkes med værelsesnummer.
+
+Umærkede cykler bliver fjernet efter **1. oktober**. Reglerne står på
+[gahk.dk](https://gahk.dk), og spørgsmål kan stilles i kommentarerne."""
+
+POSTS = [
+    (Category.VAERELSESRUNDE, "Resultatet af værelsesrunden", VAERELSESRUNDE_BODY),
+    (Category.BEGIVENHED, "Fællesspisning på fredag", FAELLESSPISNING_BODY),
+    (Category.FOEDSELSDAG, "Tillykke til Ann", "Ann fylder 25 i dag! Der er kage i køkkenet kl. 15."),
+    (
+        Category.PRAKTISK,
+        "Vaskemaskine 2 er i stykker",
+        "Reparatøren kommer på torsdag. Brug maskine 1 og 3 indtil da.",
+    ),
+    (Category.NYT, "Nye regler for cykelkælderen", CYKELKAELDER_BODY),
+    (Category.PRAKTISK, "Etageplaner", ETAGEPLANER_BODY),
+    (
+        Category.ANDET,
+        "Sofa søger nyt hjem",
+        "Står i kælderen og skal væk inden weekenden. Skriv en kommentar hvis du vil have den.",
+    ),
+]
+
+COMMENTS = ["Godt initiativ!", "Jeg er med.", "Kan man tage en gæst med?", "Tak for info."]
+EMOJI = ["👍", "🎉", "❤️", "👀"]
+
+# Comfortably past RETENTION_DAYS, so the purge command has something to report. Derived rather
+# than hardcoded, so shortening the retention window cannot silently make this post recent again.
+STALE_AGE_DAYS = RETENTION_DAYS + 365
+
+
+def seed(residents: list[Resident], now: datetime, rng: random.Random) -> int:
+    """Create the demo board. Returns the number of notices made."""
+    created: list[Notice] = []
+    for i, (category, title, body) in enumerate(POSTS):
+        notice = Notice.objects.create(
+            author=residents[i % len(residents)], title=title, category=category, body=body
+        )
+        # created_at is auto_now_add, so backdating takes a second write.
+        Notice.objects.filter(pk=notice.pk).update(created_at=now - timedelta(days=rng.randint(1, 120)))
+        created.append(notice)
+
+    # Pinned by an actual inspektion member, so the demo shows a real attribution rather than "None".
+    pinner = Resident.objects.filter(role_assignments__role=Role.INSPEKTION).first() or residents[0]
+    Notice.objects.filter(pk=created[0].pk).update(pinned_at=now, pinned_by=pinner)
+
+    stale = Notice.objects.create(
+        author=residents[0],
+        title="Arkiveret opslag",
+        category=Category.ANDET,
+        body="Gammelt nok til at purge_notices vil slette det. Findes for at gøre --dry-run synligt.",
+    )
+    Notice.objects.filter(pk=stale.pk).update(created_at=now - timedelta(days=STALE_AGE_DAYS))
+
+    for notice in created[:4]:
+        for resident in rng.sample(residents, k=min(3, len(residents))):
+            NoticeComment.objects.create(notice=notice, author=resident, body=rng.choice(COMMENTS))
+        # One reaction per person per notice is a DB constraint, so sample without replacement.
+        for resident in rng.sample(residents, k=min(5, len(residents))):
+            NoticeReaction.objects.create(notice=notice, author=resident, emoji=rng.choice(EMOJI))
+
+    return len(created) + 1

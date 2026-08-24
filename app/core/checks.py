@@ -1,5 +1,9 @@
 """Startup validation of the VAPID configuration.
 
+Lives in core because the keys are shared by every feature that pushes (Den Hurtige and
+opslagstavlen), not owned by whichever one shipped first. The check IDs moved with it:
+`den_hurtige.E00x` became `core.E00x`.
+
 A wrong VAPID key pair has no server-side symptom whatsoever: Django starts, the feed renders, the
 subscribe button appears, and the only evidence is the browser refusing to subscribe — as a generic
 `AbortError` from the push service, which is indistinguishable from being offline. Every mistake
@@ -56,7 +60,7 @@ def check_vapid_public_key(app_configs: Sequence[AppConfig] | None, **kwargs: ob
     try:
         public_raw = _b64url_decode(public_b64)
     except (binascii.Error, ValueError):
-        return [Error("VAPID_PUBLIC_KEY is not valid base64url.", hint=CONVERT_HINT, id="den_hurtige.E001")]
+        return [Error("VAPID_PUBLIC_KEY is not valid base64url.", hint=CONVERT_HINT, id="core.E001")]
 
     if len(public_raw) != VAPID_KEY_BYTES or public_raw[0] != UNCOMPRESSED_POINT_TAG:
         leading = f"0x{public_raw[0]:02x}" if public_raw else "nothing"
@@ -65,7 +69,7 @@ def check_vapid_public_key(app_configs: Sequence[AppConfig] | None, **kwargs: ob
                 f"VAPID_PUBLIC_KEY decodes to {len(public_raw)} bytes starting with {leading}; "
                 f"expected {VAPID_KEY_BYTES} bytes starting with 0x04.",
                 hint=CONVERT_HINT,
-                id="den_hurtige.E002",
+                id="core.E002",
             )
         ]
 
@@ -75,7 +79,7 @@ def check_vapid_public_key(app_configs: Sequence[AppConfig] | None, **kwargs: ob
                 "VAPID_PUBLIC_KEY is set but VAPID_PRIVATE_KEY is empty — browsers could subscribe "
                 "but the server could not sign a single push.",
                 hint="Set both, or neither to disable push.",
-                id="den_hurtige.E003",
+                id="core.E003",
             )
         ]
 
@@ -87,7 +91,7 @@ def check_vapid_public_key(app_configs: Sequence[AppConfig] | None, **kwargs: ob
                 "VAPID_PUBLIC_KEY is the right length but is not a point on the P-256 curve. The "
                 "browser's push service rejects it, which surfaces as a generic subscribe failure.",
                 hint=CONVERT_HINT,
-                id="den_hurtige.E004",
+                id="core.E004",
             )
         ]
 
@@ -101,7 +105,7 @@ def check_vapid_public_key(app_configs: Sequence[AppConfig] | None, **kwargs: ob
             Error(
                 f"VAPID_PRIVATE_KEY is not a raw base64url P-256 scalar ({exc}).",
                 hint=CONVERT_HINT,
-                id="den_hurtige.E005",
+                id="core.E005",
             )
         ]
 
@@ -115,7 +119,7 @@ def check_vapid_public_key(app_configs: Sequence[AppConfig] | None, **kwargs: ob
                     "Re-derive BOTH values from one .pem — updating only one of them after "
                     "regenerating the pair is the usual cause. See app/.env.example."
                 ),
-                id="den_hurtige.E006",
+                id="core.E006",
             )
         ]
 

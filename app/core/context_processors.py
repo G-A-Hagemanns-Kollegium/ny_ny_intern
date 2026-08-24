@@ -47,6 +47,9 @@ def _nav_intern(roles: Collection[str]) -> list[NavSection]:
     # would answer 403, and means opening the rollout needs no change in this file.
     if den_hurtige_allowed(roles):
         oversigt.append(("/nyintern/den-hurtige/", "Den Hurtige", "flash"))
+    # Unconditional: opslagstavlen is open to every resident (opslagstavle.access explains why it
+    # has no rollout gate), so the "never advertise a page that would 403" rule holds trivially.
+    oversigt.append(("/nyintern/opslagstavle/", "Opslagstavle", "board"))
     oversigt += [
         ("/nyintern/alumneliste/", "Alumneliste", "list"),
         ("/nyintern/stamtree/", "Stamtræ", "tree"),

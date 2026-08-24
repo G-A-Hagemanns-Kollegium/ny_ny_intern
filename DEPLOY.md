@@ -92,9 +92,19 @@ or an overlapping run is harmless.
 | `python manage.py purge_applications` | `20 3 * * *` | **The one that is genuinely missing.** F-001 says applications are kept one year; nothing has ever enforced it, so applicant PII accumulates indefinitely — the exact GDPR gap 99-index.md flags in the legacy system. |
 | `python manage.py ak_monthly_assessment` | `10 4 1 * *` | Books the month's AK deduction on the 1st instead of whenever someone happens to open an internal page. |
 | `python manage.py purge_quick_posts` | `*/30 * * * *` | Drains expired Den Hurtige posts (and their images) even in a quiet week when nobody loads the feed. |
+| `python manage.py purge_notices` | `40 3 * * *` | Enforces opslagstavlen's ~2-year retention and sweeps compose-toolbar images that were uploaded to a post nobody ever saved. **Pinned opslag are exempt** — a pin is Inspektionen deciding the kollegium keeps that one. Offset from `purge_applications` (03:20) so two deletes never overlap on the same small box. |
 
 **Run `purge_applications --dry-run` by hand first.** It deletes permanently and there is no undo;
 confirm the count is what you expect before putting it on a schedule.
+The same goes for `purge_notices` — though its retention branch will delete nothing for years, so
+the number worth eyeballing on the first real run is the *unused image* count.
+
+**`purge_notices` is the deliberate exception to the lazy-guard rule below, and should stay that
+way.** Den Hurtige purges on every feed load because its promise is "gone in 30 minutes": a message
+that should have vanished is visibly wrong to a reader within the hour, so cron failing silently has
+an immediate cost. Opslagstavlen's tolerance is *months* — if the job is dead for a week nothing is
+wrong for anybody — and putting a potentially large DELETE on every board request to insure against
+that would be a bad trade. Don't "fix" the inconsistency.
 
 **These do not replace the lazy guards, and the lazy guards should stay.** `ensure_active_month_applied()`
 costs two indexed single-row queries on three pages (measured), and it is the only thing that makes a

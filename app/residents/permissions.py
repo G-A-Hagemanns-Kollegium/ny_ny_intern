@@ -38,6 +38,13 @@ _REAL_ROLES_MEMO = "_gahk_real_roles"
 # indstilling, inspektion and pr (the PR group) maintain the frontpage.
 CMS_EDITOR_ROLES = (Role.ADMINISTRATOR, Role.INDSTILLING, Role.INSPEKTION, Role.PR)
 
+# Roles that may remove other residents' content and pin it (Den Hurtige messages, opslagstavlen
+# posts and comments). Inspektionen keep the kollegium's house rules, so they moderate resident
+# content the same way they do everything else; administrator is listed for readability even though
+# it already implies every role (see real_roles). Lives here rather than in either feature app
+# because this module is the single source of truth for role groupings.
+MODERATION_ROLES = (Role.ADMINISTRATOR, Role.INSPEKTION)
+
 
 def current_resident(request: HttpRequest) -> Resident:
     """The logged-in Resident for a request behind @login_required / @role_required.
