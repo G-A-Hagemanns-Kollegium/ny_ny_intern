@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "oelkaelder",
     "stats",
     "den_hurtige",
+    "opslagstavle",
 ]
 
 MIDDLEWARE = [
@@ -212,9 +213,23 @@ LOGGING = {
             "handlers": ["console"],
             "level": os.environ.get("DEN_HURTIGE_LOG_LEVEL", "INFO"),
             "propagate": False,
-        }
+        },
+        # core.push logs the "delivered to n/m device(s)" line for every fan-out. Without an explicit
+        # handler it would only surface at WARNING+, and that line is the only thing that tells "no
+        # subscribers" apart from "every send failed" — which look identical from the outside and
+        # both look exactly like push being broken.
+        "core": {
+            "handlers": ["console"],
+            "level": os.environ.get("CORE_LOG_LEVEL", "INFO"),
+            "propagate": False,
+        },
     },
 }
 
 # CMS image uploads (editors add pictures from the admin instead of committing them to the repo).
 CMS_IMAGE_MAX_MB = int(os.environ.get("CMS_IMAGE_MAX_MB", "5"))
+
+# Opslagstavlen image uploads (inserted into a post's Markdown from the compose toolbar). Its own
+# setting rather than sharing the CMS one: every feature here caps its own uploads, and an ops
+# change for the CMS must not silently change what residents may post.
+NOTICE_IMAGE_MAX_MB = int(os.environ.get("NOTICE_IMAGE_MAX_MB", "5"))

@@ -1,0 +1,41 @@
+{% comment %}
+  One notice's reaction row. Swapped on its own (hx-swap="outerHTML" onto this id) so tapping an
+  emoji never re-renders the page — that would throw away anything half-typed in the comment box.
+
+  Shares the .reaction*/.emoji-* CSS with Den Hurtige: same widget, same markup, same behaviour.
+{% endcomment %}
+<div class="reactions" id="reactions-{{ notice.pk }}">
+  {% for r in reactions %}
+    <button type="button" class="reaction{% if r.mine %} is-mine{% endif %}"
+            hx-post="{% url 'opslagstavle:toggle_reaction' notice.pk %}"
+            hx-vals='{"emoji": "{{ r.emoji }}"}'
+            hx-target="#reactions-{{ notice.pk }}" hx-swap="outerHTML"
+            aria-pressed="{% if r.mine %}true{% else %}false{% endif %}"
+            aria-label="{{ r.emoji }} {{ r.count }}">{{ r.emoji }} <span class="n">{{ r.count }}</span></button>
+  {% endfor %}
+
+  {% comment %}
+    Picker as a native <details>: no JS, keyboard accessible, and it closes by itself because
+    choosing an emoji swaps this whole row away. The free field keeps "any emoji" true, and on a
+    phone focusing it opens the system emoji keyboard.
+  {% endcomment %}
+  <details class="emoji-picker" id="picker-{{ notice.pk }}">
+    <summary class="reaction reaction-add" title="Tilføj reaktion" aria-label="Tilføj reaktion">☺<span aria-hidden="true">+</span></summary>
+    <div class="emoji-grid">
+      {% for e in quick_emoji %}
+        <button type="button" class="emoji-choice"
+                hx-post="{% url 'opslagstavle:toggle_reaction' notice.pk %}"
+                hx-vals='{"emoji": "{{ e }}"}'
+                hx-target="#reactions-{{ notice.pk }}" hx-swap="outerHTML"
+                aria-label="Reagér med {{ e }}">{{ e }}</button>
+      {% endfor %}
+      <form class="emoji-other"
+            hx-post="{% url 'opslagstavle:toggle_reaction' notice.pk %}"
+            hx-target="#reactions-{{ notice.pk }}" hx-swap="outerHTML">
+        <label class="sr-only" for="emoji-b-{{ notice.pk }}">Anden emoji</label>
+        <input type="text" id="emoji-b-{{ notice.pk }}" name="emoji" maxlength="32"
+               autocomplete="off" enterkeyhint="send" placeholder="Anden emoji…">
+      </form>
+    </div>
+  </details>
+</div>

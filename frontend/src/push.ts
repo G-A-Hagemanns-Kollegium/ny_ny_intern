@@ -1,4 +1,12 @@
-// Web Push subscribe/unsubscribe for Den Hurtige. No-op on every page without #js-push.
+// Web Push subscribe/unsubscribe. No-op on every page without a [data-push] element.
+//
+// Shared by Den Hurtige and opslagstavlen. A browser has exactly ONE push subscription per
+// service-worker registration, so the *browser* subscription is not per feature — consent is,
+// and the server tracks it per topic. Two consequences drive the code below:
+//   * the button's initial state cannot come from getSubscription(): that says whether this
+//     browser is subscribed at all, not whether it wants THIS topic. The page tells us instead.
+//   * opting out of one topic must NOT call subscription.unsubscribe(), or the other topic
+//     silently stops arriving. Only the server knows whether anything is left, so it says so.
 //
 // Written by hand rather than using django-webpush's {% webpush_button %}, which would not work
 // here: its webpush.js registers a SECOND service worker under /webpush/ (so the push handler in
@@ -69,20 +77,28 @@ async function post(
   url: string,
   csrf: string,
   statusType: "subscribe" | "unsubscribe",
+  topic: string,
   subscription: PushSubscription,
-): Promise<void> {
+): Promise<{ remaining_topics?: number }> {
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
     credentials: "same-origin",
     body: JSON.stringify({
       status_type: statusType,
+      topic,
       subscription: subscription.toJSON(),
       browser: browserName(),
       user_agent: navigator.userAgent,
     }),
   });
   if (!response.ok) throw new ServerRejected(response.status);
+  // 201 (subscribe) has no body; 202 (unsubscribe) reports how many topics this device still wants.
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
 }
 
 async function subscribeTo(
@@ -141,11 +157,22 @@ function explain(err: unknown, brave: boolean): string {
 }
 
 async function init(root: HTMLElement): Promise<void> {
-  const button = root.querySelector<HTMLButtonElement>("#js-push-button");
-  const message = root.querySelector<HTMLElement>("#js-push-message");
+  const button = root.querySelector<HTMLButtonElement>("[data-push-button]");
+  const message = root.querySelector<HTMLElement>("[data-push-message]");
   const csrf = root.querySelector<HTMLInputElement>('input[name="csrfmiddlewaretoken"]')?.value ?? "";
   const saveUrl = root.dataset.url ?? "";
   const vapidKey = root.dataset.vapidKey ?? "";
+  const topic = root.dataset.topic ?? "den_hurtige";
+  // Whether the server has this device opted in to THIS topic. Rendered by the page, because the
+  // browser cannot know it: one endpoint serves every topic. Absent/empty => not subscribed.
+  const wantsTopic = root.dataset.subscribed === "1";
+  // Danish copy lives in the template, so all user-facing text stays where the rest of it is.
+  const onLabel = root.dataset.onLabel ?? "Slå notifikationer til";
+  const offLabel = root.dataset.offLabel ?? "Slå notifikationer fra";
+  const successText = root.dataset.successText ?? "Du får nu besked.";
+  // "på denne enhed" because that is what it means: consent is per topic, but a push subscription is
+  // per browser, so turning it off here does not touch your other devices.
+  const offText = root.dataset.offText ?? "Notifikationer er slået fra på denne enhed.";
   if (!button || !message) return;
 
   const say = (text: string): void => {
@@ -174,6 +201,9 @@ async function init(root: HTMLElement): Promise<void> {
   const brave = await isBrave();
   const registration = await navigator.serviceWorker.ready; // the root-scoped /sw.js from base.html
   let subscription = await registration.pushManager.getSubscription();
+  // The button reflects consent to this topic, not the existence of a browser subscription: a
+  // device subscribed to the other feature must still show "on" as an option here.
+  let enabled = wantsTopic && subscription !== null;
 
   // Two different controls now live in this header, and they are not alternatives: this one is per
   // *device* (does this browser receive push at all), while the bell next to it is per *channel*
@@ -188,8 +218,10 @@ async function init(root: HTMLElement): Promise<void> {
   // it forever and never sees the 410 that would reap the row. This path calls unsubscribe() and
   // deletes it.
   const render = (): void => {
-    button.textContent = subscription ? "Slå fra på denne enhed" : "Slå notifikationer til";
-    button.classList.toggle("is-quiet", Boolean(subscription));
+    button.textContent = enabled ? offLabel : onLabel;
+    // Styling hook for the "already on" state. Keyed on topic consent, not on the browser
+    // subscription: a device subscribed for the *other* feature must not look enabled here.
+    button.classList.toggle("is-quiet", enabled);
     button.disabled = false;
     button.hidden = false;
   };
@@ -198,11 +230,17 @@ async function init(root: HTMLElement): Promise<void> {
   button.addEventListener("click", async () => {
     button.disabled = true;
     try {
-      if (subscription) {
-        await post(saveUrl, csrf, "unsubscribe", subscription);
-        await subscription.unsubscribe();
-        subscription = null;
-        say("Notifikationer er slået fra på denne enhed.");
+      if (enabled && subscription) {
+        const result = await post(saveUrl, csrf, "unsubscribe", topic, subscription);
+        // Release the BROWSER subscription only once no topic wants this device any more. Doing it
+        // unconditionally is how turning one feature off would silently kill the other, with a
+        // symptom ("notifications just stopped") invisible from the server.
+        if ((result.remaining_topics ?? 0) === 0) {
+          await subscription.unsubscribe();
+          subscription = null;
+        }
+        enabled = false;
+        say(offText);
       } else {
         // Must come before subscribe() and must be inside the click handler — Safari/iOS rejects
         // a subscribe() whose permission prompt is not tied to a user gesture.
@@ -212,27 +250,31 @@ async function init(root: HTMLElement): Promise<void> {
           button.disabled = false;
           return;
         }
-        const fresh = await subscribeTo(registration, vapidKey);
+        // Reuse the browser's existing subscription when it has one: it is shared with the other
+        // topic, and re-subscribing would hand us the same endpoint anyway.
+        const fresh = subscription ?? (await subscribeTo(registration, vapidKey));
         try {
-          await post(saveUrl, csrf, "subscribe", fresh);
+          await post(saveUrl, csrf, "subscribe", topic, fresh);
         } catch (err) {
           // Never leave the browser holding a subscription the server does not know about: it would
-          // make the button read "slå fra" while no notification could ever arrive.
-          await fresh.unsubscribe();
+          // make the button read "slå fra" while no notification could ever arrive. Only safe to
+          // release one we just created — an existing one may be serving the other topic.
+          if (!subscription) await fresh.unsubscribe();
           throw err;
         }
         subscription = fresh;
-        say("Du får nu besked når nogen slår op.");
+        enabled = true;
+        say(successText);
       }
     } catch (err) {
-      console.error("Den Hurtige push:", err);
+      console.error(`push (${topic}):`, err);
       say(explain(err, brave));
     }
     render();
   });
 }
 
-const root = document.getElementById("js-push");
-if (root) {
-  init(root).catch((err) => console.error("Den Hurtige push init:", err));
+// One widget per page in practice, but selected as a list so a page could carry both toggles.
+for (const root of Array.from(document.querySelectorAll<HTMLElement>("[data-push]"))) {
+  init(root).catch((err) => console.error("push init:", err));
 }

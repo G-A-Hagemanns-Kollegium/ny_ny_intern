@@ -6,6 +6,9 @@
 //
 // Note the scroll container is #js-feed itself, not the window and not `.main`: the chat shell is
 // exactly one viewport tall and only the message list scrolls (see .chat-page in styles.css).
+//
+// The site-wide htmx X-CSRFToken hook used to live here; it is now ./htmx-csrf, imported from
+// main.ts, because opslagstavlen's hx-posts depend on it too.
 
 import { hookImageForms } from "./imageupload";
 
@@ -38,21 +41,6 @@ function atBottom(el: HTMLElement): boolean {
 function toBottom(el: HTMLElement): void {
   el.scrollTop = el.scrollHeight;
 }
-
-// ---- CSRF ------------------------------------------------------------------------------------
-// htmx does not add Django's CSRF header by itself, and the reaction buttons are the project's
-// first hx-post. Registered globally rather than per-element so every future hx-post is covered.
-function csrfToken(): string {
-  const cookie = document.cookie.split("; ").find((c) => c.startsWith("csrftoken="));
-  if (cookie) return decodeURIComponent(cookie.slice("csrftoken=".length));
-  // Fallback for CSRF_USE_SESSIONS or a missing cookie: any rendered {% csrf_token %} input.
-  return document.querySelector<HTMLInputElement>('input[name="csrfmiddlewaretoken"]')?.value ?? "";
-}
-
-document.body.addEventListener("htmx:configRequest", (event: Event) => {
-  const detail = (event as CustomEvent<{ headers: Record<string, string> }>).detail;
-  detail.headers["X-CSRFToken"] = csrfToken();
-});
 
 if (feed && scroller) {
   // Start at the newest message, as a chat does.

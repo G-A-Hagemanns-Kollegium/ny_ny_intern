@@ -1,0 +1,107 @@
+{% load board_extras %}
+{% comment %}
+  One notice, used by both the board list and the detail page — so the two can never drift on what a
+  post looks like. `full` is set on the detail page: the list shows a truncated body and no comments.
+
+  The body is rendered with |markdown, which returns an already-safe string (core.markdown). Do NOT
+  add |safe here.
+
+  In the list the whole card is tappable, not just the title: the title link is stretched over the
+  card with a CSS pseudo-element (.is-clickable below), so it stays one real link — keyboard
+  reachable, right-clickable, no JavaScript. Controls that must stay clickable are raised above it.
+{% endcomment %}
+<article class="notice-card card-flat{% if notice.pinned_at %} is-pinned{% endif %}{% if not full %} is-clickable{% endif %}" id="opslag-{{ notice.pk }}">
+  <div class="notice-head">
+    <div>
+      <div class="notice-tags">
+        {% if notice.pinned_at %}
+          <span class="chip chip-brass" title="Fastgjort af {{ notice.pinned_by.full_name|default:'Inspektionen' }}">📌 Fastgjort</span>
+        {% endif %}
+        <span class="chip">{{ notice.get_category_display }}</span>
+      </div>
+      {% if full %}
+        <h1 class="notice-title">{{ notice.title }}</h1>
+      {% else %}
+        <h2 class="notice-title">
+          <a class="notice-link" href="{% url 'opslagstavle:detail' notice.pk %}">{{ notice.title }}</a>
+        </h2>
+      {% endif %}
+      <p class="notice-meta muted">
+        {{ notice.author.full_name }} · {{ notice.created_at|date:"j. F Y, H:i" }}
+        {% if notice.edited_at %}· redigeret {{ notice.edited_at|date:"j. F Y, H:i" }}{% endif %}
+      </p>
+    </div>
+
+    {% if notice.can_edit or notice.can_delete or can_moderate %}
+      <div class="notice-actions">
+        {% if notice.can_edit %}
+          <a class="btn btn-secondary" href="{% url 'opslagstavle:edit' notice.pk %}">Redigér</a>
+        {% endif %}
+        {% if can_moderate %}
+          {% comment %}
+            Pin/unpin is a POST: it changes state, and a GET link would let a prefetching browser or
+            a crawler pin things by accident.
+          {% endcomment %}
+          <form method="post" action="{% url 'opslagstavle:toggle_pin' notice.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary">
+              {% if notice.pinned_at %}Frigør{% else %}Fastgør{% endif %}
+            </button>
+          </form>
+        {% endif %}
+        {% if notice.can_delete %}
+          <form method="post" action="{% url 'opslagstavle:delete' notice.pk %}"
+                onsubmit="return confirm('Slet opslaget «{{ notice.title|escapejs }}» permanent?')">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Slet</button>
+          </form>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="board-body prose-gahk">
+    {% comment %}
+      Truncated AFTER rendering, not before: truncatewords_html closes any tag it cuts through, while
+      truncating the Markdown source would slice a construct in half and render as noise.
+
+      More than one image => render the text without any of them and show a single thumbnail below,
+      so a photo album cannot push every other post off the screen. One image stays inline: it reads
+      as part of the post rather than as a gallery.
+    {% endcomment %}
+    {% if full %}
+      {{ notice.body|markdown }}
+    {% elif notice.thumbnail %}
+      {{ notice.body|markdown_text_only|truncatewords_html:40 }}
+    {% else %}
+      {{ notice.body|markdown|truncatewords_html:40 }}
+    {% endif %}
+  </div>
+
+  {% if notice.thumbnail and not full %}
+    {% comment %}
+      Not a link: it sits under the stretched title link, so a tap here already opens the post. A
+      nested <a> would be covered by the overlay anyway, and two links to the same place is worse for
+      a screen reader than one.
+
+      Deliberately NOT aria-hidden. The thumbnail itself is decorative (alt=""), but "3 billeder" is
+      real information — it is the only thing telling a screen-reader user the post has pictures at
+      all, since the excerpt is rendered without them.
+    {% endcomment %}
+    <div class="notice-gallery">
+      <img src="{{ notice.thumbnail }}" alt="" loading="lazy" width="72" height="72">
+      <span class="notice-gallery-count muted">{{ notice.image_count }} billeder</span>
+    </div>
+  {% endif %}
+
+  <div class="notice-foot">
+    {% include "opslagstavle/_reactions.html" with reactions=notice.reaction_rows %}
+    {% if not full %}
+      <a class="muted notice-comments-link" href="{% url 'opslagstavle:detail' notice.pk %}">
+        {% with n=notice.comments.count %}
+          {% if n == 1 %}1 kommentar{% elif n %}{{ n }} kommentarer{% else %}Kommentér{% endif %}
+        {% endwith %}
+      </a>
+    {% endif %}
+  </div>
+</article>

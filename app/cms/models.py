@@ -15,6 +15,8 @@ from django.db import models
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
+from core.files import delete_attached_files
+
 
 class Page(models.Model):  # gahk_page
     menu_category = models.PositiveSmallIntegerField(default=0)  # legacy menuCat (nav highlighting)
@@ -74,7 +76,7 @@ class CmsImage(models.Model):
     hand-writing a path: upload here, and the body editor inserts the <img> for you.
 
     FileField, not ImageField: ImageField requires Pillow, which is not a dependency of this project
-    (same call as rooms.RoomConditionScore.photo). cms.images.validate_upload does the checking.
+    (same call as rooms.RoomConditionScore.photo). core.uploads does the checking.
     """
 
     file = models.FileField(upload_to="cms/%Y/%m/", max_length=255, verbose_name="Fil")
@@ -110,6 +112,5 @@ class CmsImage(models.Model):
 @receiver(post_delete, sender=CmsImage)
 def _delete_cms_image_file(sender: type[CmsImage], instance: CmsImage, **kwargs: Any) -> None:  # noqa: ANN401
     """Drop the file from storage with the row — Django has not done this since 1.3, and an orphaned
-    upload is invisible: nothing lists it and nothing ever cleans it up."""
-    if instance.file:
-        instance.file.delete(save=False)
+    upload is invisible: nothing lists it and nothing ever cleans it up. See core.files."""
+    delete_attached_files(instance)

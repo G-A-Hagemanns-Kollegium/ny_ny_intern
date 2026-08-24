@@ -1,4 +1,4 @@
-// Service worker for the intern PWA (Den Hurtige).
+// Service worker for the intern PWA (Den Hurtige and opslagstavlen).
 //
 // Served from the ROOT path (/sw.js, see config/urls.py) so its scope covers /nyintern/. It lives
 // under templates/ because a TemplateView renders it, but the contents are deliberately plain
@@ -15,7 +15,7 @@
 // Bump when editing this file. A service worker is cached aggressively and updates silently, so
 // without a version marker there is no way to tell which copy is actually running — and debugging
 // "no notification arrives" against a stale worker wastes a lot of time.
-var SW_VERSION = 3;
+var SW_VERSION = 4;
 
 // Take over immediately instead of waiting for every tab to close — otherwise a fixed push handler
 // only reaches users after they close all intern tabs.
@@ -24,7 +24,7 @@ self.addEventListener('install', function (event) {
 });
 
 self.addEventListener('activate', function (event) {
-  console.log('[sw] Den Hurtige service worker v' + SW_VERSION + ' active');
+  console.log('[sw] GAHK intern service worker v' + SW_VERSION + ' active');
   event.waitUntil(self.clients.claim());
 });
 
@@ -32,7 +32,10 @@ self.addEventListener('activate', function (event) {
 // listener at all is what several browsers look for before offering to install the app.
 self.addEventListener('fetch', function (event) {});
 
-// Incoming push from den_hurtige/services.py. Payload keys: head, body, icon, url.
+// Incoming push from core/push.py. Payload keys: head, body, icon, url.
+// `url` is what routes the tap: Den Hurtige sends its feed, opslagstavlen sends the individual
+// post. Nothing here is per-feature — one worker serves both, and must keep doing so (see the
+// scope note above).
 // `head` is the sender's name, not the feature name: iOS and Android already label the
 // notification with the app it came from, so repeating "Den Hurtige" in the title wasted the
 // most valuable line on the lock screen. These fallbacks only fire for a payload-less push.
@@ -57,7 +60,7 @@ self.addEventListener('push', function (event) {
         badge: '/static/icons/badge-72x72.png', // monochrome, for the Android status bar
         // Deliberately NO `tag`: a shared tag makes each notification replace the previous one, so
         // a second post would silently overwrite the first. Every post stands alone.
-        data: { url: data.url || '/nyintern/den-hurtige/' },
+        data: { url: data.url || '/nyintern/' },
       })
       .then(
         function () {
@@ -75,7 +78,7 @@ self.addEventListener('push', function (event) {
 // should not leave three copies of the feed behind.
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
-  var target = (event.notification.data && event.notification.data.url) || '/nyintern/den-hurtige/';
+  var target = (event.notification.data && event.notification.data.url) || '/nyintern/';
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (windows) {

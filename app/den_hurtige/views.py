@@ -11,12 +11,12 @@ Every view here is scoped to one channel, with one deliberate exception: the pur
 `_active_posts`.
 """
 
-import json
 from datetime import timedelta
-from typing import NamedTuple, cast
+from typing import NamedTuple
 
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.files.uploadedfile import UploadedFile
 from django.db.models import Count, QuerySet
@@ -25,17 +25,19 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from core.push import handle_subscription_request
+from core.reactions import apply_toggle, reaction_rows
+from core.uploads import check_image_upload
 from residents.permissions import current_resident, effective_roles
 
 from . import channels, services
 from .access import access_required, can_moderate, is_limited, request_allowed
 from .channels import Channel
-from .forms import PushSubscriptionForm, ReactionForm
+from .forms import ReactionForm
 from .models import (
     DURATION_CHOICES,
     QUICK_EMOJI,
     ChannelMute,
-    PushSubscription,
     QuickComment,
     QuickPost,
     QuickReaction,
@@ -76,25 +78,11 @@ def _active_posts(channel: Channel) -> QuerySet[QuickPost]:
 def reactions_for(post: QuickPost, user_id: int) -> list[dict[str, object]]:
     """[{emoji, count, mine}] for one message, most-used first.
 
-    Counted in Python over the prefetched rows rather than with an aggregate per post: the feed
-    renders every active message, so a per-post query would be an N+1 on a page that polls itself
-    every 20 seconds. Ties break on first use, which keeps the row from reshuffling under a thumb.
+    A thin adapter over core.reactions.reaction_rows, which holds the counting and ordering shared
+    with opslagstavlen. Kept as a named function here because the feed and the toggle both call it
+    with a post, and because tests import it from this module.
     """
-    order: list[str] = []
-    counts: dict[str, int] = {}
-    mine: set[str] = set()
-    for reaction in post.reactions.all():  # prefetched in the feed; one query in the toggle path
-        if reaction.emoji not in counts:
-            order.append(reaction.emoji)
-            counts[reaction.emoji] = 0
-        counts[reaction.emoji] += 1
-        if reaction.author_id == user_id:
-            mine.add(reaction.emoji)
-    # First-use position captured *before* sorting: `order` is what we are sorting, so looking an
-    # index up inside the key function would read a half-reordered list.
-    first_seen = {emoji: i for i, emoji in enumerate(order)}
-    order.sort(key=lambda e: (-counts[e], first_seen[e]))
-    return [{"emoji": e, "count": counts[e], "mine": e in mine} for e in order]
+    return reaction_rows(post.reactions.all(), user_id)
 
 
 def posts_for(request: HttpRequest, channel: Channel) -> list[QuickPost]:
@@ -183,6 +171,9 @@ def feed(request: HttpRequest, channel: str | None = None) -> HttpResponse:
             "max_content_chars": MAX_CONTENT_CHARS,
             "push_configured": services.is_configured(),
             "vapid_public_key": services.vapid_public_key(),
+            # Whether ANY of this resident's devices wants this topic. The browser cannot answer it
+            # (one endpoint serves every topic), so the toggle's initial state is rendered here.
+            "push_subscribed": services.is_subscribed(current_resident(request)),
             "quick_emoji": QUICK_EMOJI,
             "can_moderate": can_moderate(request),
             # Tells the testers the page is not live yet, so they do not assume silence means
@@ -229,18 +220,17 @@ def _validated_image(request: HttpRequest) -> UploadedFile | None:
     a crafted or oversized upload, and warns rather than failing the whole submission — losing an
     urgent message because the photo was wrong is the worse outcome. Shared by messages and replies
     so the two can never drift apart on what they accept.
+
+    What counts as an acceptable image lives in core.uploads, so this cannot drift from the CMS and
+    værelsestjek again. It previously accepted anything whose content type began with `image/`,
+    which let an SVG through — a document that executes script when opened from our own /media/.
     """
     image = request.FILES.get("image")
     if not image:
         return None
-    if not (image.content_type or "").startswith("image/"):
-        messages.warning(request, "Filen er ikke et billede og blev ikke gemt.")
-        return None
-    if cast("int", image.size) > settings.QUICK_POST_MAX_MB * 1024 * 1024:
-        messages.warning(
-            request,
-            f"Billedet var for stort (over {settings.QUICK_POST_MAX_MB} MB) og blev ikke gemt.",
-        )
+    error = check_image_upload(image, settings.QUICK_POST_MAX_MB)
+    if error is not None:
+        messages.warning(request, f"{error} Billedet blev ikke gemt.")
         return None
     return image
 
@@ -342,16 +332,9 @@ def toggle_reaction(request: HttpRequest, pk: int) -> HttpResponse:
     resident = current_resident(request)
     form = ReactionForm(request.POST)
     if form.is_valid():
-        emoji = form.cleaned_data["emoji"]
-        existing = QuickReaction.objects.filter(post=post, author=resident).first()
-        if existing is None:
-            QuickReaction.objects.create(post=post, author=resident, emoji=emoji)
-        elif existing.emoji == emoji:
-            existing.delete()  # tapping the one you already used clears it
-        else:
-            # Move your reaction rather than stacking a second: one person, one emoji per message.
-            existing.emoji = emoji
-            existing.save(update_fields=["emoji"])
+        # Set / move / clear lives in core.reactions so Den Hurtige and opslagstavlen cannot drift
+        # into different semantics for the same widget.
+        apply_toggle(QuickReaction.objects, author=resident, emoji=form.cleaned_data["emoji"], post=post)
     # An invalid emoji falls through to a plain re-render: the row is still correct, and a one-tap
     # control has nowhere useful to put a validation error.
     return render(
@@ -402,43 +385,21 @@ def toggle_mute(request: HttpRequest, channel: str) -> HttpResponseRedirect:
 
 
 @require_POST
-@access_required
+@login_required
 def save_subscription(request: HttpRequest) -> HttpResponse:
-    """Store (or drop) this browser's push subscription.
+    """Store (or drop) this browser's opt-in to Den Hurtige notifications.
 
-    Login-gated and CSRF-protected, unlike django-webpush's /webpush/save_information, which was
-    @csrf_exempt and took its audience from the request body — anyone could have registered an
-    endpoint and received every dorm message. Here the subscription is always bound to the session's
-    own resident.
+    @login_required rather than @access_required, with the access gate re-applied *inside*: the
+    endpoint is shared with opslagstavlen (which every resident may use), so gating the whole view
+    on ACCESS_ROLES would lock plain residents out of subscribing to the noticeboard.
+
+    That inner check is a no-op today — ACCESS_ROLES is None now that the trial is over — but it is
+    what makes re-gating the feature (access.py's documented one-line edit) actually re-gate it.
+    Without it, narrowing ACCESS_ROLES would still leave anyone able to register for its
+    notifications.
+
+    The per-topic upsert/teardown itself is core.push.handle_subscription_request.
     """
-    resident = current_resident(request)
-    try:
-        data = json.loads(request.body.decode("utf-8"))
-    except (ValueError, UnicodeDecodeError):
-        return HttpResponse(status=400)
-    if not isinstance(data, dict):
-        return HttpResponse(status=400)
-
-    form = PushSubscriptionForm.from_payload(data)
-    if not form.is_valid():
-        return HttpResponse(status=400)
-    fields = form.cleaned_data
-
-    if fields["status_type"] == "unsubscribe":
-        # Delete by endpoint only for this user: the endpoint identifies the device, and scoping to
-        # the session's resident stops one person unsubscribing another's phone by replaying it.
-        PushSubscription.objects.filter(user=resident, endpoint=fields["endpoint"]).delete()
-        return HttpResponse(status=202)
-
-    # Upsert on the endpoint: re-subscribing, or a second resident logging in on a shared browser,
-    # must move the existing row rather than leave a stale one pushing to the previous owner.
-    PushSubscription.objects.update_or_create(
-        endpoint=fields["endpoint"],
-        defaults={
-            "user": resident,
-            "auth": fields["auth"],
-            "p256dh": fields["p256dh"],
-            "user_agent": fields["user_agent"],
-        },
-    )
-    return HttpResponse(status=201)
+    if not request_allowed(request):
+        return HttpResponse(status=403)
+    return handle_subscription_request(request, services.TOPIC)

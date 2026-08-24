@@ -23,8 +23,7 @@ from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import PermissionDenied
 from django.http import HttpRequest, HttpResponse
 
-from residents.models import Role
-from residents.permissions import View, effective_roles
+from residents.permissions import MODERATION_ROLES, View, effective_roles
 
 # None = every logged-in resident. A tuple = only those roles (administrator implies every role, so
 # administrators and superusers are always in).
@@ -35,10 +34,9 @@ from residents.permissions import View, effective_roles
 # them, which is the question the trial could not answer.
 ACCESS_ROLES: tuple[str, ...] | None = None
 
-# Who may delete somebody else's message. Inspektionen keep the kollegium's house rules, so they
-# moderate the chat the same way they do everything else; administrator is listed for readability
-# even though it already implies every role (see residents.permissions.real_roles).
-MODERATOR_ROLES = (Role.ADMINISTRATOR, Role.INSPEKTION)
+# Who may delete somebody else's message. Aliased rather than redefined: the list is shared with
+# opslagstavlen and lives in residents.permissions, which owns every other role grouping.
+MODERATOR_ROLES = MODERATION_ROLES
 
 
 def can_moderate(request: HttpRequest) -> bool:

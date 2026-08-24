@@ -21,6 +21,8 @@ from django.db.models.signals import post_delete
 from django.dispatch import receiver
 from django.utils import timezone
 
+from core.files import delete_attached_files
+
 # How long a post stays visible. The default matches the Messenger group's informal "relevant the
 # next 30-60 min" convention; the compose form lets the author pick from DURATION_CHOICES.
 DEFAULT_DURATION_MINUTES = 1440
@@ -183,18 +185,12 @@ class QuickComment(models.Model):
 def _delete_image_file(sender: type[models.Model], instance: models.Model, **kwargs: Any) -> None:  # noqa: ANN401
     """Remove an attached file from storage when its message or reply goes.
 
-    Django stopped deleting FileField files on row delete in 1.3, so without this the *text* expires
-    on schedule while the *photo* stays on disk forever — the opposite of what the feature promises,
-    and an unbounded pile of orphaned uploads.
-
-    Registered as a signal rather than overridden on delete() because purge_expired() issues a bulk
-    queryset delete, which never calls Model.delete(), and replies are removed by cascade rather than
-    directly. The trade-off is that a post_delete receiver disables Django's fast-delete path, so
-    purging fetches rows before removing them — irrelevant at a few posts an hour.
+    Without this the *text* expires on schedule while the *photo* stays on disk forever — the
+    opposite of what the feature promises, and an unbounded pile of orphaned uploads. The reasons
+    this is a signal rather than a `delete()` override (bulk purges and cascades never call it) are
+    documented in core.files, which also does the work.
     """
-    image = getattr(instance, "image", None)
-    if image:
-        image.delete(save=False)
+    delete_attached_files(instance)
 
 
 class QuickReaction(models.Model):
@@ -229,42 +225,6 @@ class QuickReaction(models.Model):
 
     def __str__(self) -> str:
         return f"{self.emoji} af {self.author}"
-
-
-class PushSubscription(models.Model):
-    """One browser/device that has opted in to Den Hurtige notifications.
-
-    Replaces django-webpush's three-table layout (SubscriptionInfo + PushInformation + Group). The
-    Group indirection bought nothing here — there is exactly one audience, everyone who opted in —
-    and its get_or_create keyed on every field, so a browser that merely bumped its user-agent
-    string quietly produced a duplicate row and a duplicate notification.
-
-    `endpoint` is the device identity assigned by the push service, so it is the natural key: the
-    subscribe view upserts on it, which keeps re-subscribing (or a second person logging in on the
-    same browser) to a single row.
-    """
-
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="push_subscriptions"
-    )
-    endpoint = models.URLField(max_length=500, unique=True)
-    # Encryption material from the browser's PushSubscription — opaque base64url, not secrets of
-    # ours: without them the push service cannot decrypt anything we send to this device.
-    auth = models.CharField(max_length=100)
-    p256dh = models.CharField(max_length=100)
-    user_agent = models.CharField(max_length=500, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name = "Push-abonnement"
-        verbose_name_plural = "Push-abonnementer"
-
-    def __str__(self) -> str:
-        return f"Push-abonnement for {self.user}"
-
-    def as_subscription_info(self) -> dict[str, object]:
-        """The shape pywebpush expects — mirrors the browser's `PushSubscription.toJSON()`."""
-        return {"endpoint": self.endpoint, "keys": {"auth": self.auth, "p256dh": self.p256dh}}
 
 
 class ChannelMute(models.Model):
