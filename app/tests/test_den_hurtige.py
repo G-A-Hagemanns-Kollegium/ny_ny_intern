@@ -62,14 +62,7 @@ def rollout_open(monkeypatch: pytest.MonkeyPatch) -> None:
     kept deliberately: it states what every test outside the "staged rollout" section assumes, so
     re-gating the feature for some future reason fails those tests loudly instead of silently
     turning all of them into 403 assertions. The rollout tests turn the gate back on via
-    `rollout_limited`, which is why GATED_ROLES above has an explicit fallback.
-    """
-    monkeypatch.setattr(access, "ACCESS_ROLES", None)
-
-
-@pytest.fixture
-def rollout_limited(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Turn the gate back on — runs after the autouse fixture, so it wins."""
+    `rollout_limited`, which is why GATED_ROLES above has an explicit fallback."""
     monkeypatch.setattr(access, "ACCESS_ROLES", GATED_ROLES)
 
 
