@@ -44,10 +44,11 @@ FEED_URL = "/nyintern/den-hurtige/"
 # fixture below lifts it. Hardcoding a copy here is what made the Inspektionen tests fail when they
 # were added to the real tuple: the fixture kept restoring a narrower, stale set.
 #
-# The `or` is the other half of that lesson. When the rollout ends the shipped value becomes None,
-# and `rollout_limited` would then restore "no gate at all" — quietly turning every test in the
-# staged-rollout section into one that asserts nothing while still passing. Falling back to an
-# explicit tuple keeps them exercising the gate mechanism itself, which outlives this trial.
+# The `or` is the other half of that lesson, and is now the half doing the work: the rollout is over
+# and the shipped value IS None, so without a fallback `rollout_limited` would restore "no gate at
+# all" and quietly turn every test in the staged-rollout section into one that asserts nothing while
+# still passing. The explicit tuple keeps them exercising the gate mechanism, which outlived the
+# trial — den_hurtige.channels.allowed mirrors it per channel.
 GATED_ROLES = access.ACCESS_ROLES or (Role.ADMINISTRATOR, Role.INSPEKTION)
 
 pytestmark = pytest.mark.django_db
@@ -55,13 +56,13 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture(autouse=True)
 def rollout_open(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Lift the staged-rollout gate for the whole module.
+    """Pin the rollout gate open for the whole module.
 
-    Den Hurtige is limited to the trial group while it is being tried out
-    (den_hurtige.access.ACCESS_ROLES), but that restriction is temporary and every test outside the
-    "staged rollout" section is about behaviour that outlives it. Without this they would all have
-    to hand their residents an administrator role, which would quietly stop them testing what a
-    normal resident experiences. The rollout tests re-enable the gate via `rollout_limited`.
+    Redundant against the shipped value now that the trial is over and ACCESS_ROLES is None, and
+    kept deliberately: it states what every test outside the "staged rollout" section assumes, so
+    re-gating the feature for some future reason fails those tests loudly instead of silently
+    turning all of them into 403 assertions. The rollout tests turn the gate back on via
+    `rollout_limited`, which is why GATED_ROLES above has an explicit fallback.
     """
     monkeypatch.setattr(access, "ACCESS_ROLES", None)
 
@@ -1453,7 +1454,7 @@ def test_expired_posts_are_purged_across_every_channel_not_just_the_one_being_re
     assert not QuickPost.objects.filter(pk=stale.pk).exists()
 
 
-def test_the_tab_strip_counts_live_posts_per_channel(
+def test_the_channel_picker_counts_live_posts_per_channel(
     client: Client, make_resident: Callable[..., Resident]
 ) -> None:
     """Live, not unread: an expired post must stop being counted without anyone visiting."""
@@ -1474,8 +1475,8 @@ def test_the_tab_strip_counts_live_posts_per_channel(
     assert tabs[channels.DEFAULT.slug] == 0
 
 
-def test_the_tab_strip_costs_one_query(client: Client, make_resident: Callable[..., Resident]) -> None:
-    """One aggregate for every channel, not one count per tab — this page polls itself."""
+def test_the_channel_picker_costs_one_query(client: Client, make_resident: Callable[..., Resident]) -> None:
+    """One aggregate for every channel, not one count per entry — this page polls itself."""
     author = make_resident(email="a@gahk.dk")
     for slug in ("generelt", OTHER):
         QuickPost.objects.create(author=author, content=f"Besked i {slug}", channel=slug)
@@ -1678,6 +1679,20 @@ def test_the_default_channel_must_match_the_model_field_default(
     monkeypatch.setattr(channels, "DEFAULT", Channel("andet", "Andet", "flash", "", 60))
 
     assert "den_hurtige.E010" in [error.id for error in check_channels(None)]
+
+
+def test_every_channel_is_reachable_from_every_other_one(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """The header must always offer the full set. A horizontally scrolling tab strip failed this in
+    practice rather than in code — at five channels it ran off the edge of a phone with nothing to
+    say the rest were there — so the picker that replaced it is pinned here."""
+    client.force_login(make_resident(email="a@gahk.dk"))
+
+    for page in channels.CHANNELS:
+        body = client.get(page.url).content.decode()
+        for target in channels.CHANNELS:
+            assert f'href="{target.url}"' in body, f"{target.slug} unreachable from {page.slug}"
 
 
 def test_every_channel_url_resolves(client: Client, make_resident: Callable[..., Resident]) -> None:

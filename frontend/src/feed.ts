@@ -117,7 +117,8 @@ if (document.body.classList.contains("no-zoom")) {
 // whatever you did next, and two could be open at once.
 document.addEventListener("click", (event) => {
   const target = event.target as Node;
-  for (const picker of document.querySelectorAll<HTMLDetailsElement>("details.emoji-picker[open]")) {
+  const dismissable = "details.emoji-picker[open], details.channel-picker[open]";
+  for (const picker of document.querySelectorAll<HTMLDetailsElement>(dismissable)) {
     if (!picker.contains(target)) picker.open = false;
   }
 });

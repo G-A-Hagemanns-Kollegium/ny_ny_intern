@@ -81,7 +81,7 @@ CHANNELS: tuple[Channel, ...] = (
     Channel(
         slug="gahkroom",
         name="GAHKroom",
-        icon="house",
+        icon="beer",
         description="Alle er fucking liderlige og rowdy herinde",
         default_duration=720,
     ),
