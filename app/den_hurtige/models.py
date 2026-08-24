@@ -4,6 +4,12 @@ Posts are deliberately ephemeral: they are relevant for the next 30-120 minutes 
 *hard-deleted* (see QuickPostQuerySet.purge_expired), which is the whole point of the feature — a
 thread that cannot accumulate off-topic history. Purging happens lazily on every feed load plus via
 `manage.py purge_quick_posts` on a schedule (DEPLOY.md §4b), so a quiet week still drains the table.
+
+Posts are filed into a *channel* (`QuickPost.channel`). The channels themselves are constants in
+den_hurtige.channels, not rows here — see that module for why. Nothing in this file knows which
+channels exist, and nothing that expires may become channel-aware: `active()`, `expired()` and
+`purge_expired()` all stay deliberately channel-agnostic, so a post in a channel nobody has opened
+for a week still dies on time.
 """
 
 from datetime import datetime, timedelta
@@ -28,6 +34,11 @@ DURATION_CHOICES = [
     (720, "12 timer"),
     (1440, "1 døgn"),
 ]
+
+# The channel a post lands in when nothing says otherwise. A bare string, not an import from
+# den_hurtige.channels: that module imports DURATION_CHOICES from here, and models.py must stay the
+# leaf of that dependency. checks.py (E010) asserts the two agree, so they cannot drift apart.
+DEFAULT_CHANNEL_SLUG = "generelt"
 
 # One-tap reactions offered by the picker. Any emoji is still accepted (forms.ReactionForm) — this
 # is only the shortlist, because in a desktop browser a bare text field gives you a cursor and no
@@ -94,6 +105,12 @@ class QuickPost(models.Model):
         help_text="Valgfrit billede.",
     )
 
+    # Which feed this belongs to. A slug into den_hurtige.channels, not a ForeignKey, because the
+    # channel list is code rather than data. Deliberately no `choices=`: choices built from that
+    # tuple would make every channel edit emit a no-op AlterField migration, and the value is
+    # already validated where it enters (channels.lookup) and at startup (checks.E007-E010).
+    channel = models.CharField(max_length=32, default=DEFAULT_CHANNEL_SLUG)
+
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(
         default=get_default_expiration,
@@ -107,7 +124,13 @@ class QuickPost(models.Model):
         verbose_name = "Hurtigt opslag"
         verbose_name_plural = "Hurtige opslag"
         # active() and purge_expired() both filter on expires_at and run on every feed load.
-        indexes = [models.Index(fields=["expires_at"])]
+        # The composite serves the feed itself, which is always one channel's live posts; the lone
+        # expires_at index stays because purge_expired() sweeps every channel at once and would
+        # otherwise have to scan the composite's leading column.
+        indexes = [
+            models.Index(fields=["expires_at"]),
+            models.Index(fields=["channel", "expires_at"]),
+        ]
 
     def __str__(self) -> str:
         return f"Opslag af {self.author} kl. {self.created_at:%H:%M}"
@@ -202,3 +225,33 @@ class QuickReaction(models.Model):
 
     def __str__(self) -> str:
         return f"{self.emoji} af {self.author}"
+
+
+class ChannelMute(models.Model):
+    """One resident silencing push from one channel.
+
+    A *mute*, not a subscription: the row's presence means "do not notify me here", so the default
+    for every channel is on. That direction is deliberate. With opt-in, a newly launched channel
+    notifies nobody until people find it and join — and a channel nobody hears from is a channel
+    nobody posts in, which is how a small kollegium's second feed dies in a week. Muting is also the
+    only half anyone actually asks for ("stop buzzing me about i-byen at 2am").
+
+    It is per resident, not per device: nobody wants to mute the same channel on their phone and
+    again on their laptop. PushSubscription stays the device table; this is the preference.
+    """
+
+    resident = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="channel_mutes"
+    )
+    # A den_hurtige.channels slug. A mute for a channel that later disappears from the registry is
+    # harmless — nothing queries it — so retiring a channel needs no cleanup migration.
+    channel = models.CharField(max_length=32)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Kanal-mute"
+        verbose_name_plural = "Kanal-mutes"
+        constraints = [models.UniqueConstraint(fields=["resident", "channel"], name="uniq_channel_mute")]
+
+    def __str__(self) -> str:
+        return f"{self.resident} har slået {self.channel} fra"

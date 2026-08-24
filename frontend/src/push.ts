@@ -170,6 +170,9 @@ async function init(root: HTMLElement): Promise<void> {
   const onLabel = root.dataset.onLabel ?? "Slå notifikationer til";
   const offLabel = root.dataset.offLabel ?? "Slå notifikationer fra";
   const successText = root.dataset.successText ?? "Du får nu besked.";
+  // "på denne enhed" because that is what it means: consent is per topic, but a push subscription is
+  // per browser, so turning it off here does not touch your other devices.
+  const offText = root.dataset.offText ?? "Notifikationer er slået fra på denne enhed.";
   if (!button || !message) return;
 
   const say = (text: string): void => {
@@ -202,8 +205,23 @@ async function init(root: HTMLElement): Promise<void> {
   // device subscribed to the other feature must still show "on" as an option here.
   let enabled = wantsTopic && subscription !== null;
 
+  // Two different controls now live in this header, and they are not alternatives: this one is per
+  // *device* (does this browser receive push at all), while the bell next to it is per *channel*
+  // for the whole resident. Unsubscribed, this is the call to action and gets the prominent button.
+  // Subscribed, it steps back to a quiet link — the granular control people actually reach for is
+  // the channel bell, and two equally loud buttons side by side read as one control with a bug.
+  //
+  // It is demoted rather than removed, for two reasons. Channel mutes are per resident, so without
+  // this there is no way to keep push on your phone but off on a shared browser you logged into
+  // once. And turning notifications off in the OS/browser settings instead does NOT delete the
+  // server's subscription: the endpoint stays alive, so the server keeps encrypting and sending to
+  // it forever and never sees the 410 that would reap the row. This path calls unsubscribe() and
+  // deletes it.
   const render = (): void => {
     button.textContent = enabled ? offLabel : onLabel;
+    // Styling hook for the "already on" state. Keyed on topic consent, not on the browser
+    // subscription: a device subscribed for the *other* feature must not look enabled here.
+    button.classList.toggle("is-quiet", enabled);
     button.disabled = false;
     button.hidden = false;
   };
@@ -222,7 +240,7 @@ async function init(root: HTMLElement): Promise<void> {
           subscription = null;
         }
         enabled = false;
-        say("Notifikationer er slået fra.");
+        say(offText);
       } else {
         // Must come before subscribe() and must be inside the click handler — Safari/iOS rejects
         // a subscribe() whose permission prompt is not tied to a user gesture.

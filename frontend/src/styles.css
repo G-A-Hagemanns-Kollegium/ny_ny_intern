@@ -141,6 +141,17 @@
      `min-height:0` on every link in the chain is what allows that: a flex item defaults to
      min-height:auto and would otherwise refuse to shrink below its content, overflowing instead.
      All scoped to .chat-page so no other intern screen changes shape. */
+  /* Sizing .app to the viewport is not on its own enough to pin the frame: <html> and <body> are
+     still scrollable boxes, so a firm swipe rubber-bands the whole shell — topbar included — away
+     from the top of the screen and leaves a strip of background above it. Locking both, and killing
+     overscroll at the document level, is what stops the top coming loose.
+     `:has()` is the only way to reach <html> from a class on <body>. It shipped in Safari 15.4,
+     comfortably before the iOS 16.4 that web push requires, so it is always available on the phones
+     this page is built for; anywhere it is missing the page simply behaves as it did before.
+     100dvh rather than 100%, matching .app: on iOS the dynamic viewport unit tracks the address bar
+     retracting, where a percentage of the layout viewport would leave a gap at the bottom. */
+  html:has(body.chat-page) { height:100dvh; overflow:hidden; overscroll-behavior:none; }
+  .chat-page { height:100dvh; overflow:hidden; overscroll-behavior:none; }
   .chat-page .app { height:100dvh; min-height:0; }
   .chat-page .main { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
   /* No vertical padding: the header and composer bring their own and bleed to the gutters, so
@@ -151,15 +162,59 @@
   /* Pinned like a conversation title bar. It used to scroll away instantly: the feed jumps to the
      newest message on load, so on a phone you never saw the header at all. Bleeds to the gutters
      the same way the composer does, so nothing shows through behind it. */
-  .chat-head { flex:none;
+  .chat-head { flex:none; position:relative;
     display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
     background:var(--paper); border-bottom:1px solid var(--border);
     margin:0 -30px; padding:8px 30px; }
-  .chat-head h1 { font-size:22px; font-weight:750; margin:0; }
-  .push-bar { display:flex; align-items:center; gap:10px; font-size:13px; }
+  /* Channel picker. Sits exactly where the <h1> used to and replaces it, so five channels cost
+     the header no height at all — the menu is absolutely positioned and overlays the feed rather
+     than pushing it down. It superseded a horizontally scrolling tab strip, which at five channels
+     ran off the edge of a phone with nothing to say the rest were there.
+     `position:relative` on .chat-head is what the menu positions against. */
+  .channel-picker { position:relative; }
+  .channel-picker > summary { list-style:none; display:inline-flex; align-items:center; gap:8px;
+    cursor:pointer; font-size:22px; font-weight:750; line-height:1.2; padding:2px 6px 2px 0;
+    -webkit-tap-highlight-color:transparent; }
+  /* Safari draws its own disclosure triangle unless both of these are cleared. */
+  .channel-picker > summary::-webkit-details-marker { display:none; }
+  .channel-picker > summary::marker { content:""; }
+  .channel-picker > summary .caret { font-size:13px; color:var(--muted); font-weight:600; }
+  .channel-picker[open] > summary .caret { transform:rotate(180deg); }
+  /* max-height matters more than it looks: the document is locked against scrolling (see the shell
+     rules above), so a menu taller than the viewport would simply be unreachable below the fold. */
+  .channel-menu { position:absolute; top:calc(100% + 4px); left:0; z-index:40; min-width:236px;
+    background:var(--surface); border:1px solid var(--border-strong); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:5px; display:flex; flex-direction:column; gap:2px;
+    max-height:min(60dvh, 420px); overflow-y:auto; overscroll-behavior:contain; }
+  .channel-option { display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:9px;
+    color:var(--ink); text-decoration:none; font-size:15px; font-weight:600; }
+  .channel-option:hover { background:var(--surface-2); }
+  .channel-option.active { background:var(--green-050); color:var(--green-700); }
+  .channel-single { font-size:22px; font-weight:750; }
+  /* stroke/fill are NOT inherited from the <g> wrapping the sprite in base.html: <use> clones the
+     symbol into a shadow tree whose inherited styles come from this <svg>, not from the symbol's
+     original ancestors. Without these the icons render as filled black blobs. */
+  .channel-picker .ni, .channel-option .ni { width:17px; height:17px; flex:none;
+    stroke:currentColor; fill:none; }
+  .channel-option .channel-count { margin-left:auto; }
+  /* Live (unexpired) posts in that channel, not an unread count — see views.channel_counts. */
+  .channel-count { font-size:11.5px; font-weight:700; padding:0 6px; border-radius:999px;
+    background:var(--green-100); color:var(--green-700); }
+  .channel-option.active .channel-count { background:var(--brass); color:#fff; }
+
+  .chat-mute button { font-size:13px; padding:5px 12px; border-radius:999px; }
+
+  /* margin-left:auto groups the push controls on the right, so the picker and the "Under test"
+     chip stay together on the left instead of being spread apart by space-between. */
+  .push-bar { margin-left:auto; display:flex; align-items:center; gap:10px; font-size:13px; }
   .push-bar button { font-size:13px; font-weight:600; padding:5px 12px; border-radius:999px;
     background:var(--surface); border:1px solid var(--border-strong); color:var(--ink); cursor:pointer; }
   .push-bar button:hover { background:var(--green-050); border-color:var(--green-100); color:var(--green-700); }
+  /* Already subscribed: this drops to a quiet link so the per-channel bell is the loud control.
+     See frontend/src/push.ts for why it is demoted rather than removed. */
+  .push-bar button.is-quiet { background:none; border-color:transparent; color:var(--muted);
+    font-weight:500; text-decoration:underline; padding:5px 4px; }
+  .push-bar button.is-quiet:hover { background:none; color:var(--ink); }
 
   /* The one scrolling element on the page. overscroll-behavior stops a flick at either end from
      chaining out and bouncing the whole app, which on iOS looks like the page has come loose. */
@@ -195,6 +250,11 @@
   .msg-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:5px; }
   .msg-actions .thread[open] { flex-basis:100%; }
   .reactions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  /* Reactions + reply toggle on one line. `.thread` only claims the full width once it is open,
+     so the collapsed state stays beside the pills and the expanded one gets room for replies. */
+  .msg-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:5px; }
+  .msg-actions .thread[open] { flex-basis:100%; }
+  .reactions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
   .reaction { display:inline-flex; align-items:center; gap:5px; font-size:13px; line-height:1;
     padding:4px 9px; border-radius:999px; cursor:pointer;
     background:var(--surface); border:1px solid var(--border-strong); color:var(--ink); }
@@ -216,6 +276,7 @@
   .emoji-other { grid-column:1 / -1; margin-top:4px; }
   .emoji-other input { width:100%; padding:5px 8px; text-align:center; }
 
+  .thread { min-width:0; }
   .thread { min-width:0; }
   .thread > summary { cursor:pointer; font-size:12.5px; font-weight:600; color:var(--green-700);
     list-style:none; padding:2px 0; }
@@ -264,8 +325,9 @@
        — the hamburger and the topbar still carry every link it held. */
     .chat-page .brandcell { display:none; }
     .chat-head { margin:0 -18px; padding:5px 18px; }
-    .chat-head h1 { font-size:16px; }
-    .push-bar button { padding:3px 10px; font-size:12px; }
+    .channel-picker > summary, .channel-single { font-size:16px; }
+    .channel-menu { min-width:210px; }
+    .push-bar button, .chat-mute button { padding:3px 10px; font-size:12px; }
     /* Tighter message boxes: smaller avatar, less padding, tighter leading. */
     .msg { grid-template-columns:26px 1fr; gap:8px; padding:4px 8px; margin-top:4px; }
     .msg-avatar { width:26px; height:26px; font-size:11px; }

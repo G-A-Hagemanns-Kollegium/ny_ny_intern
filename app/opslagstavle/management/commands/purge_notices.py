@@ -1,4 +1,4 @@
-"""Enforce opslagstavlen's ~5-year retention, and sweep uploads nobody ever posted.
+"""Enforce opslagstavlen's ~2-year retention, and sweep uploads nobody ever posted.
 
 Posts are kept about two years and then deleted, so the board does not become a permanent archive of
 dorm life. Two jobs in one command because they are one policy:
@@ -39,7 +39,7 @@ from opslagstavle.models import (
 
 
 class Command(BaseCommand):
-    help = "Slet opslag ældre end ca. 5 år (fastgjorte undtaget) og ryd ubrugte billed-uploads."
+    help = "Slet opslag ældre end ca. 2 år (fastgjorte undtaget) og ryd ubrugte billed-uploads."
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--dry-run", action="store_true")

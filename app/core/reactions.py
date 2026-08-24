@@ -7,7 +7,7 @@ double tap — and it is encoded once here so the two cannot drift into differen
 
 Deliberately generic over the owning field rather than over the model: each app keeps its own
 concrete reaction table with a real foreign key. A single generic-FK table was considered and
-rejected — a GenericForeignKey has no database-level FK, so a bulk delete (opslagstavlen's 5-year
+rejected — a GenericForeignKey has no database-level FK, so a bulk delete (opslagstavlen's
 retention purge) would leave orphaned reaction rows behind unless every model also carried a
 GenericRelation. A purge that silently leaks rows for the lifetime of the board is exactly the
 failure mode that feature must not have.

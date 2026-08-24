@@ -135,7 +135,7 @@ meaningfully trialled. Den Hurtige's gate exists because *notifications* were th
 they are per-topic and default off, so that blast radius is already contained.
 
 **A 20-second poll, and the `no-zoom chat-page` body class.** Rejected, and there are tests asserting
-their absence — they look like omissions and are decisions. Polling a paginated five-year archive
+their absence — they look like omissions and are decisions. Polling a paginated multi-year archive
 would fight the pager, throw away the reader's place, and re-render every post's Markdown server-side
 every 20 seconds per open tab. Pinch-zoom matters on a long post with a table. If "what is new since
 I last looked" turns out to matter, the honest cheap version is a `last_seen` timestamp driving an

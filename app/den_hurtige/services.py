@@ -3,11 +3,27 @@
 The transport (pywebpush, the background thread, dead-endpoint cleanup, the VAPID keys) lives in
 core.push, shared with opslagstavlen. What stays here is the part that is genuinely this feature's:
 its audience, its URL, and the wording on the lock screen.
+
+Two audience rules layer on top of the shared topic opt-in, and both are this feature's alone:
+
+  * **Channel mutes.** A ChannelMute row's *presence* means "do not notify me here", so every
+    channel notifies everyone until someone opts out — the opposite of a subscribe model, and
+    deliberately so: a new channel that notifies nobody until people find it is a new channel nobody
+    posts in.
+  * **A direct reply ignores the mute.** Someone answering your message is not broadcasting at you,
+    and a mute is about a channel's chatter rather than about replies to your own post. It still
+    respects the *topic* opt-in, though: a resident who turned Den Hurtige notifications off
+    entirely hears nothing.
 """
 
 from typing import TYPE_CHECKING
 
+from django.db.models import QuerySet
+
 from core import push
+from core.models import PushSubscription
+
+from . import channels
 
 if TYPE_CHECKING:
     from residents.models import Resident
@@ -38,33 +54,60 @@ def is_subscribed(resident: "Resident") -> bool:
     return push.subscribers(TOPIC).filter(user=resident).exists()
 
 
+def _channel_url(slug: str) -> str:
+    """Deep link for a channel's push notification, so tapping it opens the feed the message is
+    actually in rather than the default one. A post filed under a channel that has since been
+    retired from the registry links to the default feed rather than a 404."""
+    channel = channels.lookup(slug) or channels.DEFAULT
+    return channel.url
+
+
+def _audience(channel: str, exclude_user_id: int | None = None) -> QuerySet[PushSubscription]:
+    """Devices that should hear about something in `channel`.
+
+    Two filters stacked, in this order for a reason: the topic opt-in is consent to be notified by
+    this feature at all (core.push), and the mute is a preference about one feed within it. Losing
+    the first would notify people who turned the feature off; losing the second would notify people
+    who asked this channel to be quiet.
+    """
+    return push.subscribers(TOPIC, exclude_user_id=exclude_user_id).exclude(
+        user__channel_mutes__channel=channel
+    )
+
+
 def notify_new_post(post: "QuickPost") -> None:
-    """Announce a new post to every Den Hurtige subscriber except its author.
+    """Announce a new post to every subscriber except its author, minus anyone who muted the channel
+    it was posted in.
 
     The title is the sender's name, not the feature's: every platform already labels the
     notification with the app it came from, so "Ny besked på Den Hurtige" said it twice and pushed
     the part that matters — who, and what they wrote — down into the body. Titling with the person
     is what every chat app does, and what makes a lock screen readable at a glance.
     """
-    push.notify(
-        TOPIC,
+    push.send(
+        _audience(post.channel, exclude_user_id=post.author_id),
         head=post.author.full_name,
         body=push.preview(post.content),
-        url=FEED_URL,
-        exclude_user_id=post.author_id,
+        url=_channel_url(post.channel),
     )
 
 
 def notify_new_comment(comment: "QuickComment") -> None:
     """Announce a comment. `notify_everyone` decides the audience; the commenter never gets their
-    own comment back, and a reply to your own post notifies nobody."""
+    own comment back, and a reply to your own post notifies nobody.
+
+    A direct reply reaches the original poster even if they muted the channel — see the module
+    docstring — which is why that branch goes through `push.subscribers` rather than `_audience`.
+    """
+    channel = comment.post.channel
     head = f"{comment.author.full_name} svarede"
     body = push.preview(comment.content)
+    url = _channel_url(channel)
 
     if comment.notify_everyone:
-        push.notify(TOPIC, head=head, body=body, url=FEED_URL, exclude_user_id=comment.author_id)
+        push.send(_audience(channel, exclude_user_id=comment.author_id), head=head, body=body, url=url)
         return
     if comment.author_id == comment.post.author_id:
         return  # commenting on your own post: the only recipient would be yourself
     recipients = push.subscribers(TOPIC).filter(user_id=comment.post.author_id)
-    push.send(recipients, head=head, body=body, url=FEED_URL)
+    push.send(recipients, head=head, body=body, url=url)

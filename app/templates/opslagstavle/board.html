@@ -5,7 +5,7 @@
 {% comment %}
   Deliberately NO `no-zoom chat-page` body class and NO hx-trigger="every 20s". Both belong to Den
   Hurtige, where messages die in 30 minutes and the page is used one-handed on a phone. A long post
-  with a table needs pinch-zoom, and polling a paginated five-year archive would fight the pager,
+  with a table needs pinch-zoom, and polling a paginated multi-year archive would fight the pager,
   throw away the reader's place, and re-render every post's Markdown every 20 seconds per open tab.
   There are tests asserting the absence of both.
 {% endcomment %}
@@ -32,8 +32,9 @@
          data-url="{% url 'opslagstavle:save_subscription' %}"
          data-subscribed="{% if push_subscribed %}1{% else %}0{% endif %}"
          data-on-label="Få besked om nye opslag"
-         data-off-label="Slå beskeder om opslag fra"
-         data-success-text="Du får nu besked når nogen slår op på tavlen.">
+         data-off-label="Slå fra på denne enhed"
+         data-success-text="Du får nu besked når nogen slår op på tavlen."
+         data-off-text="Beskeder om opslag er slået fra på denne enhed.">
       {% csrf_token %}
       <button type="button" data-push-button hidden></button>
       <span class="muted" data-push-message hidden></span>
@@ -77,7 +78,7 @@
           <p class="muted">
             Tavlen er til det der skal kunne findes igen — vigtige begivenheder, resultatet af
             værelsesrunden, fødselsdage. Skal noget kun gælde det næste døgn, hører det hjemme på
-            <a href="/nyintern/den-hurtige/">Den Hurtige</a>. Opslag slettes automatisk efter ca. 5 år.
+            <a href="/nyintern/den-hurtige/">Den Hurtige</a>. Opslag slettes automatisk efter ca. 2 år.
           </p>
         </div>
       {% endif %}

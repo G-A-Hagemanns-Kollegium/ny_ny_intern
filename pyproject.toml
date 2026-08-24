@@ -30,7 +30,7 @@ dev = [
     "pip-audit>=2.7",
     "faker>=30.0", # fake data for the seed_demo dev fixture command
     "mypy>=2.1.0",
-    "django-stubs[compatible-mypy]>=6.0.7",
+    "django-stubs[compatible-mypy]>=6.0.9",
     "prek>=0.4.9",
 ]
 

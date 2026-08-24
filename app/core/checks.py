@@ -2,7 +2,8 @@
 
 Lives in core because the keys are shared by every feature that pushes (Den Hurtige and
 opslagstavlen), not owned by whichever one shipped first. The check IDs moved with it:
-`den_hurtige.E00x` became `core.E00x`.
+`den_hurtige.E00x` became `core.E00x`. The channel registry's own checks (E007-E010) stayed behind in
+den_hurtige.checks, because a channel is that feature's concept and nothing else's.
 
 A wrong VAPID key pair has no server-side symptom whatsoever: Django starts, the feed renders, the
 subscribe button appears, and the only evidence is the browser refusing to subscribe — as a generic
@@ -18,6 +19,7 @@ Checked, in order of how easy each is to get wrong:
   E005  private key is not a raw 32-byte scalar
   E006  the two keys are not each other's halves — the classic result of regenerating the pair
         and updating only one of the two environment variables
+
 """
 
 import base64

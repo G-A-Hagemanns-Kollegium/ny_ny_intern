@@ -1,14 +1,19 @@
-"""Who may reach Den Hurtige — the single switch for its staged rollout.
+"""Who may reach Den Hurtige — the single switch for the whole feature.
 
-The feature is being trialled with the administrator group before the whole kollegium is invited, so
-that a bad notification experience (or a Brave user who cannot subscribe) is discovered by three
-people rather than a hundred.
+The staged rollout is over. The feature was trialled with the administrator group and Inspektionen
+first, so that a bad notification experience (or a Brave user who cannot subscribe) was found by
+three people rather than a hundred; ACCESS_ROLES is now None and every resident is in.
 
-    TO OPEN IT TO EVERY RESIDENT: set ACCESS_ROLES = None.
+    TO RE-GATE IT: set ACCESS_ROLES to a tuple of roles.
 
-That one edit widens the views, the sidebar entry and the live-feed poll together. Once the rollout
-is finished, this module and the `access_required` decorator can be deleted outright and the views
-can go back to plain @login_required.
+That one edit narrows the views, the sidebar entry and the live-feed poll together. It has never
+governed individual channels, in either direction: den_hurtige.channels carries its own per-channel
+`roles` which stacks on top of this one, so opening the rollout did NOT open a channel restricted to
+a role. This gate is about the feature; that one is about one feed within it.
+
+The module stays rather than being deleted with the trial, as the original plan had it, because two
+things here are still load-bearing: MODERATOR_ROLES, and `roles_allowed` — the function
+den_hurtige.channels.allowed mirrors.
 """
 
 from collections.abc import Collection
@@ -18,12 +23,16 @@ from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import PermissionDenied
 from django.http import HttpRequest, HttpResponse
 
-from residents.models import Role
 from residents.permissions import MODERATION_ROLES, View, effective_roles
 
 # None = every logged-in resident. A tuple = only those roles (administrator implies every role, so
 # administrators and superusers are always in).
-ACCESS_ROLES: tuple[str, ...] | None = (Role.ADMINISTRATOR, Role.INSPEKTION)
+#
+# Open to the whole kollegium. Two things follow that are worth expecting rather than debugging:
+# the "Under test" chip disappears on its own (the feed reads is_limited()), and the channel
+# picker's live-post counts stop reading zero — five feeds only look alive with a whole house in
+# them, which is the question the trial could not answer.
+ACCESS_ROLES: tuple[str, ...] | None = None
 
 # Who may delete somebody else's message. Aliased rather than redefined: the list is shared with
 # opslagstavlen and lives in residents.permissions, which owns every other role grouping.

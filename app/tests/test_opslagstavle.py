@@ -21,6 +21,7 @@ from django.utils import timezone
 
 from core import push
 from core.models import PushSubscription
+from den_hurtige import access
 from opslagstavle.models import (
     MAX_PINNED,
     RETENTION_DAYS,
@@ -112,10 +113,15 @@ def test_every_resident_can_read_and_post(client: Client, beboer: Resident) -> N
 
 
 def test_a_resident_who_cannot_open_den_hurtige_can_still_use_the_board(
-    client: Client, beboer: Resident
+    client: Client, beboer: Resident, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Den Hurtige is gated to (administrator, inspektion) during its trial. The board must not
-    inherit that — it is the whole reason the shared subscribe endpoint could not stay behind it."""
+    """The board's access must not depend on Den Hurtige's.
+
+    Den Hurtige is open to everyone today, so the gate is re-applied here rather than assumed: this
+    is the invariant that made the shared subscribe endpoint @login_required with a per-topic check
+    inside, and it has to keep holding whichever way that rollout switch happens to be set.
+    """
+    monkeypatch.setattr(access, "ACCESS_ROLES", (Role.ADMINISTRATOR, Role.INSPEKTION))
     client.force_login(beboer)
 
     assert client.get("/nyintern/den-hurtige/").status_code == 403
@@ -522,7 +528,7 @@ def test_an_out_of_range_page_falls_back(client: Client, beboer: Resident) -> No
 
 
 def test_the_board_does_not_poll_itself(client: Client, beboer: Resident) -> None:
-    """Den Hurtige polls every 20s because its messages die in 30 minutes. A paginated five-year
+    """Den Hurtige polls every 20s because its messages die in 30 minutes. A paginated multi-year
     archive must not: polling fights the pager, throws away the reader's place, and re-renders every
     post's Markdown server-side every 20 seconds per open tab."""
     make_notice(beboer)

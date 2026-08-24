@@ -69,7 +69,18 @@ class Command(BaseCommand):
                 "page as them and press 'Slå notifikationer til' first."
             )
 
-        payload = push._payload("Test fra GAHK", "Hvis du kan se denne, virker push.", url="/nyintern/")
+        # Deep-links somewhere real for the topic under test: this is a delivery test, and a
+        # notification that opens nothing when tapped only half-tests it. Imported here rather than
+        # at module scope so core keeps no import-time dependency on the features it serves.
+        from den_hurtige import channels
+        from opslagstavle.services import BOARD_URL
+
+        topic_urls = {"den_hurtige": channels.DEFAULT.url, "opslagstavle": BOARD_URL}
+        payload = push._payload(
+            "Test fra GAHK",
+            "Hvis du kan se denne, virker push.",
+            topic_urls.get(topic, "/nyintern/"),
+        )
         body = json.dumps(payload)
 
         failures = 0

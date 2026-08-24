@@ -6,7 +6,7 @@ staged-rollout gate.
 
 **Deliberately not a chat.** Den Hurtige polls itself every 20 seconds, keeps the reader's scroll
 position across swaps, re-opens threads afterwards and locks pinch-zoom — all of which exist because
-its messages die in 30 minutes. None of it applies to a five-year archive, and copying it would cost
+its messages die in 30 minutes. None of it applies to a multi-year archive, and copying it would cost
 real things: polling fights pagination, discards the reader's place, and re-renders every post's
 Markdown server-side every 20 seconds per open tab. If "what is new since I last looked" ever turns
 out to matter, the cheap honest version is a `last_seen` timestamp driving an "N nye opslag" banner —
@@ -194,7 +194,7 @@ def toggle_pin(request: HttpRequest, pk: int) -> HttpResponseRedirect:
     """Pin or unpin. Inspektionen and administrator only.
 
     Capped at MAX_PINNED because a pinned post is *both* permanently above everything else and
-    exempt from the five-year purge: without a cap, "pin" quietly becomes "keep forever" and the top
+    exempt from the retention purge: without a cap, "pin" quietly becomes "keep forever" and the top
     of the board fills up. Enforced here rather than as a constraint — a cross-row rule would need an
     exclusion constraint or a trigger, which is a lot of machinery for one `if`.
     """
