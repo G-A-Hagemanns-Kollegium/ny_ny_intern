@@ -1,7 +1,7 @@
 import "./styles.css";
 import "htmx.org";
 import Alpine from "alpinejs";
-import "./charts"; // interactive charts on /nyintern/statistik/ (no-op elsewhere)
+import "./charts"; // interactive charts on /intern/statistik/ (no-op elsewhere)
 import "./imageupload"; // downscale room-inspection photo uploads client-side (no-op elsewhere)
 import "./push"; // Den Hurtige push-notification subscribe button (no-op elsewhere)
 import "./feed"; // Den Hurtige live-feed poll guard (no-op elsewhere)

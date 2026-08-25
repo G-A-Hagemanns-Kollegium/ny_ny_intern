@@ -41,34 +41,34 @@ def _nav_intern(roles: Collection[str]) -> list[NavSection]:
     """Internal menu grouped into sidebar sections, built from the *effective* role set: base items for
     every resident plus each embedsgruppe's admin tools. Each item is (url, label, icon); empty sections
     are dropped. Honors the preview override (roles come from effective_roles)."""
-    oversigt: list[NavItem] = [("/nyintern/", "Dashboard", "dashboard")]
+    oversigt: list[NavItem] = [("/intern/", "Dashboard", "dashboard")]
     # Den Hurtige is limited to the administrator group during its trial; the single switch is
     # den_hurtige.access.ACCESS_ROLES. Asking it here keeps the sidebar from advertising a page that
     # would answer 403, and means opening the rollout needs no change in this file.
     if den_hurtige_allowed(roles):
-        oversigt.append(("/nyintern/den-hurtige/", "Den Hurtige", "flash"))
+        oversigt.append(("/intern/den-hurtige/", "Den Hurtige", "flash"))
     oversigt += [
-        ("/nyintern/alumneliste/", "Alumneliste", "list"),
-        ("/nyintern/stamtree/", "Stamtræ", "tree"),
-        ("/nyintern/statistik/", "Statistik", "chart"),
+        ("/intern/alumneliste/", "Alumneliste", "list"),
+        ("/intern/stamtree/", "Stamtræ", "tree"),
+        ("/intern/statistik/", "Statistik", "chart"),
     ]
     vaerelser: list[NavItem] = [
-        ("/nyintern/soegvaerelse/", "Søg værelse", "house"),
-        ("/nyintern/vaerelsestjek/", "Værelsestjek", "inspect"),  # open to every resident
+        ("/intern/soegvaerelse/", "Søg værelse", "house"),
+        ("/intern/vaerelsestjek/", "Værelsestjek", "inspect"),  # open to every resident
     ]
     if "indstilling" in roles:
-        vaerelser.append(("/nyintern/soegvaerelse/admin", "Værelsesudbud", "offer"))
+        vaerelser.append(("/intern/soegvaerelse/admin", "Værelsesudbud", "offer"))
     grupper: list[NavItem] = [
-        ("/nyintern/ak/", "AK-krydser", "check"),
-        ("/nyintern/oelkaelder/min-saldo", "Ølkælder", "beer"),
+        ("/intern/ak/", "AK-krydser", "check"),
+        ("/intern/oelkaelder/min-saldo", "Ølkælder", "beer"),
     ]
     if "ak" in roles:
-        grupper.append(("/nyintern/ak/admin", "AK-oversigt", "check"))
+        grupper.append(("/intern/ak/admin", "AK-oversigt", "check"))
     if "oelkaelder" in roles:
         # Salgsoverblik / Personoversigt are sub-pages reached from Ølkælder-admin, not separate nav items.
-        grupper.append(("/nyintern/oelkaelder/admin", "Ølkælder-admin", "beer"))
+        grupper.append(("/intern/oelkaelder/admin", "Ølkælder-admin", "beer"))
     if "regnskab" in roles:
-        grupper.append(("/nyintern/regnskab/", "Regnskab", "receipt"))
+        grupper.append(("/intern/regnskab/", "Regnskab", "receipt"))
     administration: list[NavItem] = []
     if "indstilling" in roles:
         administration.append(("/optagelse/listansoegninger", "Ansøgninger", "inbox"))
@@ -96,9 +96,9 @@ def _active_nav_url(sections: list[NavSection], path: str) -> str:
     """Which sidebar item to highlight for `path` — the longest one that is a prefix of it.
 
     base.html used to compare `request.path == url`, which broke as soon as a nav destination grew
-    sub-pages: /nyintern/den-hurtige/i-byen/ is a real page under the "Den Hurtige" item but is not
+    sub-pages: /intern/den-hurtige/i-byen/ is a real page under the "Den Hurtige" item but is not
     that item's URL, so nothing lit up. Longest-prefix keeps the more specific item winning where
-    two nest (/nyintern/ak/ vs /nyintern/ak/admin) — the behaviour exact matching already had.
+    two nest (/intern/ak/ vs /intern/ak/admin) — the behaviour exact matching already had.
 
     External links (the wiki, the feedback form) are skipped: they are never the current page, and
     an https:// prefix could not match a path anyway.
