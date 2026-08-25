@@ -24,7 +24,8 @@
         <span class="reply-name">{{ comment.author.full_name }}</span>
         <span class="msg-meta">{{ comment.created_at|date:"j. M Y, H:i" }}</span>
         {% if comment.can_delete %}
-          <form method="post" action="{% url 'opslagstavle:delete_comment' comment.pk %}" class="msg-del">
+          <form method="post" action="{% url 'opslagstavle:delete_comment' comment.pk %}" class="msg-del"
+                onsubmit="return confirm('Slet «{{ comment.body|truncatechars:60|escapejs }}» permanent?')">
             {% csrf_token %}
             <button type="submit" title="Slet kommentar" aria-label="Slet kommentar">&times;</button>
           </form>

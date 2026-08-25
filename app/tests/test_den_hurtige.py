@@ -1577,3 +1577,30 @@ def test_the_reaction_row_survives_a_toggle_with_its_reader_panel(
 
     assert "who-list" in body
     assert "Anton Storgaard" in body
+
+
+def test_deleting_a_message_asks_first(client: Client, make_resident: Callable[..., Resident]) -> None:
+    """The delete control is a bare x on every message in a scrolling feed, and purge_expired is a
+    HARD delete with no history to restore from — so a mis-tap has to be recoverable at the point of
+    the tap or not at all. The message text is quoted so a moderator can see which one they are
+    about to remove."""
+    author = make_resident(email="a@gahk.dk")
+    QuickPost.objects.create(author=author, content="Kaffe i koekkenet")
+    client.force_login(author)
+
+    body = client.get(FEED_URL).content.decode()
+
+    assert "return confirm(" in body
+    assert "Kaffe i koekkenet" in body
+
+
+def test_the_confirmation_survives_the_poll_re_rendering_the_row(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """It is an inline onsubmit rather than a delegated listener precisely so the 20-second swap
+    cannot leave a message whose delete no longer asks."""
+    author = make_resident(email="a@gahk.dk")
+    QuickPost.objects.create(author=author, content="Kaffe")
+    client.force_login(author)
+
+    assert "return confirm(" in client.get(FEED_URL + "opslag").content.decode()

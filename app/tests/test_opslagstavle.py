@@ -1300,3 +1300,17 @@ def test_a_new_post_notifies_with_the_author_as_the_head(
     payload = pushes[-1][1]
     assert payload["head"] == "Bo Beboer"
     assert payload["body"] == "Saunaen er repareret."
+
+
+def test_every_delete_control_asks_first(client: Client, beboer: Resident) -> None:
+    """All three of them: the post, its comments, and Den Hurtige's messages. The comment and
+    message controls are bare x buttons, which is what gets caught by a thumb on a phone, and none
+    of these deletes can be undone."""
+    notice = make_notice(beboer)
+    NoticeComment.objects.create(notice=notice, author=beboer, body="En kommentar")
+    client.force_login(beboer)
+
+    detail = client.get(f"{BOARD}{notice.pk}").content.decode()
+
+    assert detail.count("return confirm(") == 2  # the post and its one comment
+    assert "En kommentar" in detail
