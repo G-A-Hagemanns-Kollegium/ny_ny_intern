@@ -48,16 +48,6 @@
     <div id="total">Total 0,00 kr</div>
     <div id="buttonCheckOut" class="disabled">Check ud</div>
 
-    <div class="medlem">
-      Check ud: <span id="shopper-id"></span>
-      <ul id="checkout-nos">
-        <li data-key="1">1</li><li data-key="2">2</li><li data-key="3">3</li>
-        <li data-key="4">4</li><li data-key="5">5</li><li data-key="6">6</li>
-        <li data-key="7">7</li><li data-key="8">8</li><li data-key="9">9</li>
-        <li class="neutral" data-key="del">&#9003;</li><li data-key="0">0</li><li class="neutral" data-key=""></li>
-      </ul>
-    </div>
-
     <div id="andre"></div>
   </aside>
 
@@ -78,7 +68,7 @@
         <li class="shopper {% if blocked %}inaktiv{% endif %}"
             data-id="{{ s.pk }}" data-rid="{{ s.resident_id }}" data-name="{{ s.resident.full_name }}">
           <div class="alumnumName">{{ s.resident.full_name }} <small>#{{ s.resident_id }}</small></div>
-          <div class="balance">{{ balance|kr }}</div>
+          <div class="balance{% if balance <= block_below_ore %} spaerret-balance{% elif balance < 0 %} negativ{% endif %}">{{ balance|kr }}</div>
           {% if blocked %}
             <div class="spaerret">Spærret &ndash; indbetal først</div>
           {% else %}
@@ -263,25 +253,6 @@
     renderSplit();
   });
   $("confirm-split").addEventListener("click", function () { if (chosen.length > 0) { goConfirm(); } });
-
-  // keypad: 3 digits -> match a shopper by resident id
-  var alumneNumber = "";
-  $("checkout-nos").addEventListener("click", function (e) {
-    var key = e.target.getAttribute("data-key"); if (key === null || key === "") { return; }
-    if (key === "del") { alumneNumber = alumneNumber.slice(0, -1); }
-    else if (alumneNumber.length < 3) { alumneNumber += key; }
-    $("shopper-id").firstChild ? ($("shopper-id").firstChild.data = alumneNumber) : ($("shopper-id").textContent = alumneNumber);
-    if (alumneNumber.length === 3) {
-      if (basket.length === 0) { alumneNumber = ""; $("shopper-id").textContent = ""; return; }
-      var li = document.querySelector('#alumneliste-checkout li[data-rid="' + alumneNumber + '"]');
-      alumneNumber = ""; $("shopper-id").textContent = "";
-      if (!li) { show($("checkout")); showBox("wrongnumber"); }
-      else if (li.classList.contains("inaktiv")) { show($("checkout")); showBox("blocked"); }
-      else {
-        chosen = [{ pk: li.getAttribute("data-id"), name: li.getAttribute("data-name") }]; goConfirm();
-      }
-    }
-  });
 
   // ---- confirmation + countdown ----
   function showBox(id) {
