@@ -315,6 +315,16 @@
     box-shadow:var(--shadow); }
   .pop-title { font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
     color:var(--faint); margin-bottom:8px; }
+  /* A row in a .pop used as a menu. Full-width and left-aligned so a <button> in a <form> and a
+     bare <a> are indistinguishable to the eye — the pin action has to be a POST, so the menu is
+     necessarily a mix of the two. */
+  .pop-item { display:block; width:100%; text-align:left; padding:9px 10px; border:0;
+    border-radius:9px; background:none; cursor:pointer; text-decoration:none;
+    font:inherit; font-size:15px; font-weight:600; color:var(--ink); }
+  .pop-item:hover { background:var(--surface-2); }
+  /* Same --neg/--neg-bg pair .btn-danger uses, so destructive reads the same everywhere. */
+  .pop-item-danger { color:var(--neg); }
+  .pop-item-danger:hover { background:var(--neg-bg); color:var(--neg); }
 
   .reaction-add { border-style:dashed; color:var(--muted); user-select:none; }
   .reaction-who { border-style:dashed; color:var(--muted); user-select:none; }
@@ -326,10 +336,15 @@
   .emoji-other { margin-top:8px; }
   .emoji-other input { width:100%; }
 
-  /* Who reacted, grouped by emoji in the same order as the pills (core.reactions.reaction_rows). */
-  .who-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
-  .who-row { display:flex; align-items:flex-start; gap:9px; font-size:14px; line-height:1.35; }
-  .who-emoji { font-size:17px; line-height:1.2; flex:none; }
+  /* Who reacted: one row per person, ordered by emoji exactly as the pills are
+     (core.reactions.reaction_rows). A grid rather than a flex row so the names line up in a column
+     no matter how wide the emoji renders -- a flag or a ZWJ family is much wider than 👍, and ragged
+     names are hard to scan in a list you scroll. */
+  .who-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; }
+  .who-row { display:grid; grid-template-columns:26px 1fr; align-items:baseline; gap:8px;
+    padding:5px 2px; font-size:14px; line-height:1.35; }
+  .who-row + .who-row { border-top:1px solid var(--border); }
+  .who-emoji { font-size:17px; line-height:1.2; }
   .who-names { color:var(--ink); overflow-wrap:anywhere; }
   .emoji-other input { width:100%; padding:5px 8px; text-align:center; }
 
@@ -503,6 +518,12 @@
 
   /* A post with several pictures is collapsed to one thumbnail in the feed, so a photo album cannot
      push every other post below the fold. Fixed height, so the card stays a predictable size. */
+  /* Marks a trimmed excerpt. A bare "…" at the end of a paragraph reads as the author trailing off,
+     not as "there is more of this post" — green and worded, it says which. */
+  .see-more { display: inline-block; margin-left: 4px; color: var(--green-700); font-weight: 650;
+    font-size: 14px; white-space: nowrap; }
+  .notice-card.is-clickable:hover .see-more { text-decoration: underline; }
+
   .notice-gallery { @apply flex items-center gap-3 mt-2; }
   .notice-gallery img {
     @apply rounded object-cover; width: 72px; height: 72px; flex: none;
@@ -515,6 +536,34 @@
      shape and colour as Den Hurtige's .msg-avatar so the two feeds read as one product; it is a
      separate class rather than a shared one because .msg-avatar lives inside the chat shell's own
      sizing rules, and reusing it would drag those along. */
+  /* Meatballs trigger. Sized to a comfortable tap target rather than to the glyph, which at 20px
+     of dots alone would be well under the ~44px a thumb wants. */
+  .notice-menu { flex: none; }
+  .notice-menu-button { display: grid; place-items: center; width: 34px; height: 34px;
+    border-radius: 9px; cursor: pointer; color: var(--muted); font-size: 20px; line-height: 1;
+    user-select: none; }
+  .notice-menu-button:hover { background: var(--surface-2); color: var(--ink); }
+  .notice-menu[open] > .notice-menu-button { background: var(--surface-2); color: var(--ink); }
+
+  /* The moderation menu is anchored to its button rather than centred like the reaction panels: a
+     three-item list reads better beside the control that opened it, and a wide emoji grid does not.
+     `right:0` is what keeps it inside the page — it grows leftward, toward the centre, so a card at
+     the right-hand edge cannot push the menu off screen.
+
+     Two things make an absolutely positioned panel possible here at all:
+       - .notice-card lifts .card-flat's `overflow:hidden`, which would otherwise slice the menu off
+         at the card's edge. Safe to lift because the card is padded, so nothing inside it sits flush
+         against the rounded corners that clip was protecting.
+       - z-index 61 still beats the backdrop's 60, because .notice-actions carries position WITHOUT
+         a z-index. Adding one there would make it a stacking context and trap the panel inside the
+         card again -- the exact bug that made every other card stay undimmed. See .notice-foot.
+     The backdrop stays, transparent: it is what the tap-away handler tests against, and dimming the
+     whole page for a three-item menu would be heavy-handed. */
+  .notice-card { overflow: visible; }
+  .notice-menu .pop-panel { position: absolute; top: calc(100% + 6px); right: 0; left: auto;
+    bottom: auto; transform: none; min-width: 190px; max-width: min(260px, calc(100vw - 32px)); }
+  .notice-menu .pop-backdrop { background: transparent; }
+
   .notice-author { @apply flex items-center gap-2.5; }
   .notice-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--brass);
     color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none;

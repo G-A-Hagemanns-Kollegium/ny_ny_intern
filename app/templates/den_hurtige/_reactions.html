@@ -34,12 +34,29 @@
       <div class="pop-backdrop"></div>
       <div class="pop-panel">
         <div class="pop-title">Reaktioner</div>
+        {% comment %}
+          One row per PERSON, not per emoji. Comma-joining a group onto one line was unreadable as
+          soon as a post got popular: fifteen names wrapped into a paragraph you had to parse rather
+          than scan. A row each turns it into a list you scroll, which is what the panel is for.
+
+          The emoji repeats on every row rather than heading a section, so it is still beside the
+          name you are looking at once the list is long enough to scroll. Order comes straight from
+          core.reactions.reaction_rows -- most-used emoji first, and within a group the order people
+          reacted in -- so the panel matches the pills above it.
+        {% endcomment %}
         <ul class="who-list">
           {% for r in reactions %}
-            <li class="who-row">
-              <span class="who-emoji" aria-hidden="true">{{ r.emoji }}</span>
-              <span class="who-names">{{ r.people|join:", " }}</span>
-            </li>
+            {% for person in r.people %}
+              {% comment %}
+                The emoji is NOT aria-hidden here, unlike on the pills: it is the only thing saying
+                which reaction this row is, so hiding it would read out four names in a row with no
+                way to tell them apart. On a pill the adjacent count and aria-label carry it.
+              {% endcomment %}
+              <li class="who-row">
+                <span class="who-emoji">{{ r.emoji }}</span>
+                <span class="who-names">{{ person }}</span>
+              </li>
+            {% endfor %}
           {% endfor %}
         </ul>
       </div>

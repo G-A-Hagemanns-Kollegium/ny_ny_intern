@@ -21,7 +21,8 @@ from django.utils import timezone
 
 from core import push
 from core.models import PushSubscription
-from den_hurtige import access
+from den_hurtige import access as den_hurtige_access
+from opslagstavle import access
 from opslagstavle.models import (
     MAX_PINNED,
     RETENTION_DAYS,
@@ -35,6 +36,28 @@ from residents.models import Resident, Role
 
 BOARD = "/nyintern/opslagstavle/"
 pytestmark = pytest.mark.django_db
+
+
+GATED_ROLES = access.ACCESS_ROLES or (Role.ADMINISTRATOR, Role.INSPEKTION)
+
+
+@pytest.fixture(autouse=True)
+def rollout_open(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Lift the rollout gate for the whole module.
+
+    opslagstavlen is limited to the trial group while its mechanics are being tested
+    (opslagstavle.access.ACCESS_ROLES), but that restriction is temporary and every test outside the
+    "staged rollout" section is about behaviour that outlives it. Without this they would all have to
+    hand their residents an administrator role, which would quietly stop them testing what a normal
+    resident experiences — a beboer posting, commenting and reacting is most of this file.
+    """
+    monkeypatch.setattr(access, "ACCESS_ROLES", None)
+
+
+@pytest.fixture
+def rollout_limited(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Turn the gate back on — runs after the autouse fixture, so it wins."""
+    monkeypatch.setattr(access, "ACCESS_ROLES", GATED_ROLES)
 
 
 @pytest.fixture
@@ -114,11 +137,14 @@ def test_a_resident_who_cannot_open_den_hurtige_can_still_use_the_board(
 ) -> None:
     """The board's access must not depend on Den Hurtige's.
 
-    Den Hurtige is open to everyone today, so the gate is re-applied here rather than assumed: this
-    is the invariant that made the shared subscribe endpoint @login_required with a per-topic check
-    inside, and it has to keep holding whichever way that rollout switch happens to be set.
+    Both features now carry their own rollout gate, which makes this more load-bearing than when it
+    was written, not less: two identically named ACCESS_ROLES constants are exactly the setup where
+    one gate silently starts answering for the other. Den Hurtige's is re-applied here rather than
+    assumed, so the assertion holds whichever way either switch happens to be set. This is the
+    invariant behind the shared subscribe endpoint being @login_required with a per-topic check
+    inside.
     """
-    monkeypatch.setattr(access, "ACCESS_ROLES", (Role.ADMINISTRATOR, Role.INSPEKTION))
+    monkeypatch.setattr(den_hurtige_access, "ACCESS_ROLES", (Role.ADMINISTRATOR, Role.INSPEKTION))
     client.force_login(beboer)
 
     assert client.get("/nyintern/den-hurtige/").status_code == 403
@@ -1215,7 +1241,10 @@ def test_the_board_reaction_panels_are_overlays_with_a_backdrop(client: Client, 
 
     assert 'class="pop who-picker"' in body
     assert 'class="pop emoji-picker"' in body
-    assert body.count('class="pop-backdrop"') == 2
+    # Pairing rather than a fixed count: every .pop on the page must bring its own backdrop, and the
+    # page gained a third one (the moderation menu) after this test was first written.
+    assert body.count('class="pop-backdrop"') == body.count('class="pop-panel"')
+    assert body.count('class="pop-backdrop"') >= 2
 
 
 def test_no_reader_panel_on_the_board_when_nobody_has_reacted(client: Client, beboer: Resident) -> None:
@@ -1314,3 +1343,145 @@ def test_every_delete_control_asks_first(client: Client, beboer: Resident) -> No
 
     assert detail.count("return confirm(") == 2  # the post and its one comment
     assert "En kommentar" in detail
+
+
+def test_a_trimmed_excerpt_says_so(client: Client, beboer: Resident) -> None:
+    """A bare "…" reads as the author trailing off rather than as a trimmed post. The marker comes
+    from truncatewords_html's own ellipsis, so it appears exactly when something was cut."""
+    make_notice(beboer, body=" ".join(f"ord{i}" for i in range(80)))
+    client.force_login(beboer)
+
+    body = client.get(BOARD).content.decode()
+
+    assert "see-more" in body
+    assert "Se mere" in body
+
+
+def test_a_short_post_is_not_marked_as_trimmed(client: Client, beboer: Resident) -> None:
+    make_notice(beboer, body="Saunaen er repareret.")
+    client.force_login(beboer)
+
+    assert "see-more" not in client.get(BOARD).content.decode()
+
+
+def test_the_detail_page_never_marks_a_post_as_trimmed(client: Client, beboer: Resident) -> None:
+    """`full` renders the whole body, so a "Se mere" there would point at the page you are on."""
+    notice = make_notice(beboer, body=" ".join(f"ord{i}" for i in range(80)))
+    client.force_login(beboer)
+
+    body = client.get(f"{BOARD}{notice.pk}").content.decode()
+
+    assert "see-more" not in body
+    assert "ord79" in body  # the whole post is there
+
+
+# --- staged rollout -------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "",
+        "opret",
+        "forhaandsvisning",
+        "billede",
+        "abonner",
+        "1",
+        "1/rediger",
+        "1/slet",
+        "1/fastgoer",
+        "1/kommentar",
+        "1/reaktion",
+        "kommentar/1/slet",
+    ],
+)
+def test_every_endpoint_is_closed_to_a_plain_resident(
+    client: Client, beboer: Resident, rollout_limited: None, path: str
+) -> None:
+    """Parametrised over every route so a new view cannot quietly be added outside the gate. A
+    partial that answered 200 to someone the page 403s would hand out the board through the back
+    door."""
+    client.force_login(beboer)
+    url = BOARD + path
+
+    response = client.get(url) if path in ("", "1") else client.post(url)
+
+    assert response.status_code == 403
+
+
+def test_the_trial_group_gets_in(client: Client, inspektion: Resident, rollout_limited: None) -> None:
+    client.force_login(inspektion)
+
+    response = client.get(BOARD)
+
+    assert response.status_code == 200
+    assert "Under test" in response.content.decode()  # testers are told it is not live yet
+
+
+def test_the_sidebar_only_advertises_the_board_to_those_who_can_open_it(
+    client: Client, beboer: Resident, inspektion: Resident, rollout_limited: None
+) -> None:
+    """A visible link that answers 403 is worse than no link."""
+    client.force_login(beboer)
+    assert BOARD not in client.get("/nyintern/").content.decode()
+
+    client.force_login(inspektion)
+    assert BOARD in client.get("/nyintern/").content.decode()
+
+
+def test_clearing_access_roles_opens_it_to_every_resident(
+    client: Client, beboer: Resident, rollout_limited: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The documented way to end the rollout is ACCESS_ROLES = None. Asserted end to end so the
+    switch cannot rot: the roles are read per request, not bound when the views are imported."""
+    client.force_login(beboer)
+    assert client.get(BOARD).status_code == 403
+
+    monkeypatch.setattr(access, "ACCESS_ROLES", None)  # the one documented edit
+
+    assert client.get(BOARD).status_code == 200
+    assert BOARD in client.get("/nyintern/").content.decode()  # and the sidebar follows
+
+
+def test_preview_as_a_plain_resident_is_locked_out(
+    client: Client, make_resident: Callable[..., Resident], rollout_limited: None
+) -> None:
+    """The gate reads *effective* roles, so an admin previewing as a beboer sees what a beboer sees
+    — which is the whole point of the preview tool during a staged rollout."""
+    admin = make_resident(email="admin@gahk.dk", roles=(Role.ADMINISTRATOR,))
+    client.force_login(admin)
+    session = client.session
+    session["preview_roles"] = []
+    session.save()
+
+    assert client.get(BOARD).status_code == 403
+
+
+def test_a_gated_out_resident_is_not_notified(
+    client: Client, beboer: Resident, inspektion: Resident, pushes: list, rollout_limited: None
+) -> None:
+    """Gating the page but still pushing would land people on a 403 when they tapped. A
+    notification you are not allowed to read is worse than no feature at all."""
+    subscribe(beboer, "https://push.example/beboer")
+    client.force_login(inspektion)
+
+    client.post(BOARD + "opret", {"category": Category.NYT, "body": "Indhold"})
+
+    assert pushes[-1][0] == []  # the beboer opted in, but cannot open the board
+
+
+def test_the_trial_group_is_still_notified(
+    client: Client,
+    inspektion: Resident,
+    make_resident: Callable[..., Resident],
+    pushes: list,
+    rollout_limited: None,
+) -> None:
+    """The narrowing must not silence the people the trial is for."""
+    tester = make_resident(email="ins2@gahk.dk", roles=(Role.INSPEKTION,))
+    subscribe(tester, "https://push.example/tester")
+    client.force_login(inspektion)
+
+    client.post(BOARD + "opret", {"category": Category.NYT, "body": "Indhold"})
+
+    assert pushes[-1][0] == [tester.pk]

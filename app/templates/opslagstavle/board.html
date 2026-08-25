@@ -13,7 +13,7 @@
   <div class="page-head">
     <div>
       <p class="eyebrow">Kollegiet</p>
-      <h1>Opslagstavlen</h1>
+      <h1>Opslagstavlen {% if limited_rollout %}<span class="chip chip-brass">Under test</span>{% endif %}</h1>
     </div>
     <div class="head-actions">
       <a class="btn" href="{% url 'opslagstavle:create' %}">Nyt opslag</a>

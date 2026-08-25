@@ -6,6 +6,7 @@ from django.conf import settings
 from django.http import HttpRequest
 
 from den_hurtige.access import roles_allowed as den_hurtige_allowed
+from opslagstavle.access import roles_allowed as opslagstavle_allowed
 from residents.permissions import CMS_EDITOR_ROLES, can_preview, effective_roles
 
 # Public site nav, matching the legacy gahk.dk menu (labels + order)
@@ -47,9 +48,11 @@ def _nav_intern(roles: Collection[str]) -> list[NavSection]:
     # would answer 403, and means opening the rollout needs no change in this file.
     if den_hurtige_allowed(roles):
         oversigt.append(("/nyintern/den-hurtige/", "Den Hurtige", "flash"))
-    # Unconditional: opslagstavlen is open to every resident (opslagstavle.access explains why it
-    # has no rollout gate), so the "never advertise a page that would 403" rule holds trivially.
-    oversigt.append(("/nyintern/opslagstavle/", "Opslagstavle", "board"))
+    # Gated the same way while opslagstavlen is being tried out (opslagstavle.access.ACCESS_ROLES).
+    # Asking here keeps the sidebar from advertising a page that would answer 403, and means opening
+    # the rollout needs no change in this file.
+    if opslagstavle_allowed(roles):
+        oversigt.append(("/nyintern/opslagstavle/", "Opslagstavle", "board"))
     oversigt += [
         ("/nyintern/alumneliste/", "Alumneliste", "list"),
         ("/nyintern/stamtree/", "Stamtræ", "tree"),

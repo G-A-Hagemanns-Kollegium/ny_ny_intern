@@ -49,29 +49,50 @@
     </div>
 
     {% if notice.can_edit or notice.can_delete or can_moderate %}
+      {% comment %}
+        Redigér / Fastgør / Slet behind a meatballs button. Three buttons per card is a lot of
+        furniture on a board you scroll, and on a phone they wrapped under the byline — worse, "Slet"
+        ended up a thumb's width from the text you were reading.
+
+        Built on `.pop`, the same <details> the reaction panels use, rather than as a dropdown
+        anchored to the button. That is forced rather than stylistic: .notice-card is a .card-flat,
+        which is `overflow:hidden`, so an absolutely positioned menu would be sliced off at the
+        card's edge. .pop's panel is position:fixed and escapes that, and it arrives with the
+        backdrop, the tap-away and the Escape handling already written (frontend/src/feed.ts).
+
+        The wrapper stays .notice-actions: the stretched permalink covers the whole card, and that
+        class is what the CSS lifts above it. Without it the menu would be untappable in the feed.
+      {% endcomment %}
       <div class="notice-actions">
-        {% if notice.can_edit %}
-          <a class="btn btn-secondary" href="{% url 'opslagstavle:edit' notice.pk %}">Redigér</a>
-        {% endif %}
-        {% if can_moderate %}
-          {% comment %}
-            Pin/unpin is a POST: it changes state, and a GET link would let a prefetching browser or
-            a crawler pin things by accident.
-          {% endcomment %}
-          <form method="post" action="{% url 'opslagstavle:toggle_pin' notice.pk %}">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-secondary">
-              {% if notice.pinned_at %}Frigør{% else %}Fastgør{% endif %}
-            </button>
-          </form>
-        {% endif %}
-        {% if notice.can_delete %}
-          <form method="post" action="{% url 'opslagstavle:delete' notice.pk %}"
-                onsubmit="return confirm('Slet dette opslag af {{ notice.author.full_name|escapejs }} permanent?')">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-danger">Slet</button>
-          </form>
-        {% endif %}
+        <details class="pop notice-menu">
+          <summary class="notice-menu-button" title="Flere handlinger" aria-label="Flere handlinger">⋯</summary>
+          <div class="pop-backdrop"></div>
+          <div class="pop-panel">
+            <div class="pop-title">Handlinger</div>
+            {% if notice.can_edit %}
+              <a class="pop-item" href="{% url 'opslagstavle:edit' notice.pk %}">Redigér</a>
+            {% endif %}
+            {% if can_moderate %}
+              {% comment %}
+                Pin/unpin is a POST: it changes state, and a GET link would let a prefetching browser
+                or a crawler pin things by accident.
+              {% endcomment %}
+              <form method="post" action="{% url 'opslagstavle:toggle_pin' notice.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="pop-item">
+                  {% if notice.pinned_at %}Frigør{% else %}Fastgør{% endif %}
+                </button>
+              </form>
+            {% endif %}
+            {% if notice.can_delete %}
+              <form method="post" action="{% url 'opslagstavle:delete' notice.pk %}"
+                    onsubmit="return confirm('Slet dette opslag af {{ notice.author.full_name|escapejs }} permanent?')">
+                {% csrf_token %}
+                <button type="submit" class="pop-item pop-item-danger">Slet</button>
+              </form>
+            {% endif %}
+          </div>
+        </details>
       </div>
     {% endif %}
   </div>
@@ -85,12 +106,28 @@
       so a photo album cannot push every other post off the screen. One image stays inline: it reads
       as part of the post rather than as a gallery.
     {% endcomment %}
+    {% comment %}
+      "Se mere" is shown from the truncation marker itself: truncatewords_html appends "…" only when
+      it actually cut something, so testing the rendered excerpt for it needs no second render and no
+      word counting that could disagree with what was really trimmed. (A body that contains an
+      ellipsis of its own inside its first 40 words would show the label spuriously. Accepted: the
+      label is honest about where a tap goes either way, and the alternative was rendering every
+      post's Markdown twice on a page that renders all of them.)
+
+      Deliberately a <span>, not a link. The stretched permalink already covers the whole card, and a
+      second link to the same place is worse for a screen reader than one — the same call the gallery
+      count below makes.
+    {% endcomment %}
     {% if full %}
       {{ notice.body|markdown }}
     {% elif notice.thumbnail %}
-      {{ notice.body|markdown_text_only|truncatewords_html:40 }}
+      {% with excerpt=notice.body|markdown_text_only|truncatewords_html:40 %}
+        {{ excerpt }}{% if "…" in excerpt %}<span class="see-more">Se mere …</span>{% endif %}
+      {% endwith %}
     {% else %}
-      {{ notice.body|markdown|truncatewords_html:40 }}
+      {% with excerpt=notice.body|markdown|truncatewords_html:40 %}
+        {{ excerpt }}{% if "…" in excerpt %}<span class="see-more">Se mere …</span>{% endif %}
+      {% endwith %}
     {% endif %}
   </div>
 

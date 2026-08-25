@@ -1604,3 +1604,27 @@ def test_the_confirmation_survives_the_poll_re_rendering_the_row(
     client.force_login(author)
 
     assert "return confirm(" in client.get(FEED_URL + "opslag").content.decode()
+
+
+def test_the_reader_panel_lists_one_row_per_person(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """Comma-joining a whole group onto one line stopped being readable as soon as a post got
+    popular. A row each, with the emoji repeated beside every name, so the list scrolls and you can
+    still tell which emoji you are looking at halfway down it."""
+    author = make_resident(email="a@gahk.dk", first_name="Anton", last_name="Storgaard")
+    mette = make_resident(email="b@gahk.dk", first_name="Mette", last_name="Hansen")
+    anders = make_resident(email="c@gahk.dk", first_name="Anders", last_name="Bo")
+    post = QuickPost.objects.create(author=author, content="Kaffe?")
+    for person in (author, mette):
+        QuickReaction.objects.create(post=post, author=person, emoji=THUMB)
+    QuickReaction.objects.create(post=post, author=anders, emoji=PARTY)
+    client.force_login(author)
+
+    body = client.get(FEED_URL).content.decode()
+    panel = body[body.index("who-list") : body.index("</ul>")]
+
+    assert body.count('class="who-row"') == 3  # one per reaction, not one per emoji
+    assert panel.count(THUMB) == 2  # the emoji repeats beside each of its two names
+    # The pills' order carries into the panel: THUMB has two reactions, so its rows come first.
+    assert panel.index("Mette Hansen") < panel.index("Anders Bo")

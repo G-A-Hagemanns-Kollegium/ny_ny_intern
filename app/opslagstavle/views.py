@@ -15,7 +15,6 @@ not a poll.
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
@@ -33,7 +32,7 @@ from core.uploads import validate_image_upload
 from residents.permissions import current_resident
 
 from . import services
-from .access import can_delete, can_delete_comment, can_edit, can_moderate
+from .access import access_required, can_delete, can_delete_comment, can_edit, can_moderate, is_limited
 from .forms import NoticeCommentForm, NoticeForm, ReactionForm
 from .images import sync_images
 from .models import (
@@ -57,7 +56,7 @@ def _decorate(notices: list[Notice], request: HttpRequest) -> list[Notice]:
     is asking — the same reason den_hurtige.views.posts_for attaches `reaction_rows`.
     """
     # current_resident, not request.user: it narrows the type to a Resident (whose pk is an int),
-    # which is the invariant every view here already relies on behind @login_required.
+    # which is the invariant every view here already relies on behind @access_required.
     user_id = current_resident(request).pk
     moderator = can_moderate(request)
     for notice in notices:
@@ -88,7 +87,7 @@ def _list_queryset() -> NoticeQuerySet:
     return Notice.objects.select_related("author", "pinned_by").prefetch_related(REACTIONS)
 
 
-@login_required
+@access_required
 def board(request: HttpRequest) -> HttpResponse:
     """The board: pinned posts, then a page of the rest.
 
@@ -123,11 +122,14 @@ def board(request: HttpRequest) -> HttpResponse:
             "push_configured": push.is_configured(),
             "vapid_public_key": push.vapid_public_key(),
             "push_subscribed": services.is_subscribed(current_resident(request)),
+            # Tells the trial group the board is not live yet, so they do not read the quiet as
+            # nobody caring. Disappears on its own when ACCESS_ROLES is set to None.
+            "limited_rollout": is_limited(),
         },
     )
 
 
-@login_required
+@access_required
 def detail(request: HttpRequest, pk: int) -> HttpResponse:
     """One post with its comments. Exists as a stable permalink, which is what a notification can
     link to — `?page=4` is not an address for a thing."""
@@ -149,7 +151,7 @@ def detail(request: HttpRequest, pk: int) -> HttpResponse:
     )
 
 
-@login_required
+@access_required
 def create(request: HttpRequest) -> HttpResponse:
     """Compose on its own page, not inline: title + category + Markdown + toolbar + preview is a
     form, and an inline composer on a paginated list would lose a long draft on any navigation."""
@@ -166,7 +168,7 @@ def create(request: HttpRequest) -> HttpResponse:
     return render(request, "opslagstavle/form.html", {"form": form, "notice": None})
 
 
-@login_required
+@access_required
 def edit(request: HttpRequest, pk: int) -> HttpResponse:
     """The author fixes their own typos. Moderators may delete but never rewrite — see access.py."""
     notice = get_object_or_404(Notice, pk=pk)
@@ -187,7 +189,7 @@ def edit(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 @require_POST
-@login_required
+@access_required
 def delete(request: HttpRequest, pk: int) -> HttpResponseRedirect:
     notice = get_object_or_404(Notice, pk=pk)
     if not can_delete(request, notice):
@@ -198,7 +200,7 @@ def delete(request: HttpRequest, pk: int) -> HttpResponseRedirect:
 
 
 @require_POST
-@login_required
+@access_required
 def toggle_pin(request: HttpRequest, pk: int) -> HttpResponseRedirect:
     """Pin or unpin. Inspektionen and administrator only.
 
@@ -231,7 +233,7 @@ def toggle_pin(request: HttpRequest, pk: int) -> HttpResponseRedirect:
 
 
 @require_POST
-@login_required
+@access_required
 def create_comment(request: HttpRequest, pk: int) -> HttpResponseRedirect:
     notice = get_object_or_404(Notice, pk=pk)
     form = NoticeCommentForm(request.POST)
@@ -247,7 +249,7 @@ def create_comment(request: HttpRequest, pk: int) -> HttpResponseRedirect:
 
 
 @require_POST
-@login_required
+@access_required
 def delete_comment(request: HttpRequest, pk: int) -> HttpResponseRedirect:
     comment = get_object_or_404(NoticeComment, pk=pk)
     if not can_delete_comment(request, comment):
@@ -259,7 +261,7 @@ def delete_comment(request: HttpRequest, pk: int) -> HttpResponseRedirect:
 
 
 @require_POST
-@login_required
+@access_required
 def toggle_reaction(request: HttpRequest, pk: int) -> HttpResponse:
     """Set, change or clear this person's one emoji, returning just the reaction row.
 
@@ -289,7 +291,7 @@ def toggle_reaction(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 @require_POST
-@login_required
+@access_required
 def preview(request: HttpRequest) -> HttpResponse:
     """Render the compose form's Markdown exactly as the reader will see it.
 
@@ -305,7 +307,7 @@ def preview(request: HttpRequest) -> HttpResponse:
 
 
 @require_POST
-@login_required
+@access_required
 def upload_image(request: HttpRequest) -> JsonResponse:
     """Store one image and hand back the URL for the toolbar to insert.
 
@@ -331,7 +333,7 @@ def upload_image(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
-@login_required
+@access_required
 def save_subscription(request: HttpRequest) -> HttpResponse:
     """Store (or drop) this browser's opt-in to board notifications.
 

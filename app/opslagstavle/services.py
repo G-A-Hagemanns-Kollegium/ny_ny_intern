@@ -21,6 +21,8 @@ from typing import TYPE_CHECKING
 from core import push
 from core.markdown import plain_text
 
+from . import access
+
 if TYPE_CHECKING:
     from residents.models import Resident
 
@@ -49,15 +51,16 @@ def notify_new_notice(notice: "Notice") -> None:
     The body is `plain_text`, not the raw Markdown: a lock screen showing `**Vigtigt**` and
     `[link](https://…)` is the difference between a notification people read and one they dismiss.
     """
-    push.notify(
-        TOPIC,
+    # Narrowed to people who can open the board: while the rollout gate is on, notifying a resident
+    # who would get a 403 on tapping is worse than not notifying them.
+    push.send(
+        access.allowed_subscribers(push.subscribers(TOPIC, exclude_user_id=notice.author_id)),
         # The author is the head, matching Den Hurtige and the card itself. It used to be the title,
         # with the author crammed into the front of the body; with no title left, repeating the name
         # in both lines would waste the one line a lock screen actually gives you.
         head=notice.author.full_name,
         body=push.preview(plain_text(notice.body)),
         url=notice_url(notice),
-        exclude_user_id=notice.author_id,
     )
 
 
@@ -65,7 +68,7 @@ def notify_new_comment(comment: "NoticeComment") -> None:
     """Tell the post's author someone replied — and nobody else."""
     if comment.author_id == comment.notice.author_id:
         return  # commenting on your own post: the only recipient would be yourself
-    recipients = push.subscribers(TOPIC).filter(user_id=comment.notice.author_id)
+    recipients = access.allowed_subscribers(push.subscribers(TOPIC).filter(user_id=comment.notice.author_id))
     push.send(
         recipients,
         head=f"{comment.author.full_name} svarede",
