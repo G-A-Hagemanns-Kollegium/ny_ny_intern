@@ -79,7 +79,7 @@ class Command(BaseCommand):
         payload = push._payload(
             "Test fra GAHK",
             "Hvis du kan se denne, virker push.",
-            topic_urls.get(topic, "/nyintern/"),
+            topic_urls.get(topic, "/intern/"),
         )
         body = json.dumps(payload)
 

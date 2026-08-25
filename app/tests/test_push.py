@@ -29,8 +29,8 @@ from den_hurtige import access as den_hurtige_access
 from opslagstavle import access as opslagstavle_access
 from residents.models import Resident, Role
 
-DEN_HURTIGE_SUBSCRIBE = "/nyintern/den-hurtige/abonner"
-FEED_URL = "/nyintern/den-hurtige/"
+DEN_HURTIGE_SUBSCRIBE = "/intern/den-hurtige/abonner"
+FEED_URL = "/intern/den-hurtige/"
 
 pytestmark = pytest.mark.django_db
 
@@ -148,7 +148,7 @@ def test_dispatch_sends_the_payload_as_json(
 def test_subscribe_requires_login(client: Client) -> None:
     response = client.post(DEN_HURTIGE_SUBSCRIBE, data=_subscribe_body(), content_type="application/json")
     assert response.status_code == 302
-    assert "/nyintern/admin/login" in response["Location"]
+    assert "/intern/admin/login" in response["Location"]
 
 
 def test_subscribe_binds_the_device_to_the_logged_in_user(
@@ -304,7 +304,7 @@ def test_subscribing_to_the_board_does_not_opt_into_den_hurtige(
     body["topic"] = "opslagstavle"
 
     response = client.post(
-        "/nyintern/opslagstavle/abonner", data=json.dumps(body), content_type="application/json"
+        "/intern/opslagstavle/abonner", data=json.dumps(body), content_type="application/json"
     )
 
     assert response.status_code == 201

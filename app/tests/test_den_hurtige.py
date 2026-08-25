@@ -37,7 +37,7 @@ from den_hurtige.models import (
 from den_hurtige.views import posts_for, reactions_for
 from residents.models import Resident, Role
 
-FEED_URL = "/nyintern/den-hurtige/"
+FEED_URL = "/intern/den-hurtige/"
 
 # The rollout gate exactly as den_hurtige.access ships it, captured at import — before the autouse
 # fixture below lifts it. Hardcoding a copy here is what made the Inspektionen tests fail when they
@@ -109,7 +109,7 @@ def pushes(monkeypatch: pytest.MonkeyPatch, settings: object) -> list[tuple[list
 
 def test_service_worker_is_served_from_the_site_root(client: Client) -> None:
     """A service worker's scope is capped at its own directory, so only a root-served /sw.js can
-    receive pushes for /nyintern/. Also proves the CMS slug catch-all does not swallow the path."""
+    receive pushes for /intern/. Also proves the CMS slug catch-all does not swallow the path."""
     response = client.get("/sw.js")
 
     assert response.status_code == 200
@@ -183,10 +183,10 @@ def test_the_sidebar_only_advertises_the_page_to_those_who_can_open_it(
 ) -> None:
     """A visible link that answers 403 is worse than no link."""
     client.force_login(make_resident(email="beboer@gahk.dk"))
-    assert FEED_URL not in client.get("/nyintern/").content.decode()
+    assert FEED_URL not in client.get("/intern/").content.decode()
 
     client.force_login(make_resident(email="admin@gahk.dk", roles=(Role.ADMINISTRATOR,)))
-    assert FEED_URL in client.get("/nyintern/").content.decode()
+    assert FEED_URL in client.get("/intern/").content.decode()
 
 
 def test_clearing_access_roles_opens_it_to_every_resident(
@@ -205,7 +205,7 @@ def test_clearing_access_roles_opens_it_to_every_resident(
 
     assert client.get(FEED_URL).status_code == 200
     assert client.get(FEED_URL + "opslag").status_code == 200
-    assert FEED_URL in client.get("/nyintern/").content.decode()  # and the sidebar follows
+    assert FEED_URL in client.get("/intern/").content.decode()  # and the sidebar follows
 
 
 def test_preview_as_a_plain_resident_is_locked_out(
@@ -228,7 +228,7 @@ def test_preview_as_a_plain_resident_is_locked_out(
 def test_feed_requires_login(client: Client) -> None:
     response = client.get(FEED_URL)
     assert response.status_code == 302
-    assert "/nyintern/admin/login" in response["Location"]
+    assert "/intern/admin/login" in response["Location"]
 
 
 def test_feed_purges_expired_posts(client: Client, make_resident: Callable[..., Resident]) -> None:
@@ -1047,7 +1047,7 @@ def test_the_rest_of_intern_keeps_pinch_zoom(client: Client, make_resident: Call
     CMS pages are exactly where people pinch. The override has to stay scoped to Den Hurtige."""
     client.force_login(make_resident(email="a@gahk.dk"))
 
-    html = client.get("/nyintern/").content.decode()
+    html = client.get("/intern/").content.decode()
 
     assert "user-scalable=no" not in html
     assert "no-zoom" not in html
@@ -1063,7 +1063,7 @@ def test_inspektionen_can_open_the_chat_during_the_trial(
     client.force_login(make_resident(email="insp@gahk.dk", roles=(Role.INSPEKTION,)))
 
     assert client.get(FEED_URL).status_code == 200
-    assert FEED_URL in client.get("/nyintern/").content.decode()  # and the sidebar advertises it
+    assert FEED_URL in client.get("/intern/").content.decode()  # and the sidebar advertises it
 
 
 def test_inspektionen_can_delete_someone_elses_message(
@@ -1119,7 +1119,7 @@ OTHER = "tv-rezz"
 def test_the_bare_url_renders_the_default_channel(
     client: Client, make_resident: Callable[..., Resident]
 ) -> None:
-    """static/manifest.json uses /nyintern/den-hurtige/ as the PWA's `id`, so it must keep answering
+    """static/manifest.json uses /intern/den-hurtige/ as the PWA's `id`, so it must keep answering
     with a real page forever: a changed id makes every phone treat the next deploy as a *different*
     installed app. Not a redirect, not an index of channels — the default feed itself."""
     client.force_login(make_resident(email="a@gahk.dk"))

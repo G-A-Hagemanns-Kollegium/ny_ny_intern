@@ -1,8 +1,8 @@
-"""Routes for Den Hurtige, mounted at /nyintern/den-hurtige/ (residents/urls.py).
+"""Routes for Den Hurtige, mounted at /intern/den-hurtige/ (residents/urls.py).
 
 Two rules govern the shape here:
 
-  * The bare path must stay a real page. static/manifest.json uses /nyintern/den-hurtige/ as the
+  * The bare path must stay a real page. static/manifest.json uses /intern/den-hurtige/ as the
     PWA's `id` as well as its start_url, and a changed id makes every phone that already installed
     the app treat the next deploy as a *different* app. So it renders the default channel — not a
     redirect and not an index of channels.

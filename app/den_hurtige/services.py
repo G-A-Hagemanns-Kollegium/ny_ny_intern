@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 # The topic name this feature subscribes and notifies under (core.push.TOPIC_FIELDS).
 TOPIC = "den_hurtige"
 
-FEED_URL = "/nyintern/den-hurtige/"
+FEED_URL = "/intern/den-hurtige/"
 
 
 def is_configured() -> bool:

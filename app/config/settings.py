@@ -135,9 +135,9 @@ MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # Secrets (WiFi/calendar/SMTP) come from the environment (.env / vault), never source. (F-013)
-LOGIN_URL = "/nyintern/admin/login"
-LOGIN_REDIRECT_URL = "/nyintern/"
-LOGOUT_REDIRECT_URL = "/nyintern/admin/login"
+LOGIN_URL = "/intern/admin/login"
+LOGIN_REDIRECT_URL = "/intern/"
+LOGOUT_REDIRECT_URL = "/intern/admin/login"
 
 # Email — defaults to the console backend in dev (prints instead of sending). SMTP from env in prod.
 EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
@@ -178,9 +178,7 @@ WIKI_URL = os.environ.get("WIKI_URL", "/wiki/")
 
 # Where residents report bugs / request features. Defaults to the project's GitHub issue chooser;
 # override FEEDBACK_URL if the repo moves or a different tracker is used.
-FEEDBACK_URL = os.environ.get(
-    "FEEDBACK_URL", "https://github.com/G-A-Hagemanns-Kollegium/ny_ny_intern/issues/new/choose"
-)
+FEEDBACK_URL = os.environ.get("FEEDBACK_URL", "https://github.com/GAHK-org/gahk_intern/issues/new/choose")
 
 # Room-inspection photo uploads (F-005): server-side hard cap. Images are also downscaled client-side
 # before upload, so this is mainly a backstop against oversized/crafted uploads.

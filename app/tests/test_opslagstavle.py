@@ -34,7 +34,7 @@ from opslagstavle.models import (
 )
 from residents.models import Resident, Role
 
-BOARD = "/nyintern/opslagstavle/"
+BOARD = "/intern/opslagstavle/"
 pytestmark = pytest.mark.django_db
 
 
@@ -118,7 +118,7 @@ def test_the_board_requires_login(client: Client) -> None:
     response = client.get(BOARD)
 
     assert response.status_code == 302
-    assert "/nyintern/admin/login" in response["Location"]
+    assert "/intern/admin/login" in response["Location"]
 
 
 def test_every_resident_can_read_and_post(client: Client, beboer: Resident) -> None:
@@ -147,7 +147,7 @@ def test_a_resident_who_cannot_open_den_hurtige_can_still_use_the_board(
     monkeypatch.setattr(den_hurtige_access, "ACCESS_ROLES", (Role.ADMINISTRATOR, Role.INSPEKTION))
     client.force_login(beboer)
 
-    assert client.get("/nyintern/den-hurtige/").status_code == 403
+    assert client.get("/intern/den-hurtige/").status_code == 403
     assert client.get(BOARD).status_code == 200
 
 
@@ -158,7 +158,7 @@ def test_the_sidebar_advertises_the_board_and_the_page_opens_for_the_same_user(
     two halves cannot drift apart."""
     client.force_login(beboer)
 
-    assert BOARD in client.get("/nyintern/").content.decode()
+    assert BOARD in client.get("/intern/").content.decode()
     assert client.get(BOARD).status_code == 200
 
 
@@ -1423,10 +1423,10 @@ def test_the_sidebar_only_advertises_the_board_to_those_who_can_open_it(
 ) -> None:
     """A visible link that answers 403 is worse than no link."""
     client.force_login(beboer)
-    assert BOARD not in client.get("/nyintern/").content.decode()
+    assert BOARD not in client.get("/intern/").content.decode()
 
     client.force_login(inspektion)
-    assert BOARD in client.get("/nyintern/").content.decode()
+    assert BOARD in client.get("/intern/").content.decode()
 
 
 def test_clearing_access_roles_opens_it_to_every_resident(
@@ -1440,7 +1440,7 @@ def test_clearing_access_roles_opens_it_to_every_resident(
     monkeypatch.setattr(access, "ACCESS_ROLES", None)  # the one documented edit
 
     assert client.get(BOARD).status_code == 200
-    assert BOARD in client.get("/nyintern/").content.decode()  # and the sidebar follows
+    assert BOARD in client.get("/intern/").content.decode()  # and the sidebar follows
 
 
 def test_preview_as_a_plain_resident_is_locked_out(

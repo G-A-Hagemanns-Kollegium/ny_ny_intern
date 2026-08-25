@@ -1,5 +1,5 @@
 # ny_ny_intern
-[![CI](https://github.com/G-A-Hagemanns-Kollegium/ny_ny_intern/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/G-A-Hagemanns-Kollegium/ny_ny_intern/actions/workflows/ci.yml)
+[![CI](https://github.com/GAHK-org/gahk_intern/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/GAHK-org/gahk_intern/actions/workflows/ci.yml)
 
 
 ## Kom i gang (udvikling)

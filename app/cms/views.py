@@ -81,9 +81,10 @@ def page(request: HttpRequest, url_path: str) -> HttpResponse:
     """Catch-all CMS lookup by slug, with a slash-appending fallback.
 
     This pattern is last in the URLconf but still matches *slashless* paths owned by a real app -
-    `/optagelse`, `/nyintern`, `/begivenheder`. Because a pattern matched, Django's APPEND_SLASH
-    never fires, so those legacy URLs 404ed instead of redirecting to their real view (the live PHP
-    site served `/optagelse` with a 200, and `/nyintern` is how residents reach the portal). Restore
+    `/optagelse`, `/nyintern`, `/intern`, `/begivenheder`. Because a pattern matched, Django's
+    APPEND_SLASH never fires, so those legacy URLs 404ed instead of redirecting to their real view
+    (the live PHP site served `/optagelse` with a 200, and `/intern` is how residents reach the
+    portal; `/nyintern` redirects to it). Restore
     APPEND_SLASH's behaviour for exactly the paths this view swallows: if no CMS page owns the slug
     but `<path>/` resolves to some *other* view, 301 there.
     """

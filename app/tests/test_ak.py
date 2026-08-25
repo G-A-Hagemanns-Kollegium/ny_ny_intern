@@ -137,7 +137,7 @@ def test_save_books_active_month_only(make_resident: Callable) -> None:
 
     c = Client()
     c.force_login(officer)
-    resp = c.post("/nyintern/ak/admin/gem-maaneder", payload)
+    resp = c.post("/intern/ak/admin/gem-maaneder", payload)
     assert resp.status_code == 302
 
     assert AkMonthlyCharge.objects.get(month=m).krydser == 3  # schedule persisted
@@ -152,13 +152,13 @@ def test_overview_and_save_role_gated(make_resident: Callable) -> None:
 
     plain_c = Client()
     plain_c.force_login(plain)
-    assert plain_c.get("/nyintern/ak/admin").status_code == 403
-    assert plain_c.post("/nyintern/ak/admin/gem-maaneder").status_code == 403
+    assert plain_c.get("/intern/ak/admin").status_code == 403
+    assert plain_c.post("/intern/ak/admin/gem-maaneder").status_code == 403
 
     off_c = Client()
     off_c.force_login(officer)
-    assert off_c.get("/nyintern/ak/admin").status_code == 200
-    assert off_c.get("/nyintern/ak/admin/gem-maaneder").status_code == 405  # POST only
+    assert off_c.get("/intern/ak/admin").status_code == 200
+    assert off_c.get("/intern/ak/admin/gem-maaneder").status_code == 405  # POST only
 
 
 @pytest.mark.django_db
@@ -166,7 +166,7 @@ def test_overview_shows_twelve_month_schedule(make_resident: Callable) -> None:
     officer = make_resident(email="off3@gahk.dk", roles=[Role.AK])
     c = Client()
     c.force_login(officer)
-    html = c.get("/nyintern/ak/admin").content.decode()
+    html = c.get("/intern/ak/admin").content.decode()
     for mo in range(1, 13):
         assert f'name="active_{mo}"' in html
     assert "Januar" in html and "December" in html
@@ -217,7 +217,7 @@ def test_ak_page_visit_triggers_lazy_apply(make_resident: Callable) -> None:
 
     c = Client()
     c.force_login(member)
-    c.get("/nyintern/ak/")  # my_ak → ensure_active_month_applied
+    c.get("/intern/ak/")  # my_ak → ensure_active_month_applied
     assert _monthly(member, y, m).delta == -2
 
 
