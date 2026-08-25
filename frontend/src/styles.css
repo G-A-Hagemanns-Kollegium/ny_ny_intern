@@ -156,7 +156,15 @@
   .chat-page .main { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
   /* No vertical padding: the header and composer bring their own and bleed to the gutters, so
      inherited padding would leave both floating away from the edges they are meant to sit on. */
-  .chat-page .content { flex:1; min-height:0; display:flex; flex-direction:column;
+  /* width:100% is load-bearing, and subtly so. .content carries Tailwind's `mx-auto`, and auto
+     margins on the cross axis CANCEL align-items:stretch — so as a flex item of .main (which is
+     flex only here) it would size to its own content instead of filling, capped by max-w-3xl.
+     The chat then became exactly as wide as the widest thing inside it: post one short message and
+     the whole shell collapsed to roughly the width of its header. It went unnoticed while the
+     header held a five-channel tab strip that propped it open; the single-line picker that replaced
+     that strip removed the prop. Desktop only — on a phone the viewport is narrower than the cap.
+     width:100% restores the fill; max-w-3xl still caps it and the auto margins still centre it. */
+  .chat-page .content { flex:1; min-height:0; width:100%; display:flex; flex-direction:column;
     padding-top:0; padding-bottom:0; }
   .chat { display:flex; flex-direction:column; flex:1; min-height:0; gap:0; }
   /* Pinned like a conversation title bar. It used to scroll away instantly: the feed jumps to the
