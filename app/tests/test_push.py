@@ -25,7 +25,8 @@ from pywebpush import WebPushException
 from core import push
 from core.checks import check_vapid_public_key
 from core.models import PushSubscription
-from den_hurtige import access
+from den_hurtige import access as den_hurtige_access
+from opslagstavle import access as opslagstavle_access
 from residents.models import Resident, Role
 
 DEN_HURTIGE_SUBSCRIBE = "/nyintern/den-hurtige/abonner"
@@ -36,12 +37,18 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture(autouse=True)
 def rollout_open(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Lift Den Hurtige's staged-rollout gate, except where a test re-enables it.
+    """Lift BOTH features' staged-rollout gates, except where a test re-enables one.
 
-    Its subscribe view keeps the gate inside the view (the endpoint is shared with opslagstavlen,
-    which every resident may use), so without this every test here would need an administrator.
+    This file is about the push layer's own semantics — per-topic consent, delivery, dead endpoints
+    — not about who may reach a feature. Both subscribe views sit behind their feature's gate, so
+    without this every test here would have to hand its resident a role and would then be testing
+    something other than what it says.
+
+    Both are named: opslagstavlen gained a gate of its own, and two identically named ACCESS_ROLES
+    constants are exactly the setup where patching one silently leaves the other on.
     """
-    monkeypatch.setattr(access, "ACCESS_ROLES", None)
+    monkeypatch.setattr(den_hurtige_access, "ACCESS_ROLES", None)
+    monkeypatch.setattr(opslagstavle_access, "ACCESS_ROLES", None)
 
 
 def subscribe(user: Resident, endpoint: str, **topics: bool) -> PushSubscription:
@@ -392,7 +399,7 @@ def test_a_plain_resident_cannot_subscribe_to_den_hurtige_during_the_rollout(
     """The subscribe view is @login_required so every resident can reach the board's topic — so Den
     Hurtige's staged rollout has to be re-checked *inside* the view. Dropping that check is how the
     rollout would silently leak to the whole kollegium."""
-    monkeypatch.setattr(access, "ACCESS_ROLES", (Role.ADMINISTRATOR, Role.INSPEKTION))
+    monkeypatch.setattr(den_hurtige_access, "ACCESS_ROLES", (Role.ADMINISTRATOR, Role.INSPEKTION))
     client.force_login(make_resident(email="beboer@gahk.dk"))
 
     response = client.post(DEN_HURTIGE_SUBSCRIBE, data=_subscribe_body(), content_type="application/json")
@@ -404,7 +411,7 @@ def test_a_plain_resident_cannot_subscribe_to_den_hurtige_during_the_rollout(
 def test_an_administrator_can_still_subscribe_during_the_rollout(
     client: Client, make_resident: Callable[..., Resident], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(access, "ACCESS_ROLES", (Role.ADMINISTRATOR, Role.INSPEKTION))
+    monkeypatch.setattr(den_hurtige_access, "ACCESS_ROLES", (Role.ADMINISTRATOR, Role.INSPEKTION))
     client.force_login(make_resident(email="admin@gahk.dk", roles=(Role.ADMINISTRATOR,)))
 
     response = client.post(DEN_HURTIGE_SUBSCRIBE, data=_subscribe_body(), content_type="application/json")
