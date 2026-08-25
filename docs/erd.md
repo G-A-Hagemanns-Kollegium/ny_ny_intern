@@ -6,7 +6,6 @@
 ## Full diagram
 
 ```mermaid
-%%{init: {"er": {"useMaxWidth": false}}}%%
 erDiagram
     core_Room {
         int id PK
@@ -401,7 +400,6 @@ erDiagram
 ## admissions
 
 ```mermaid
-%%{init: {"er": {"useMaxWidth": false}}}%%
 erDiagram
     admissions_Application {
         int id PK
@@ -433,7 +431,6 @@ erDiagram
 ## ak
 
 ```mermaid
-%%{init: {"er": {"useMaxWidth": false}}}%%
 erDiagram
     ak_AkEntry {
         int id PK
@@ -472,7 +469,6 @@ erDiagram
 ## cms
 
 ```mermaid
-%%{init: {"er": {"useMaxWidth": false}}}%%
 erDiagram
     cms_Page {
         int id PK
@@ -520,7 +516,6 @@ erDiagram
 ## core
 
 ```mermaid
-%%{init: {"er": {"useMaxWidth": false}}}%%
 erDiagram
     core_Room {
         int id PK
@@ -554,7 +549,6 @@ erDiagram
 ## den_hurtige
 
 ```mermaid
-%%{init: {"er": {"useMaxWidth": false}}}%%
 erDiagram
     den_hurtige_QuickPost {
         int id PK
@@ -615,7 +609,6 @@ erDiagram
 ## oelkaelder
 
 ```mermaid
-%%{init: {"er": {"useMaxWidth": false}}}%%
 erDiagram
     oelkaelder_Product {
         int id PK
@@ -713,7 +706,6 @@ erDiagram
 ## residents
 
 ```mermaid
-%%{init: {"er": {"useMaxWidth": false}}}%%
 erDiagram
     residents_Resident {
         int id PK
@@ -770,7 +762,6 @@ erDiagram
 ## rooms
 
 ```mermaid
-%%{init: {"er": {"useMaxWidth": false}}}%%
 erDiagram
     rooms_KvotientApplication {
         int id PK
@@ -850,7 +841,6 @@ erDiagram
 ## stats
 
 ```mermaid
-%%{init: {"er": {"useMaxWidth": false}}}%%
 erDiagram
     stats_DailyVisitCount {
         int id PK

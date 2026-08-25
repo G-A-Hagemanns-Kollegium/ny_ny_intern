@@ -139,8 +139,7 @@ def app_diagram(app_label: str, all_models: list[type]) -> str:
         body += relation_lines(model, model_set)
 
     inner = "\n".join(body).rstrip()
-    init = '%%{init: {"er": {"useMaxWidth": false}}}%%'
-    return f"```mermaid\n{init}\nerDiagram\n{inner}\n```"
+    return f"```mermaid\nerDiagram\n{inner}\n```"
 
 
 def full_diagram(all_models: list[type]) -> str:
@@ -151,8 +150,7 @@ def full_diagram(all_models: list[type]) -> str:
     for model in all_models:
         body += relation_lines(model, model_set)
     inner = "\n".join(body).rstrip()
-    init = '%%{init: {"er": {"useMaxWidth": false}}}%%'
-    return f"```mermaid\n{init}\nerDiagram\n{inner}\n```"
+    return f"```mermaid\nerDiagram\n{inner}\n```"
 
 
 def generate(all_models: list[type]) -> str:
