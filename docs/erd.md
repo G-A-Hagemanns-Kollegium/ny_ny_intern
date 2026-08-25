@@ -1,0 +1,354 @@
+# Entity Relationship Diagram
+
+> Auto-generated — do not edit by hand. Re-run `uv run python scripts/generate_erd.py` to refresh.
+
+```mermaid
+erDiagram
+    core_Room {
+        int id PK
+        int legacy_index
+        int number
+        string floor
+        string side
+        string note
+    }
+    core_Workgroup {
+        int id PK
+        int legacy_id
+        string name
+        int size
+    }
+    core_Cleaning {
+        int id PK
+        int legacy_id
+        string name
+        int size
+    }
+    core_DevClock {
+        int id PK
+        date simulated_date
+    }
+    residents_Resident {
+        int id PK
+        string password
+        datetime last_login
+        bool is_superuser
+        string email
+        string first_name
+        string last_name
+        string phone
+        date birthday
+        date move_in_date
+        date move_out_date
+        string study
+        int sponsor_id FK
+        string fylgje_raw
+        bool is_active
+        bool is_staff
+        datetime date_joined
+    }
+    residents_Residency {
+        int id PK
+        int resident_id FK
+        int room_id FK
+        int workgroup_id FK
+        int cleaning_id FK
+        int year
+        int month
+    }
+    residents_RoleAssignment {
+        int id PK
+        int resident_id FK
+        string role
+        int year
+        int month
+    }
+    admissions_Application {
+        int id PK
+        string type
+        string full_name
+        string email
+        string gender
+        string age
+        string study_year
+        string year_left
+        string university
+        string field_of_study
+        string occupation
+        string heard_about_us
+        text motivation
+        datetime submitted_at
+        int received_by_id FK
+        datetime received_at
+        int discarded_by_id FK
+        datetime discarded_at
+    }
+    cms_Page {
+        int id PK
+        int menu_category
+        string slug
+        string header
+        text body
+        string background_image
+    }
+    cms_NewsItem {
+        int id PK
+        string title
+        text body
+        datetime published_at
+    }
+    cms_PylonEvent {
+        int id PK
+        string title
+        text description
+        date starts_on
+    }
+    cms_Event {
+        int id PK
+        string title
+        text description
+        date starts_on
+    }
+    cms_CmsImage {
+        int id PK
+        string file
+        string caption
+        datetime uploaded_at
+        int uploaded_by_id FK
+    }
+    ak_AkEntry {
+        int id PK
+        int resident_id FK
+        int delta
+        string kind
+        string reason
+        int year
+        int month
+        datetime created_at
+        int created_by_id FK
+    }
+    ak_AkMonthlyCharge {
+        int id PK
+        int month
+        int krydser
+        bool active
+        datetime updated_at
+        int updated_by_id FK
+    }
+    ak_AkAutoApply {
+        int id PK
+        int year
+        int month
+    }
+    rooms_KvotientApplication {
+        int id PK
+        int resident_id FK
+        int move_month
+        int move_in_month
+        int done_studying_month
+        float k
+        datetime apply_datetime
+    }
+    rooms_KvotientPriority {
+        int id PK
+        int application_id FK
+        int room_id FK
+        int priority
+        int month
+    }
+    rooms_KvotientOrlov {
+        int id PK
+        int application_id FK
+        int start_month
+        int end_month
+    }
+    rooms_RoomOffer {
+        int id PK
+        int room_id FK
+        int month
+        int awarded_application_id FK
+    }
+    rooms_RoomCriterion {
+        int id PK
+        string code
+        string name
+        text description
+        int options
+    }
+    rooms_RoomCondition {
+        int id PK
+        int room_id FK
+        int resident_id FK
+        string recorded_by_name
+        datetime recorded_at
+        bool is_current
+    }
+    rooms_RoomConditionScore {
+        int id PK
+        int condition_id FK
+        int criterion_id FK
+        int score
+        text comment
+        text image
+        string photo
+    }
+    oelkaelder_Product {
+        int id PK
+        string name
+        int price_ore
+        int weight_price_ore
+        json price_steps
+        string image
+        bool active
+        bool highlighted
+    }
+    oelkaelder_Shopper {
+        int id PK
+        int resident_id FK
+        bool active
+    }
+    oelkaelder_Deposit {
+        int id PK
+        int shopper_id FK
+        int amount_ore
+        datetime created_at
+        bool is_valid
+    }
+    oelkaelder_Transaction {
+        int id PK
+        datetime created_at
+        bool is_valid
+    }
+    oelkaelder_TransactionItem {
+        int id PK
+        int transaction_id FK
+        int product_id FK
+        int quantity
+        int price_ore
+    }
+    oelkaelder_PurchaseShare {
+        int id PK
+        int transaction_id FK
+        int shopper_id FK
+        int share_ore
+    }
+    oelkaelder_Warning {
+        int id PK
+        text message
+        int threshold_ore
+        bool active
+    }
+    oelkaelder_LogEntry {
+        int id PK
+        datetime created_at
+        text message
+    }
+    oelkaelder_Adjustment {
+        int id PK
+        int shopper_id FK
+        int amount_ore
+        string kind
+        string reason
+        datetime created_at
+        bool is_valid
+    }
+    oelkaelder_InterestPolicy {
+        int id PK
+        bool active
+        decimal rate_percent
+        int threshold_ore
+    }
+    oelkaelder_PurchasePolicy {
+        int id PK
+        bool active
+        int block_below_ore
+    }
+    stats_DailyVisitCount {
+        int id PK
+        date date
+        int count
+    }
+    stats_VisitTally {
+        int id PK
+        string ip_hash
+        int count
+        datetime first_seen
+        datetime last_seen
+    }
+    den_hurtige_QuickPost {
+        int id PK
+        int author_id FK
+        text content
+        string image
+        string channel
+        datetime created_at
+        datetime expires_at
+    }
+    den_hurtige_QuickComment {
+        int id PK
+        int post_id FK
+        int author_id FK
+        text content
+        string image
+        datetime created_at
+        bool notify_everyone
+    }
+    den_hurtige_QuickReaction {
+        int id PK
+        int post_id FK
+        int author_id FK
+        string emoji
+        datetime created_at
+    }
+    den_hurtige_PushSubscription {
+        int id PK
+        int user_id FK
+        string endpoint
+        string auth
+        string p256dh
+        string user_agent
+        datetime created_at
+    }
+    den_hurtige_ChannelMute {
+        int id PK
+        int resident_id FK
+        string channel
+        datetime created_at
+    }
+    residents_Resident }o--|o residents_Resident : "sponsor"
+    residents_Residency }o--|| residents_Resident : "resident"
+    residents_Residency }o--|| core_Room : "room"
+    residents_Residency }o--|o core_Workgroup : "workgroup"
+    residents_Residency }o--|o core_Cleaning : "cleaning"
+    residents_RoleAssignment }o--|| residents_Resident : "resident"
+    admissions_Application }o--|o residents_Resident : "received_by"
+    admissions_Application }o--|o residents_Resident : "discarded_by"
+    cms_CmsImage }o--|o residents_Resident : "uploaded_by"
+    ak_AkEntry }o--|| residents_Resident : "resident"
+    ak_AkEntry }o--|o residents_Resident : "created_by"
+    ak_AkMonthlyCharge }o--|o residents_Resident : "updated_by"
+    rooms_KvotientApplication }o--|| residents_Resident : "resident"
+    rooms_KvotientPriority }o--|| rooms_KvotientApplication : "application"
+    rooms_KvotientPriority }o--|| core_Room : "room"
+    rooms_KvotientOrlov }o--|| rooms_KvotientApplication : "application"
+    rooms_RoomOffer }o--|| core_Room : "room"
+    rooms_RoomOffer }o--|o rooms_KvotientApplication : "awarded_application"
+    rooms_RoomCondition }o--|| core_Room : "room"
+    rooms_RoomCondition }o--|o residents_Resident : "resident"
+    rooms_RoomConditionScore }o--|| rooms_RoomCondition : "condition"
+    rooms_RoomConditionScore }o--|| rooms_RoomCriterion : "criterion"
+    oelkaelder_Shopper }o--|| residents_Resident : "resident"
+    oelkaelder_Deposit }o--|| oelkaelder_Shopper : "shopper"
+    oelkaelder_TransactionItem }o--|| oelkaelder_Transaction : "transaction"
+    oelkaelder_TransactionItem }o--|| oelkaelder_Product : "product"
+    oelkaelder_PurchaseShare }o--|| oelkaelder_Transaction : "transaction"
+    oelkaelder_PurchaseShare }o--|| oelkaelder_Shopper : "shopper"
+    oelkaelder_Adjustment }o--|| oelkaelder_Shopper : "shopper"
+    den_hurtige_QuickPost }o--|| residents_Resident : "author"
+    den_hurtige_QuickComment }o--|| den_hurtige_QuickPost : "post"
+    den_hurtige_QuickComment }o--|| residents_Resident : "author"
+    den_hurtige_QuickReaction }o--|| den_hurtige_QuickPost : "post"
+    den_hurtige_QuickReaction }o--|| residents_Resident : "author"
+    den_hurtige_PushSubscription }o--|| residents_Resident : "user"
+    den_hurtige_ChannelMute }o--|| residents_Resident : "resident"
+```
