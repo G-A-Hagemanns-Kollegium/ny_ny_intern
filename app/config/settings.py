@@ -134,9 +134,9 @@ MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # Secrets (WiFi/calendar/SMTP) come from the environment (.env / vault), never source. (F-013)
-LOGIN_URL = "/nyintern/admin/login"
-LOGIN_REDIRECT_URL = "/nyintern/"
-LOGOUT_REDIRECT_URL = "/nyintern/admin/login"
+LOGIN_URL = "/intern/admin/login"
+LOGIN_REDIRECT_URL = "/intern/"
+LOGOUT_REDIRECT_URL = "/intern/admin/login"
 
 # Email — defaults to the console backend in dev (prints instead of sending). SMTP from env in prod.
 EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")

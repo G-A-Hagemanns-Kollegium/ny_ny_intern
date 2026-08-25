@@ -64,7 +64,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
 
 def _calendar_embed_url() -> str:
     """Build the shared Google Calendar agenda embed shown on the dashboard (restored from the
-    legacy /nyintern dashboard). The calendar IDs are public embed IDs, not secrets, but come from
+    legacy /intern dashboard). The calendar IDs are public embed IDs, not secrets, but come from
     env so the source stays deployment-agnostic. Returns "" when no calendar is configured."""
     calendar_user = os.environ.get("GOOGLE_CALENDAR_USER", "").strip()
     if not calendar_user:

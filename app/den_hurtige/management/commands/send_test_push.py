@@ -47,7 +47,7 @@ class Command(BaseCommand):
         self.stdout.write(f"{resident.full_name}: {len(subscriptions)} device(s) — {total} in total.")
         if not subscriptions:
             raise CommandError(
-                "This resident has no subscribed devices. Open /nyintern/den-hurtige/ as them and "
+                "This resident has no subscribed devices. Open /intern/den-hurtige/ as them and "
                 "press 'Slå notifikationer til' first."
             )
 

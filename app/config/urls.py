@@ -5,14 +5,15 @@ admin can keep /admin later (F-002)."""
 from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path, re_path
-from django.views.generic import TemplateView
+from django.views.generic import RedirectView, TemplateView
 from django.views.static import serve
 
 from cms import views as cms_views
 
 urlpatterns = [
     path("django-admin/", admin.site.urls),
-    path("nyintern/", include("residents.urls")),
+    path("intern/", include("residents.urls")),
+    re_path(r"^nyintern/(?P<rest>.*)$", RedirectView.as_view(url="/intern/%(rest)s", permanent=True)),
     path("optagelse/", include("admissions.urls")),
     path("admin/", include("residents.urls_admin")),  # legacy public-site admin (F-002)
     path("", cms_views.home, name="home"),
@@ -23,7 +24,7 @@ urlpatterns = [
     # legacy /public/ images were).
     re_path(r"^media/(?P<path>.*)$", serve, {"document_root": settings.MEDIA_ROOT}),
     # PWA service worker for Den Hurtige. Must be served from the ROOT path: a service worker's
-    # default scope is its own directory, so only a root-scoped worker covers /nyintern/. Served via
+    # default scope is its own directory, so only a root-scoped worker covers /intern/. Served via
     # TemplateView because static/ would put it under /static/ and cap its scope there.
     path(
         "sw.js",

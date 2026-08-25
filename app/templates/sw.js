@@ -1,6 +1,6 @@
 // Service worker for the intern PWA (Den Hurtige).
 //
-// Served from the ROOT path (/sw.js, see config/urls.py) so its scope covers /nyintern/. It lives
+// Served from the ROOT path (/sw.js, see config/urls.py) so its scope covers /intern/. It lives
 // under templates/ because a TemplateView renders it, but the contents are deliberately plain
 // JavaScript with no Django tags at all: editors lint this file as JS, and any tag syntax here —
 // even inside a comment — is parsed by the template engine and can 500 the response.
@@ -57,7 +57,7 @@ self.addEventListener('push', function (event) {
         badge: '/static/icons/badge-72x72.png', // monochrome, for the Android status bar
         // Deliberately NO `tag`: a shared tag makes each notification replace the previous one, so
         // a second post would silently overwrite the first. Every post stands alone.
-        data: { url: data.url || '/nyintern/den-hurtige/' },
+        data: { url: data.url || '/intern/den-hurtige/' },
       })
       .then(
         function () {
@@ -75,12 +75,12 @@ self.addEventListener('push', function (event) {
 // should not leave three copies of the feed behind.
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
-  var target = (event.notification.data && event.notification.data.url) || '/nyintern/den-hurtige/';
+  var target = (event.notification.data && event.notification.data.url) || '/intern/den-hurtige/';
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (windows) {
       for (var i = 0; i < windows.length; i++) {
-        if (new URL(windows[i].url).pathname.indexOf('/nyintern/') === 0 && 'focus' in windows[i]) {
+        if (new URL(windows[i].url).pathname.indexOf('/intern/') === 0 && 'focus' in windows[i]) {
           return windows[i].navigate ? windows[i].navigate(target).then(function (c) { return c.focus(); })
                                      : windows[i].focus();
         }

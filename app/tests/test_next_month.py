@@ -16,7 +16,7 @@ from django.test import Client
 from core.models import Cleaning, Room, Workgroup
 from residents.models import Residency, Resident, Role, RoleAssignment, active_period, next_period
 
-URL = "/nyintern/alumneliste/naeste-maaned"
+URL = "/intern/alumneliste/naeste-maaned"
 
 
 @pytest.fixture
@@ -296,11 +296,11 @@ def test_directory_history_shows_selected_month(
     Residency.objects.create(resident=past, room=groups["r2"], year=py, month=pm)
 
     c = _login(viewer)
-    now = c.get("/nyintern/alumneliste/").content.decode()
+    now = c.get("/intern/alumneliste/").content.decode()
     assert "Current Person" in now and "Past Person" not in now
     assert f"{py}-{pm}" in now  # the picker offers the past month
 
-    hist = c.get(f"/nyintern/alumneliste/?period={py}-{pm}").content.decode()
+    hist = c.get(f"/intern/alumneliste/?period={py}-{pm}").content.decode()
     assert "Past Person" in hist and "Current Person" not in hist
 
 
@@ -320,7 +320,7 @@ def test_alumneliste_shows_fylgje_and_cleaning(
         year=cy,
         month=cm,
     )
-    h = _login(viewer).get("/nyintern/alumneliste/").content.decode()
+    h = _login(viewer).get("/intern/alumneliste/").content.decode()
     assert "Fylgje" in h and "Rengøring" in h  # column headers
     assert "Fødselsdag" in h and "Indflyttet" in h  # new columns
     assert "Elder Sponsor" in h  # resolved fylgje
@@ -349,7 +349,7 @@ def test_alumneliste_export_csv_and_xlsx(
     )
     c = _login(viewer)
 
-    csv_resp = c.get(f"/nyintern/alumneliste/eksport?format=csv&period={cy}-{cm}")
+    csv_resp = c.get(f"/intern/alumneliste/eksport?format=csv&period={cy}-{cm}")
     assert csv_resp.status_code == 200
     assert "text/csv" in csv_resp["Content-Type"]
     assert ".csv" in csv_resp["Content-Disposition"]
@@ -360,7 +360,7 @@ def test_alumneliste_export_csv_and_xlsx(
     )
     assert "Eks Port" in body and "Fysik" in body and "1999-03-04" in body and "2020-08-01" in body
 
-    xlsx_resp = c.get(f"/nyintern/alumneliste/eksport?format=xlsx&period={cy}-{cm}")
+    xlsx_resp = c.get(f"/intern/alumneliste/eksport?format=xlsx&period={cy}-{cm}")
     assert xlsx_resp.status_code == 200
     assert "spreadsheetml" in xlsx_resp["Content-Type"]
     assert ".xlsx" in xlsx_resp["Content-Disposition"]
@@ -380,7 +380,7 @@ def test_stamtree_shows_lineage(
     make_resident(
         email="c@gahk.dk", first_name="Young", last_name="Leaf", sponsor=elder, move_in_date=date(2021, 8, 1)
     )
-    h = _login(viewer).get("/nyintern/stamtree/").content.decode()
+    h = _login(viewer).get("/intern/stamtree/").content.decode()
     assert "Hagemanns Ånd" in h
     assert "Elder Root" in h and "Young Leaf" in h
     # the child appears nested under its sponsor (sponsor's name comes first in the document)
