@@ -88,6 +88,7 @@ def shop(request: HttpRequest) -> HttpResponse:
             "products": products,
             "shopper_rows": rows,
             "block_limit_kr": policy.block_below_ore // 100,
+            "block_below_ore": policy.block_below_ore,
         },
     )
 
