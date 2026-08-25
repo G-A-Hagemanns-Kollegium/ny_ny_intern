@@ -25,6 +25,7 @@ urlpatterns = [
     path("statistik/", include("stats.urls")),
     path("vaerelsestjek/", include("rooms.urls_vaerelsestjek")),
     path("soegvaerelse/", include("rooms.urls_soegvaerelse")),
+    path("spil/", include("spil.urls")),
     path(
         "admin/login",
         auth_views.LoginView.as_view(

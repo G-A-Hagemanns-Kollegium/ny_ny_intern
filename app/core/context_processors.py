@@ -93,6 +93,9 @@ def _nav_intern(roles: Collection[str], user_pk: int) -> list[NavSection]:
         (settings.WIKI_URL, "Wiki", "book"),
         (settings.FEEDBACK_URL, "Fejl & ønsker", "bug"),
     ]
+    # Kept in its own section at the very bottom of the menu: it is entertainment, not a tool, and
+    # nobody looking for AK or ølkælder should have to read past it.
+    fritid: list[NavItem] = [("/nyintern/spil/", "Ølbuddet", "game")]
     # kokkengruppe: no dedicated screen today (documented gap; no menu item).
     sections: list[NavSection] = [
         ("Oversigt", oversigt),
@@ -100,6 +103,7 @@ def _nav_intern(roles: Collection[str], user_pk: int) -> list[NavSection]:
         ("Grupper & konti", grupper),
         ("Administration", administration),
         ("Ressourcer", ressourcer),
+        ("Fritid", fritid),
     ]
     return [s for s in sections if s[1]]
 

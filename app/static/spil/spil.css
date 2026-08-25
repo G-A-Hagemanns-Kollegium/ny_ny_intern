@@ -1,0 +1,338 @@
+/* Ølbuddet — page-scoped styling.
+   Loaded ONLY by templates/spil/spil.html. Every selector is under .spil-* / #spil-*, so nothing
+   here can reach another page even if the file is cached. Deliberately plain CSS (no Tailwind
+   directives): it is served straight from static/, not through the Vite/Tailwind build.
+
+   The look is the game's, not the site's: bevelled dark panels with brass edges, cut corners,
+   hard drop shadows and uppercase labels. Nothing rounded, nothing soft. */
+
+.spil-frame {
+  --bg: #17131f;
+  --bg-2: #221b2c;
+  --bg-3: #100c17;
+  --edge: #3a3048;
+  --brass: #d9b566;
+  --brass-dim: rgba(217, 181, 102, .28);
+  --ink: #efe7d8;
+  --good: #4f9a68;
+  --good-dark: #1d3f2a;
+  --bad: #d06a5c;
+
+  position: relative;
+  margin: 14px 0;
+  border: 2px solid var(--edge);
+  overflow: hidden;
+  background: #100c17;
+  box-shadow: 0 0 0 1px #000, 0 18px 40px -22px rgba(24, 40, 30, .55);
+  line-height: 0;
+  font-family: "Ubuntu", system-ui, "Segoe UI", Roboto, sans-serif;
+}
+
+#spil-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 14 / 9;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  touch-action: none;
+  outline: none;
+  cursor: default;
+}
+
+.spil-frame:fullscreen { display: grid; place-items: center; background: #0c0910; }
+.spil-frame:fullscreen #spil-canvas { width: auto; height: 100vh; max-width: 100vw; }
+
+/* Cut corners — the one shape that makes a panel read as a game panel rather than a web card. */
+.spil-bevel-8 { clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px); }
+.spil-bevel-5 { clip-path: polygon(5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0 calc(100% - 5px), 0 5px); }
+
+/* ---------------------------------------------------------------- order list (right-hand rail) */
+.spil-orders {
+  position: absolute;
+  top: 46px;
+  right: 10px;
+  width: min(250px, 34%);
+  max-height: calc(100% - 60px);
+  overflow: hidden auto;
+  padding: 8px;
+  background: rgba(16, 12, 23, .9);
+  border: 2px solid var(--edge);
+  border-top-color: var(--brass-dim);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.35;
+  clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px);
+}
+
+.spil-orders-head {
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  font-size: 9px;
+  color: var(--brass);
+  margin: 0 0 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--brass-dim);
+}
+
+.spil-orders-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+
+.spil-orders-list li {
+  padding: 5px 7px;
+  background: rgba(255, 255, 255, .05);
+  border-left: 3px solid var(--good);
+}
+
+.spil-orders-list li.is-carried { border-left-color: var(--brass); }
+.spil-orders-list li.is-urgent { border-left-color: var(--bad); }
+.spil-orders-list li.is-event { background: rgba(217, 181, 102, .12); }
+.spil-orders-list li b { color: #fff; }
+.spil-orders-list li .spil-o-sub { display: block; opacity: .74; font-size: 11px; }
+.spil-orders-empty { opacity: .55; font-style: italic; border-left-color: var(--edge) !important; }
+
+.spil-o-bar { display: block; height: 4px; margin-top: 4px; background: rgba(0, 0, 0, .5); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
+.spil-o-bar > i { display: block; height: 100%; background: var(--good); }
+.is-urgent .spil-o-bar > i { background: var(--bad); }
+
+/* --------------------------------------------------------------------------- the event banner */
+.spil-event {
+  margin-bottom: 8px;
+  padding: 7px 8px;
+  background: linear-gradient(180deg, rgba(217, 181, 102, .22), rgba(217, 181, 102, .07));
+  border: 1px solid var(--brass);
+  color: var(--ink);
+  animation: spil-pulse 1.6s ease-in-out infinite;
+}
+
+.spil-event.is-urgent { border-color: var(--bad); background: linear-gradient(180deg, rgba(208, 106, 92, .28), rgba(208, 106, 92, .08)); }
+.spil-event-top { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.spil-event-top b { font-size: 11px; letter-spacing: .14em; color: var(--brass); }
+.spil-event.is-urgent .spil-event-top b { color: #f0c3bc; }
+.spil-event-top span { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.spil-event-sub { font-size: 10.5px; opacity: .8; margin: 2px 0 5px; }
+.spil-event-pips { display: flex; gap: 3px; margin-bottom: 5px; }
+.spil-event-pips i { width: 12px; height: 5px; background: rgba(255, 255, 255, .16); }
+.spil-event-pips i.is-done { background: var(--brass); }
+
+@keyframes spil-pulse { 50% { box-shadow: 0 0 0 2px rgba(217, 181, 102, .14); } }
+@media (prefers-reduced-motion: reduce) { .spil-event { animation: none; } }
+
+/* ---------------------------------------------------------------------------------- toast line */
+.spil-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  padding: 6px 16px;
+  background: rgba(12, 9, 18, .94);
+  border: 2px solid var(--edge);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  clip-path: polygon(5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0 calc(100% - 5px), 0 5px);
+}
+
+.spil-toast.is-good { border-color: var(--good); color: #bfe6cb; }
+.spil-toast.is-bad { border-color: var(--bad); color: #f0c3bc; }
+
+/* ------------------------------------------------------------------------------- game panels */
+.spil-modal {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(8, 6, 12, .8);
+  overflow: auto;
+  line-height: 1.5;
+}
+
+.spil-modal-box {
+  width: min(600px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  padding: 20px 24px 22px;
+  background: linear-gradient(180deg, var(--bg-2), var(--bg));
+  border: 2px solid var(--brass);
+  color: var(--ink);
+  font-size: 13px;
+  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
+}
+
+.spil-modal-box h2 {
+  margin: 0 0 14px;
+  padding-bottom: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+  color: var(--brass);
+  border-bottom: 1px solid var(--brass-dim);
+}
+
+.spil-modal-box p { margin: 6px 0 12px; }
+.spil-modal-box .spil-dim { opacity: .72; font-size: 12px; letter-spacing: .04em; }
+.spil-price { color: var(--brass); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.spil-grid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); }
+
+.spil-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  padding: 9px 11px;
+  background: var(--bg-3);
+  border: 2px solid var(--edge);
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.35;
+  clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px), 0 6px);
+}
+
+button.spil-card { cursor: pointer; transition: border-color .08s, background .08s; }
+button.spil-card:hover:not([disabled]), button.spil-card:focus-visible:not([disabled]) {
+  background: #221a10;
+  border-color: var(--brass);
+  outline: none;
+}
+button.spil-card[disabled] { opacity: .4; cursor: not-allowed; }
+.spil-card b { color: #fff; font-size: 13px; }
+.spil-card small { opacity: .74; }
+.spil-card.is-owned { border-color: var(--good-dark); }
+.spil-card.is-owned .spil-price { color: var(--good); }
+.spil-card.is-quest { border-color: #4a3a20; }
+
+.spil-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 6px; margin: 12px 0 0; }
+.spil-stats div { padding: 7px 9px; background: var(--bg-3); border: 1px solid var(--edge); }
+.spil-stats span { display: block; font-size: 9px; letter-spacing: .14em; text-transform: uppercase; opacity: .55; }
+.spil-stats strong { font-size: 17px; color: #fff; font-variant-numeric: tabular-nums; }
+
+/* Chunky buttons with a hard shadow that the press animation takes away. */
+.spil-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+
+.spil-btn {
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  padding: 9px 18px;
+  background: #2f7a4c;
+  border: 2px solid #16351f;
+  box-shadow: 0 4px 0 #102516;
+  color: #fff;
+  cursor: pointer;
+  clip-path: polygon(4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px), 0 4px);
+}
+
+.spil-btn:hover { background: #3b9260; }
+.spil-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #102516; }
+.spil-btn.is-ghost { background: #241d2e; border-color: #120e18; box-shadow: 0 4px 0 #0c0912; color: var(--ink); }
+.spil-btn.is-ghost:hover { background: #2f2740; }
+
+/* ------------------------------------------------------------------------------ fullscreen knob */
+.spil-fs {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--edge);
+  background: rgba(16, 12, 23, .8);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.spil-fs:hover { border-color: var(--brass); color: var(--brass); }
+
+/* ------------------------------------------------------------------- character-select portraits */
+.spil-grid-chars { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.spil-char { align-items: center; text-align: center; gap: 7px; padding: 14px 11px; }
+.spil-char small { min-height: 3.2em; font-size: 11px; }
+
+/* The bud, drawn in CSS from the same palette as his sprite — no extra image request just to fill
+   a menu, and it stays crisp at any size. */
+.spil-portrait {
+  width: 48px;
+  height: 62px;
+  align-self: center;
+  background:
+    linear-gradient(#d9a273 0 0) 50% 24% / 24px 21px no-repeat,
+    linear-gradient(#5d3f27 0 0) 50% 13% / 26px 9px no-repeat,
+    linear-gradient(#3f7a55 0 0) 50% 78% / 32px 27px no-repeat,
+    linear-gradient(#2b5c3d 0 0) 50% 90% / 15px 9px no-repeat,
+    #16121d;
+  box-shadow: inset 0 0 0 2px #2a2236;
+}
+
+.spil-portrait.is-locked { background: #16121d; }
+.spil-portrait.is-locked::after {
+  content: "?";
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font-size: 26px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, .18);
+}
+
+button.spil-card.is-locked { cursor: not-allowed; }
+
+@media (max-width: 640px) {
+  .spil-orders { position: static; width: auto; max-height: 190px; clip-path: none; border-width: 2px 0 0; }
+  .spil-frame { line-height: normal; }
+}
+
+/* ------------------------------------------------------------------------- developer console */
+/* Opened with / or ½ while the game has focus. Cheats only touch this browser's own save. */
+.spil-console {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  max-width: 620px;
+  padding: 8px 10px;
+  background: rgba(8, 6, 12, .95);
+  border: 2px solid var(--brass);
+  color: #cfe6d3;
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px), 0 6px);
+}
+
+.spil-console-log {
+  max-height: 168px;
+  overflow: auto;
+  margin-bottom: 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.spil-console-line.is-dim { opacity: .55; }
+.spil-console-line.is-echo { color: var(--brass); }
+.spil-console-line.is-ok { color: #cfe6d3; }
+.spil-console-line.is-bad { color: #f0b0a6; }
+
+.spil-console-row { display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--brass-dim); padding-top: 6px; }
+.spil-console-row span { color: var(--brass); font-weight: 700; }
+
+#spil-console-input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: #fff;
+  font: inherit;
+  outline: none;
+}

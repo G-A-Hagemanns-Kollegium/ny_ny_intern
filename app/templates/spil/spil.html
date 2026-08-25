@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Ølbuddet — GAHK Intern{% endblock %}
+{% block content_width %}max-w-6xl{% endblock %}
+
+{% comment %}
+  Ølbuddet — the delivery game. Everything below is scoped to this page:
+
+    * spil.css      : only loaded here, and every rule is under .spil-* / #spil-*
+    * dist/spil.js  : its own Vite entry, NOT part of the site-wide app.js bundle
+    * json_script   : room + product names handed to the game as escaped JSON (never inline JS)
+
+  There is no explanatory copy around the frame on purpose: everything the player needs is drawn
+  inside the game. The page keeps its progress in localStorage and posts nothing.
+{% endcomment %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'spil/spil.css' %}">
+
+{{ spil_rooms|json_script:"spil-rooms" }}
+{{ spil_goods|json_script:"spil-goods" }}
+
+<div class="spil-frame" id="spil-frame">
+  <canvas id="spil-canvas" width="896" height="576" data-assets="{{ spil_assets }}"
+          aria-label="Ølbuddet — spilområde"></canvas>
+
+  {# Everything below sits on top of the canvas; the game shows/hides it. #}
+  <div class="spil-orders" id="spil-orders" hidden>
+    <div class="spil-event" id="spil-event" hidden></div>
+    <div class="spil-orders-head">Bestillinger</div>
+    <ul class="spil-orders-list" id="spil-orders-list"></ul>
+  </div>
+
+  <div class="spil-toast" id="spil-toast" hidden></div>
+
+  <div class="spil-modal" id="spil-modal" hidden>
+    <div class="spil-modal-box" id="spil-modal-box" role="dialog" aria-modal="true"></div>
+  </div>
+
+  <button class="spil-fs" id="spil-fullscreen" type="button" title="Fuld skærm">⛶</button>
+
+  {% comment %}
+    Developer console (open with / or ½ while the game has focus). Cheats only ever touch the
+    player's own localStorage save — there is no score to inflate and nothing is sent anywhere.
+  {% endcomment %}
+  <div class="spil-console" id="spil-console" hidden>
+    <div class="spil-console-log" id="spil-console-log"></div>
+    <label class="spil-console-row">
+      <span aria-hidden="true">&gt;</span>
+      <input id="spil-console-input" type="text" autocomplete="off" spellcheck="false"
+             aria-label="Udviklerkonsol">
+    </label>
+  </div>
+</div>
+
+<noscript><p class="card">Ølbuddet kræver JavaScript.</p></noscript>
+
+<script type="module" src="{% static 'dist/spil.js' %}"></script>
+{% endblock %}
