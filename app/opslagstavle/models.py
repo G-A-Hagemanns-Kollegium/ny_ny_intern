@@ -43,7 +43,6 @@ ORPHAN_IMAGE_GRACE = timedelta(days=1)
 # unbounded pin list would quietly turn "pin" into "keep forever" and fill the top of the board.
 MAX_PINNED = 5
 
-MAX_TITLE_CHARS = 140
 MAX_BODY_CHARS = 8_000
 MAX_COMMENT_CHARS = 1_000
 
@@ -86,7 +85,6 @@ class NoticeQuerySet(models.QuerySet["Notice"]):
 
 class Notice(models.Model):
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notices")
-    title = models.CharField(max_length=MAX_TITLE_CHARS, verbose_name="Overskrift")
     category = models.CharField(
         max_length=20, choices=Category.choices, default=Category.NYT, verbose_name="Kategori"
     )
@@ -131,7 +129,9 @@ class Notice(models.Model):
         # fail. The pair is maintained by the pin view instead.
 
     def __str__(self) -> str:
-        return self.title
+        # No title to name a post by any more, so identify it the way the board does: by who wrote
+        # it. The pk keeps two posts from one person distinguishable in the admin changelist.
+        return f"Opslag #{self.pk} af {self.author.full_name}"
 
     @property
     def is_pinned(self) -> bool:

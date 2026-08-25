@@ -79,7 +79,6 @@ def pushes(monkeypatch: pytest.MonkeyPatch, settings: object) -> list[tuple[list
 def make_notice(author: Resident, **kwargs: object) -> Notice:
     return Notice.objects.create(
         author=author,
-        title=kwargs.pop("title", "En overskrift"),  # type: ignore[arg-type]
         body=kwargs.pop("body", "Noget **indhold**."),  # type: ignore[arg-type]
         **kwargs,
     )
@@ -104,9 +103,7 @@ def test_every_resident_can_read_and_post(client: Client, beboer: Resident) -> N
     client.force_login(beboer)
 
     assert client.get(BOARD).status_code == 200
-    response = client.post(
-        BOARD + "opret", {"title": "Fest", "category": Category.BEGIVENHED, "body": "På fredag."}
-    )
+    response = client.post(BOARD + "opret", {"category": Category.BEGIVENHED, "body": "På fredag."})
 
     assert response.status_code == 302
     assert Notice.objects.get().author_id == beboer.pk
@@ -142,10 +139,10 @@ def test_the_sidebar_advertises_the_board_and_the_page_opens_for_the_same_user(
 # --- posting and editing --------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(("field", "value"), [("title", ""), ("body", ""), ("category", "ikke-en-kategori")])
+@pytest.mark.parametrize(("field", "value"), [("body", ""), ("category", "ikke-en-kategori")])
 def test_an_invalid_post_is_rejected(client: Client, beboer: Resident, field: str, value: str) -> None:
     client.force_login(beboer)
-    data = {"title": "T", "category": Category.NYT, "body": "B"}
+    data = {"category": Category.NYT, "body": "B"}
     data[field] = value
 
     response = client.post(BOARD + "opret", data)
@@ -161,9 +158,7 @@ def test_an_over_long_body_is_refused(client: Client, beboer: Resident) -> None:
 
     client.force_login(beboer)
 
-    response = client.post(
-        BOARD + "opret", {"title": "T", "category": Category.NYT, "body": "x" * (MAX_BODY_CHARS + 1)}
-    )
+    response = client.post(BOARD + "opret", {"category": Category.NYT, "body": "x" * (MAX_BODY_CHARS + 1)})
 
     assert response.status_code == 200
     assert not Notice.objects.exists()
@@ -196,11 +191,11 @@ def test_an_author_can_edit_their_own_post_and_it_is_marked_edited(client: Clien
 
     client.post(
         f"{BOARD}{notice.pk}/rediger",
-        {"title": "Rettet", "category": Category.NYT, "body": "Rettet indhold"},
+        {"category": Category.NYT, "body": "Rettet indhold"},
     )
 
     notice.refresh_from_db()
-    assert notice.title == "Rettet"
+    assert notice.body == "Rettet indhold"
     assert notice.edited_at is not None
 
 
@@ -236,16 +231,14 @@ def test_inspektionen_cannot_rewrite_someone_elses_post(
     """Moderators may delete but never edit. A post keeps its author's name on it, so silently
     changing the words — words that may already have replies referring to them — is worse than
     removing it: deleting is visible, editing is not."""
-    notice = make_notice(beboer, title="Originalen")
+    notice = make_notice(beboer, body="Originalen")
     client.force_login(inspektion)
 
-    response = client.post(
-        f"{BOARD}{notice.pk}/rediger", {"title": "Omskrevet", "category": Category.NYT, "body": "x"}
-    )
+    response = client.post(f"{BOARD}{notice.pk}/rediger", {"category": Category.NYT, "body": "x"})
 
     assert response.status_code == 403
     notice.refresh_from_db()
-    assert notice.title == "Originalen"
+    assert notice.body == "Originalen"
 
 
 # --- moderation -----------------------------------------------------------------------------------
@@ -395,8 +388,8 @@ def test_a_resident_cannot_pin(client: Client, beboer: Resident) -> None:
 
 
 def test_pinned_posts_are_shown_first(client: Client, beboer: Resident, inspektion: Resident) -> None:
-    old = make_notice(beboer, title="Gammelt men fastgjort")
-    make_notice(beboer, title="Nyere")
+    old = make_notice(beboer, body="Gammelt men fastgjort")
+    make_notice(beboer, body="Nyere")
     old.pinned_at = timezone.now()
     old.pinned_by = inspektion
     old.save()
@@ -413,12 +406,12 @@ def test_pinned_posts_appear_on_every_page(client: Client, beboer: Resident, ins
     is a few pages deep."""
     from opslagstavle.views import PAGE_SIZE
 
-    pinned = make_notice(beboer, title="Altid øverst")
+    pinned = make_notice(beboer, body="Altid øverst")
     pinned.pinned_at = timezone.now()
     pinned.pinned_by = inspektion
     pinned.save()
     for i in range(PAGE_SIZE + 3):
-        make_notice(beboer, title=f"Opslag {i}")
+        make_notice(beboer, body=f"Opslag {i}")
     client.force_login(beboer)
 
     page_two = client.get(BOARD, {"page": 2}).content.decode()
@@ -431,26 +424,26 @@ def test_pinned_ordering_does_not_depend_on_nulls_placement(beboer: Resident, in
     `order_by("-pinned_at", …)` would put pinned posts on top in one backend and unpinned on top in
     the other — correct locally, wrong in production. The two-queryset split sidesteps that; this
     pins the behaviour so reintroducing one order_by is caught."""
-    unpinned = make_notice(beboer, title="Ikke fastgjort")
-    first = make_notice(beboer, title="Fastgjort først")
-    second = make_notice(beboer, title="Fastgjort sidst")
+    unpinned = make_notice(beboer, body="Ikke fastgjort")
+    first = make_notice(beboer, body="Fastgjort først")
+    second = make_notice(beboer, body="Fastgjort sidst")
     first.pinned_at = timezone.now() - timedelta(hours=1)
     first.save()
     second.pinned_at = timezone.now()
     second.save()
 
-    assert [n.title for n in Notice.objects.pinned()] == ["Fastgjort sidst", "Fastgjort først"]
-    assert [n.title for n in Notice.objects.unpinned()] == [unpinned.title]
+    assert [n.body for n in Notice.objects.pinned()] == ["Fastgjort sidst", "Fastgjort først"]
+    assert [n.body for n in Notice.objects.unpinned()] == [unpinned.body]
 
 
 def test_the_pin_limit_is_enforced(client: Client, beboer: Resident, inspektion: Resident) -> None:
     """A pinned post is both permanently on top AND exempt from the purge, so without a cap "pin"
     quietly becomes "keep forever"."""
     for i in range(MAX_PINNED):
-        n = make_notice(beboer, title=f"Fastgjort {i}")
+        n = make_notice(beboer, body=f"Fastgjort {i}")
         n.pinned_at = timezone.now()
         n.save()
-    extra = make_notice(beboer, title="En for meget")
+    extra = make_notice(beboer, body="En for meget")
     client.force_login(inspektion)
 
     client.post(f"{BOARD}{extra.pk}/fastgoer")
@@ -461,11 +454,11 @@ def test_the_pin_limit_is_enforced(client: Client, beboer: Resident, inspektion:
 
 
 def test_unpinning_frees_a_slot(client: Client, beboer: Resident, inspektion: Resident) -> None:
-    pinned = [make_notice(beboer, title=f"F{i}") for i in range(MAX_PINNED)]
+    pinned = [make_notice(beboer, body=f"F{i}") for i in range(MAX_PINNED)]
     for n in pinned:
         n.pinned_at = timezone.now()
         n.save()
-    extra = make_notice(beboer, title="Ny")
+    extra = make_notice(beboer, body="Ny")
     client.force_login(inspektion)
 
     client.post(f"{BOARD}{pinned[0].pk}/fastgoer")  # unpin one
@@ -479,8 +472,8 @@ def test_unpinning_frees_a_slot(client: Client, beboer: Resident, inspektion: Re
 
 
 def test_the_category_filter_narrows_the_list(client: Client, beboer: Resident) -> None:
-    make_notice(beboer, title="Fest", category=Category.BEGIVENHED)
-    make_notice(beboer, title="Runden", category=Category.VAERELSESRUNDE)
+    make_notice(beboer, body="Fest", category=Category.BEGIVENHED)
+    make_notice(beboer, body="Runden", category=Category.VAERELSESRUNDE)
     client.force_login(beboer)
 
     body = client.get(BOARD, {"kategori": Category.VAERELSESRUNDE}).content.decode()
@@ -492,7 +485,7 @@ def test_the_category_filter_narrows_the_list(client: Client, beboer: Resident) 
 def test_an_unknown_category_falls_back_to_everything(client: Client, beboer: Resident) -> None:
     """A bad querystring should show the board, not a 404 — the value comes from a link someone may
     have kept after the category set changed."""
-    make_notice(beboer, title="Noget")
+    make_notice(beboer, body="Noget")
     client.force_login(beboer)
 
     response = client.get(BOARD, {"kategori": "findes-ikke"})
@@ -512,7 +505,7 @@ def test_the_list_paginates(client: Client, beboer: Resident) -> None:
     from opslagstavle.views import PAGE_SIZE
 
     for i in range(PAGE_SIZE + 1):
-        make_notice(beboer, title=f"Opslag {i}")
+        make_notice(beboer, body=f"Opslag {i}")
     client.force_login(beboer)
 
     assert client.get(BOARD).context["page_obj"].paginator.num_pages == 2
@@ -732,7 +725,7 @@ def test_saving_a_post_claims_the_images_it_references(
     client.force_login(beboer)
     url = json.loads(client.post(BOARD + "billede", {"file": png()}).content)["url"]
 
-    client.post(BOARD + "opret", {"title": "Med billede", "category": Category.NYT, "body": f"![]({url})"})
+    client.post(BOARD + "opret", {"category": Category.NYT, "body": f"![]({url})"})
 
     image = NoticeImage.objects.get()
     assert image.notice_id == Notice.objects.get().pk
@@ -745,12 +738,12 @@ def test_editing_a_post_releases_an_image_it_no_longer_references(
     immediately re-adding it cannot lose the file."""
     client.force_login(beboer)
     url = json.loads(client.post(BOARD + "billede", {"file": png()}).content)["url"]
-    client.post(BOARD + "opret", {"title": "T", "category": Category.NYT, "body": f"![]({url})"})
+    client.post(BOARD + "opret", {"category": Category.NYT, "body": f"![]({url})"})
     notice = Notice.objects.get()
 
     client.post(
         f"{BOARD}{notice.pk}/rediger",
-        {"title": "T", "category": Category.NYT, "body": "billedet er fjernet"},
+        {"category": Category.NYT, "body": "billedet er fjernet"},
     )
 
     image = NoticeImage.objects.get()
@@ -762,10 +755,10 @@ def test_editing_cannot_delete_another_posts_image(client: Client, beboer: Resid
     """The release step is scoped to `notice.images`, so editing post B can never touch post A's."""
     client.force_login(beboer)
     url_a = json.loads(client.post(BOARD + "billede", {"file": png("a.png")}).content)["url"]
-    client.post(BOARD + "opret", {"title": "A", "category": Category.NYT, "body": f"![]({url_a})"})
-    notice_a = Notice.objects.get(title="A")
+    client.post(BOARD + "opret", {"category": Category.NYT, "body": f"![]({url_a})"})
+    notice_a = Notice.objects.get(body__contains=url_a)
 
-    client.post(BOARD + "opret", {"title": "B", "category": Category.NYT, "body": "ingen billeder"})
+    client.post(BOARD + "opret", {"category": Category.NYT, "body": "ingen billeder"})
 
     assert NoticeImage.objects.get().notice_id == notice_a.pk
 
@@ -779,7 +772,7 @@ def test_an_image_someone_else_uploaded_cannot_be_claimed(
     url = json.loads(client.post(BOARD + "billede", {"file": png()}).content)["url"]
 
     client.force_login(other)
-    client.post(BOARD + "opret", {"title": "Tyv", "category": Category.NYT, "body": f"![]({url})"})
+    client.post(BOARD + "opret", {"category": Category.NYT, "body": f"![]({url})"})
 
     assert NoticeImage.objects.get().notice_id is None
 
@@ -789,7 +782,7 @@ def test_deleting_a_post_deletes_its_image_and_the_file(
 ) -> None:
     client.force_login(beboer)
     url = json.loads(client.post(BOARD + "billede", {"file": png()}).content)["url"]
-    client.post(BOARD + "opret", {"title": "T", "category": Category.NYT, "body": f"![]({url})"})
+    client.post(BOARD + "opret", {"category": Category.NYT, "body": f"![]({url})"})
     notice = Notice.objects.get()
     stored = media_tmp / NoticeImage.objects.get().file.name
     assert stored.is_file()
@@ -808,7 +801,7 @@ def test_an_image_in_a_code_fence_is_not_claimed(client: Client, beboer: Residen
 
     client.post(
         BOARD + "opret",
-        {"title": "T", "category": Category.NYT, "body": f"```\n![]({url})\n```"},
+        {"category": Category.NYT, "body": f"```\n![]({url})\n```"},
     )
 
     assert NoticeImage.objects.get().notice_id is None
@@ -827,19 +820,19 @@ def _age(notice: Notice, days: int) -> Notice:
 def test_purge_deletes_posts_past_the_retention_window(beboer: Resident) -> None:
     from django.core.management import call_command
 
-    _age(make_notice(beboer, title="Gammelt"), RETENTION_DAYS + 1)
-    make_notice(beboer, title="Nyt")
+    _age(make_notice(beboer, body="Gammelt"), RETENTION_DAYS + 1)
+    make_notice(beboer, body="Nyt")
 
     call_command("purge_notices")
 
-    assert [n.title for n in Notice.objects.all()] == ["Nyt"]
+    assert [n.body for n in Notice.objects.all()] == ["Nyt"]
 
 
 def test_purge_keeps_a_pinned_post_however_old(beboer: Resident, inspektion: Resident) -> None:
     """A pin is Inspektionen saying the kollegium keeps this, which makes it the retention override."""
     from django.core.management import call_command
 
-    old = _age(make_notice(beboer, title="Fastgjort og gammelt"), RETENTION_DAYS * 2)
+    old = _age(make_notice(beboer, body="Fastgjort og gammelt"), RETENTION_DAYS * 2)
     Notice.objects.filter(pk=old.pk).update(pinned_at=timezone.now(), pinned_by=inspektion)
 
     call_command("purge_notices")
@@ -954,12 +947,12 @@ def test_a_new_post_notifies_board_subscribers_except_the_author(
     subscribe(other, "https://push.example/reader")
     client.force_login(beboer)
 
-    client.post(BOARD + "opret", {"title": "Nyt", "category": Category.NYT, "body": "Indhold"})
+    client.post(BOARD + "opret", {"category": Category.NYT, "body": "Indhold"})
 
     assert len(pushes) == 1
     recipients, payload = pushes[0]
     assert recipients == [other.pk]
-    assert payload["head"] == "Nyt"
+    assert payload["head"] == beboer.full_name
 
 
 def test_a_den_hurtige_only_subscriber_gets_nothing_from_the_board(
@@ -970,7 +963,7 @@ def test_a_den_hurtige_only_subscriber_gets_nothing_from_the_board(
     subscribe(other, "https://push.example/chat", den_hurtige=True, opslagstavle=False)
     client.force_login(beboer)
 
-    client.post(BOARD + "opret", {"title": "Nyt", "category": Category.NYT, "body": "x"})
+    client.post(BOARD + "opret", {"category": Category.NYT, "body": "x"})
 
     assert pushes == [] or pushes[0][0] == []
 
@@ -983,7 +976,7 @@ def test_the_notification_links_to_the_post_not_the_board(
     subscribe(other, "https://push.example/reader")
     client.force_login(beboer)
 
-    client.post(BOARD + "opret", {"title": "Nyt", "category": Category.NYT, "body": "x"})
+    client.post(BOARD + "opret", {"category": Category.NYT, "body": "x"})
 
     notice = Notice.objects.get()
     assert pushes[0][1]["url"] == f"{BOARD}{notice.pk}"
@@ -997,7 +990,7 @@ def test_the_notification_body_is_plain_text(
     subscribe(other, "https://push.example/reader")
     client.force_login(beboer)
 
-    client.post(BOARD + "opret", {"title": "T", "category": Category.NYT, "body": "**meget** vigtigt"})
+    client.post(BOARD + "opret", {"category": Category.NYT, "body": "**meget** vigtigt"})
 
     assert "**" not in pushes[0][1]["body"]
     assert "meget vigtigt" in pushes[0][1]["body"]
@@ -1110,7 +1103,7 @@ def test_a_post_with_several_images_collapses_to_one_thumbnail_in_the_feed(
 ) -> None:
     """User testing: a photo-heavy post filled the viewport and pushed every other post below the
     fold. The feed shows the text plus a single fixed-size thumbnail instead."""
-    make_notice(beboer, title="Fest", body=THREE_IMAGE_BODY)
+    make_notice(beboer, body=THREE_IMAGE_BODY)
     client.force_login(beboer)
 
     body = client.get(BOARD).content.decode()
@@ -1125,7 +1118,7 @@ def test_a_post_with_several_images_collapses_to_one_thumbnail_in_the_feed(
 def test_a_post_with_one_image_still_shows_it_inline(client: Client, beboer: Resident) -> None:
     """A single picture reads as part of the post rather than as a gallery, so it is left alone —
     collapsing it would be a regression, not a fix."""
-    make_notice(beboer, title="Enkelt", body=ONE_IMAGE_BODY)
+    make_notice(beboer, body=ONE_IMAGE_BODY)
     client.force_login(beboer)
 
     body = client.get(BOARD).content.decode()
@@ -1156,9 +1149,9 @@ def test_the_thumbnail_is_the_first_image(client: Client, beboer: Resident) -> N
 
 
 def test_a_feed_card_is_tappable_as_a_whole(client: Client, beboer: Resident) -> None:
-    """User testing: people tapped the card, not the heading. The title link is stretched over the
-    card in CSS (`.is-clickable`), so it stays ONE real link — keyboard reachable and right-clickable
-    — rather than a JS click handler or a card wrapped in an anchor."""
+    """User testing: people tapped the card, not the heading. The permalink on the timestamp is
+    stretched over the card in CSS (`.is-clickable`), so it stays ONE real link — keyboard reachable
+    and right-clickable — rather than a JS click handler or a card wrapped in an anchor."""
     notice = make_notice(beboer)
     client.force_login(beboer)
 
@@ -1243,3 +1236,67 @@ def test_toggling_a_reaction_returns_the_row_as_it_now_is(client: Client, beboer
 
     assert "👍" in body or "👍" in body
     assert "Bo Beboer" in body  # the reader panel, populated from the same fresh read
+
+
+# --- the author heads the post --------------------------------------------------------------------
+
+
+def test_a_post_has_no_headline_field(client: Client, beboer: Resident) -> None:
+    """The compose form must not offer one either -- a leftover input would put a title back into
+    posts that nothing renders."""
+    client.force_login(beboer)
+
+    body = client.get(BOARD + "opret").content.decode()
+
+    assert 'name="title"' not in body
+    assert "Overskrift</label>" not in body  # the toolbar's heading button keeps that tooltip
+
+
+def test_the_card_leads_with_its_author(client: Client, beboer: Resident) -> None:
+    make_notice(beboer, body="Saunaen er repareret.")
+    client.force_login(beboer)
+
+    body = client.get(BOARD).content.decode()
+
+    assert "notice-author" in body
+    assert "Bo Beboer" in body
+    assert "BB" in body  # initials avatar
+
+
+def test_the_timestamp_is_the_permalink(client: Client, beboer: Resident) -> None:
+    """It replaced the title link as the card's single stretched link. The author's name was the
+    other candidate and would have read as a link to a profile that does not exist."""
+    notice = make_notice(beboer)
+    client.force_login(beboer)
+
+    body = client.get(BOARD).content.decode()
+
+    assert f'class="notice-link" href="{BOARD}{notice.pk}"' in body
+    assert "<time datetime=" in body
+
+
+def test_the_detail_page_does_not_stretch_the_permalink(client: Client, beboer: Resident) -> None:
+    """On the detail page you are already there, so the timestamp is plain text -- a link to the
+    page you are on is noise, and the stretch would swallow the comment form."""
+    notice = make_notice(beboer)
+    client.force_login(beboer)
+
+    body = client.get(f"{BOARD}{notice.pk}").content.decode()
+
+    assert "notice-link" not in body
+    assert "<time datetime=" in body
+
+
+def test_a_new_post_notifies_with_the_author_as_the_head(
+    client: Client, beboer: Resident, other: Resident, pushes: list
+) -> None:
+    """The head used to be the title, with the author crammed into the front of the body. With no
+    title, repeating the name in both lines would waste the one line a lock screen gives you."""
+    subscribe(other, "https://push.example/other")
+    client.force_login(beboer)
+
+    client.post(BOARD + "opret", {"category": Category.NYT, "body": "Saunaen er repareret."})
+
+    payload = pushes[-1][1]
+    assert payload["head"] == "Bo Beboer"
+    assert payload["body"] == "Saunaen er repareret."

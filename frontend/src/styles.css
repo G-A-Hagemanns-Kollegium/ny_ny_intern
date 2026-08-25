@@ -511,10 +511,21 @@
   .notice-gallery-count { @apply text-sm; }
   .notice-head { @apply flex items-start justify-between gap-3 flex-wrap; }
   .notice-tags { @apply flex flex-wrap items-center gap-2 mb-1; }
-  .notice-title { @apply text-lg font-semibold leading-snug; }
-  .notice-title a { @apply no-underline; color: var(--ink); }
-  .notice-title a:hover { color: var(--green-700); }
-  .notice-meta { @apply text-sm mt-0.5; }
+  /* The author heads the card now that posts have no title. The avatar is deliberately the same
+     shape and colour as Den Hurtige's .msg-avatar so the two feeds read as one product; it is a
+     separate class rather than a shared one because .msg-avatar lives inside the chat shell's own
+     sizing rules, and reusing it would drag those along. */
+  .notice-author { @apply flex items-center gap-2.5; }
+  .notice-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--brass);
+    color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none;
+    text-transform: uppercase; }
+  .notice-byline { @apply flex flex-col; min-width: 0; }
+  .notice-name { @apply font-semibold leading-snug; color: var(--ink); }
+  .notice-meta { @apply text-sm; }
+  /* The timestamp is the permalink. Undecorated so the header reads as a byline rather than a row
+     of links -- the whole card is the real tap target (see .is-clickable). */
+  .notice-meta a { @apply no-underline; color: inherit; }
+  .notice-meta a:hover { color: var(--green-700); text-decoration: underline; }
   .notice-actions { @apply flex items-center gap-2 shrink-0; }
   .notice-actions form { @apply m-0; }
   .notice-foot { @apply flex items-center justify-between gap-3 flex-wrap mt-2; }

@@ -62,21 +62,25 @@ Cykler skal mærkes med værelsesnummer.
 Umærkede cykler bliver fjernet efter **1. oktober**. Reglerne står på
 [gahk.dk](https://gahk.dk), og spørgsmål kan stilles i kommentarerne."""
 
+# (category, body). No headline any more -- the author heads the card -- so the posts that used to
+# lead with one now open with a bold line the way a resident would actually write it.
 POSTS = [
-    (Category.VAERELSESRUNDE, "Resultatet af værelsesrunden", VAERELSESRUNDE_BODY),
-    (Category.BEGIVENHED, "Fællesspisning på fredag", FAELLESSPISNING_BODY),
-    (Category.FOEDSELSDAG, "Tillykke til Ann", "Ann fylder 25 i dag! Der er kage i køkkenet kl. 15."),
+    (Category.VAERELSESRUNDE, VAERELSESRUNDE_BODY),
+    (Category.BEGIVENHED, FAELLESSPISNING_BODY),
+    (
+        Category.FOEDSELSDAG,
+        "**Tillykke til Ann!** Hun fylder 25 i dag — der er kage i køkkenet kl. 15.",
+    ),
     (
         Category.PRAKTISK,
-        "Vaskemaskine 2 er i stykker",
-        "Reparatøren kommer på torsdag. Brug maskine 1 og 3 indtil da.",
+        "**Vaskemaskine 2 er i stykker.** Reparatøren kommer på torsdag; brug maskine 1 og 3 indtil da.",
     ),
-    (Category.NYT, "Nye regler for cykelkælderen", CYKELKAELDER_BODY),
-    (Category.PRAKTISK, "Etageplaner", ETAGEPLANER_BODY),
+    (Category.NYT, CYKELKAELDER_BODY),
+    (Category.PRAKTISK, ETAGEPLANER_BODY),
     (
         Category.ANDET,
-        "Sofa søger nyt hjem",
-        "Står i kælderen og skal væk inden weekenden. Skriv en kommentar hvis du vil have den.",
+        "**Sofa søger nyt hjem.** Den står i kælderen og skal væk inden weekenden — skriv en "
+        "kommentar hvis du vil have den.",
     ),
 ]
 
@@ -91,10 +95,8 @@ STALE_AGE_DAYS = RETENTION_DAYS + 365
 def seed(residents: list[Resident], now: datetime, rng: random.Random) -> int:
     """Create the demo board. Returns the number of notices made."""
     created: list[Notice] = []
-    for i, (category, title, body) in enumerate(POSTS):
-        notice = Notice.objects.create(
-            author=residents[i % len(residents)], title=title, category=category, body=body
-        )
+    for i, (category, body) in enumerate(POSTS):
+        notice = Notice.objects.create(author=residents[i % len(residents)], category=category, body=body)
         # created_at is auto_now_add, so backdating takes a second write.
         Notice.objects.filter(pk=notice.pk).update(created_at=now - timedelta(days=rng.randint(1, 120)))
         created.append(notice)
@@ -105,9 +107,9 @@ def seed(residents: list[Resident], now: datetime, rng: random.Random) -> int:
 
     stale = Notice.objects.create(
         author=residents[0],
-        title="Arkiveret opslag",
         category=Category.ANDET,
-        body="Gammelt nok til at purge_notices vil slette det. Findes for at gøre --dry-run synligt.",
+        body="**Arkiveret opslag.** Gammelt nok til at purge_notices vil slette det. Findes for at "
+        "gøre --dry-run synligt.",
     )
     Notice.objects.filter(pk=stale.pk).update(created_at=now - timedelta(days=STALE_AGE_DAYS))
 

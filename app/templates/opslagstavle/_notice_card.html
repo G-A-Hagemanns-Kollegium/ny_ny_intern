@@ -6,9 +6,15 @@
   The body is rendered with |markdown, which returns an already-safe string (core.markdown). Do NOT
   add |safe here.
 
-  In the list the whole card is tappable, not just the title: the title link is stretched over the
+  A post has no headline: the author heads the card, the way every other feed these residents use
+  already works, and the way people wrote them anyway once titles stopped being a restatement of the
+  first line. The category chip carries "what is this about" instead, and it is filterable.
+
+  In the list the whole card is tappable: the TIMESTAMP is the post's permalink, stretched over the
   card with a CSS pseudo-element (.is-clickable below), so it stays one real link — keyboard
-  reachable, right-clickable, no JavaScript. Controls that must stay clickable are raised above it.
+  reachable, right-clickable, no JavaScript. It used to be the title link; the timestamp is what
+  every social feed uses for the same job, and the author's name would have read as a link to a
+  profile that does not exist. Controls that must stay clickable are raised above it.
 {% endcomment %}
 <article class="notice-card card-flat{% if notice.pinned_at %} is-pinned{% endif %}{% if not full %} is-clickable{% endif %}" id="opslag-{{ notice.pk }}">
   <div class="notice-head">
@@ -19,17 +25,27 @@
         {% endif %}
         <span class="chip">{{ notice.get_category_display }}</span>
       </div>
-      {% if full %}
-        <h1 class="notice-title">{{ notice.title }}</h1>
-      {% else %}
-        <h2 class="notice-title">
-          <a class="notice-link" href="{% url 'opslagstavle:detail' notice.pk %}">{{ notice.title }}</a>
-        </h2>
-      {% endif %}
-      <p class="notice-meta muted">
-        {{ notice.author.full_name }} · {{ notice.created_at|date:"j. F Y, H:i" }}
-        {% if notice.edited_at %}· redigeret {{ notice.edited_at|date:"j. F Y, H:i" }}{% endif %}
-      </p>
+      {% comment %}
+        Initials rather than a photo: there are no profile pictures anywhere in the project, and the
+        avatar is here to give the eye an anchor for where each post starts now that no headline
+        does that. aria-hidden because the name is right next to it in text.
+      {% endcomment %}
+      <div class="notice-author">
+        <div class="notice-avatar" aria-hidden="true">{{ notice.author.first_name|slice:":1" }}{{ notice.author.last_name|slice:":1" }}</div>
+        <div class="notice-byline">
+          <span class="notice-name">{{ notice.author.full_name }}</span>
+          <span class="notice-meta muted">
+            {% if full %}
+              <time datetime="{{ notice.created_at|date:'c' }}">{{ notice.created_at|date:"j. F Y, H:i" }}</time>
+            {% else %}
+              <a class="notice-link" href="{% url 'opslagstavle:detail' notice.pk %}">
+                <time datetime="{{ notice.created_at|date:'c' }}">{{ notice.created_at|date:"j. F Y, H:i" }}</time>
+              </a>
+            {% endif %}
+            {% if notice.edited_at %}· redigeret {{ notice.edited_at|date:"j. F Y, H:i" }}{% endif %}
+          </span>
+        </div>
+      </div>
     </div>
 
     {% if notice.can_edit or notice.can_delete or can_moderate %}
@@ -51,7 +67,7 @@
         {% endif %}
         {% if notice.can_delete %}
           <form method="post" action="{% url 'opslagstavle:delete' notice.pk %}"
-                onsubmit="return confirm('Slet opslaget «{{ notice.title|escapejs }}» permanent?')">
+                onsubmit="return confirm('Slet dette opslag af {{ notice.author.full_name|escapejs }} permanent?')">
             {% csrf_token %}
             <button type="submit" class="btn btn-danger">Slet</button>
           </form>
@@ -80,7 +96,7 @@
 
   {% if notice.thumbnail and not full %}
     {% comment %}
-      Not a link: it sits under the stretched title link, so a tap here already opens the post. A
+      Not a link: it sits under the stretched permalink, so a tap here already opens the post. A
       nested <a> would be covered by the overlay anyway, and two links to the same place is worse for
       a screen reader than one.
 

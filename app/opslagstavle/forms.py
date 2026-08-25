@@ -1,8 +1,8 @@
 """Forms for opslagstavlen.
 
 Real ModelForms here, unlike Den Hurtige's hand-rolled `request.POST` reading. That feature has one
-textarea and a duration whitelist; this one has a title, a category that must be validated against a
-choice set, a long body with a length cap, and an edit view that has to round-trip the same fields —
+textarea and a duration whitelist; this one has a category that must be validated against a choice
+set, a long body with a length cap, and an edit view that has to round-trip the same fields —
 which is exactly what the project's form convention (explicit `Meta.fields`, Danish labels, manual
 field-by-field rendering in the template) exists for.
 """
@@ -19,10 +19,9 @@ class NoticeForm(forms.ModelForm):
         model = Notice
         # Explicit, which kills mass-assignment: pinned_at/pinned_by/author/edited_at are set by the
         # views that are allowed to set them, never by whatever arrives in the POST body.
-        fields = ["title", "category", "body"]
-        labels = {"title": "Overskrift", "category": "Kategori", "body": "Indhold"}
+        fields = ["category", "body"]
+        labels = {"category": "Kategori", "body": "Indhold"}
         widgets = {
-            "title": forms.TextInput(attrs={"placeholder": "Hvad handler opslaget om?"}),
             "body": forms.Textarea(
                 attrs={
                     "rows": 16,
@@ -45,12 +44,6 @@ class NoticeForm(forms.ModelForm):
         if len(body) > MAX_BODY_CHARS:
             raise forms.ValidationError(f"Opslaget må højst fylde {MAX_BODY_CHARS} tegn.")
         return body
-
-    def clean_title(self) -> str:
-        title = (self.cleaned_data.get("title") or "").strip()
-        if not title:
-            raise forms.ValidationError("Giv opslaget en overskrift.")
-        return title
 
 
 class NoticeCommentForm(forms.ModelForm):

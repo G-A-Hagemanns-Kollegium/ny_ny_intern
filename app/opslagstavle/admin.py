@@ -11,9 +11,9 @@ class NoticeCommentInline(admin.TabularInline):
 
 @admin.register(Notice)
 class NoticeAdmin(admin.ModelAdmin):
-    list_display = ("title", "category", "author", "created_at", "pinned_at", "pinned_by")
+    list_display = ("__str__", "category", "author", "created_at", "pinned_at", "pinned_by")
     list_filter = ("category", "created_at")
-    search_fields = ("title", "body", "author__first_name", "author__last_name", "author__email")
+    search_fields = ("body", "author__first_name", "author__last_name", "author__email")
     readonly_fields = ("created_at", "edited_at")
     inlines = [NoticeCommentInline]
 

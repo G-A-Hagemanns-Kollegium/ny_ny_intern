@@ -51,8 +51,11 @@ def notify_new_notice(notice: "Notice") -> None:
     """
     push.notify(
         TOPIC,
-        head=notice.title,
-        body=f"{notice.author.full_name} · {push.preview(plain_text(notice.body))}",
+        # The author is the head, matching Den Hurtige and the card itself. It used to be the title,
+        # with the author crammed into the front of the body; with no title left, repeating the name
+        # in both lines would waste the one line a lock screen actually gives you.
+        head=notice.author.full_name,
+        body=push.preview(plain_text(notice.body)),
         url=notice_url(notice),
         exclude_user_id=notice.author_id,
     )
@@ -65,7 +68,7 @@ def notify_new_comment(comment: "NoticeComment") -> None:
     recipients = push.subscribers(TOPIC).filter(user_id=comment.notice.author_id)
     push.send(
         recipients,
-        head=f"Nyt svar: {comment.notice.title}",
-        body=f"{comment.author.full_name} · {push.preview(comment.body)}",
+        head=f"{comment.author.full_name} svarede",
+        body=push.preview(comment.body),
         url=notice_url(comment.notice),
     )
