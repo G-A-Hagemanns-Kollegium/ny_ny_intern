@@ -1,8 +1,14 @@
 // Den Hurtige's chat behaviour. No-op on every page without #js-feed.
 //
-// The feed re-renders wholesale every 20 seconds (hx-trigger="every 20s" on #js-feed), which by
-// default would throw away the reader's scroll position, collapse any open reply thread and delete
-// a half-written reply. Everything here exists to make that poll invisible.
+// The feed polls every 5 seconds and the response is MORPHED into the DOM rather than replacing it
+// (hx-swap="morph:innerHTML" on #js-feed, idiomorph). That choice is what deleted most of this
+// file. The poll used to run every 20s and replace the list wholesale, so it threw away the
+// reader's scroll position, collapsed open reply threads and deleted half-written replies — and
+// roughly forty lines here existed to defend against its own refresh: cancel the swap while
+// someone was typing, snapshot scrollTop, record which threads were open and re-open them after.
+// Morphing patches the existing nodes in place instead, so none of that is needed: what did not
+// change is not touched. The response is still the whole list, which is why deletions, expiry,
+// reaction counts and new replies all keep working for free.
 //
 // Note the scroll container is #js-feed itself, not the window and not `.main`: the chat shell is
 // exactly one viewport tall and only the message list scrolls (see .chat-page in styles.css).
@@ -10,29 +16,23 @@
 // The site-wide htmx X-CSRFToken hook used to live here; it is now ./htmx-csrf, imported from
 // main.ts, because opslagstavlen's hx-posts depend on it too.
 
+import { Idiomorph } from "idiomorph/htmx";
+
 import { hookImageForms } from "./imageupload";
 
 const FEED_ID = "js-feed";
-const EDITABLE = new Set(["INPUT", "TEXTAREA", "SELECT"]);
 // Treat "within this many px of the bottom" as following the conversation.
 const STICK_THRESHOLD = 120;
 const TEXTAREA_MAX_ROWS = 5;
 
 interface BeforeSwapDetail {
   target?: HTMLElement;
-  shouldSwap?: boolean;
 }
 
 const feed = document.getElementById(FEED_ID);
 // The list scrolls itself, so these are the same element — kept as two names because they mean
 // different things: one is the region being swapped, the other the thing whose scrollTop we keep.
 const scroller = feed;
-
-function isEditing(container: HTMLElement): boolean {
-  const active = document.activeElement;
-  if (!active || !container.contains(active)) return false;
-  return EDITABLE.has(active.tagName) || (active as HTMLElement).isContentEditable;
-}
 
 function atBottom(el: HTMLElement): boolean {
   return el.scrollHeight - el.scrollTop - el.clientHeight < STICK_THRESHOLD;
@@ -42,47 +42,38 @@ function toBottom(el: HTMLElement): void {
   el.scrollTop = el.scrollHeight;
 }
 
+// Attributes the CLIENT owns, which the server never sends and morphing would therefore strip:
+//   open              a reply thread or picker the reader opened; losing it re-collapses it
+//   data-img-hooked   imageupload.ts's "already wired" marker. Strip it and the next hook call
+//                     re-arms the same form, stacking a second listener on every poll.
+const CLIENT_OWNED_ATTRS = new Set(["open", "data-img-hooked"]);
+
+Idiomorph.defaults.ignoreActiveValue = true; // never rewrite the field being typed into
+Idiomorph.defaults.callbacks.beforeAttributeUpdated = (name: string): boolean =>
+  !CLIENT_OWNED_ATTRS.has(name);
+
 if (feed && scroller) {
   // Start at the newest message, as a chat does.
   toBottom(scroller);
   window.addEventListener("load", () => toBottom(scroller));
 
   let wasAtBottom = true;
-  let savedScrollTop = 0;
-  let openThreads: string[] = [];
 
   document.body.addEventListener("htmx:beforeSwap", (event: Event) => {
     const detail = (event as CustomEvent<BeforeSwapDetail>).detail;
     if (detail?.target?.id !== FEED_ID) return; // a reaction swap, or some other region
-
-    // Never replace the DOM someone is typing into — it would discard the text.
-    if (isEditing(feed)) {
-      detail.shouldSwap = false;
-      return;
-    }
     wasAtBottom = atBottom(scroller);
-    savedScrollTop = scroller.scrollTop;
-    // Only reply threads: an emoji picker left open should not be resurrected by a poll.
-    openThreads = Array.from(feed.querySelectorAll<HTMLDetailsElement>("details.thread[open]")).map(
-      (d) => d.id,
-    );
   });
 
   document.body.addEventListener("htmx:afterSwap", (event: Event) => {
     const target = (event as CustomEvent<{ target?: HTMLElement }>).detail?.target;
     if (target?.id !== FEED_ID) return;
 
-    // Re-open whatever was expanded, or reading a thread would be interrupted every 20 seconds.
-    for (const id of openThreads) {
-      const details = document.getElementById(id);
-      if (details instanceof HTMLDetailsElement) details.open = true;
-    }
-    // Reply forms are new DOM, so re-arm the client-side image downscaler on them.
+    // Only forms morphing added are unhooked; the marker above keeps the rest from re-arming.
     hookImageForms(feed);
-    // Follow the conversation only if they were already at the bottom; otherwise leave the reader
-    // exactly where they were rather than yanking them down mid-sentence.
+    // Follow the conversation only if they were already at the bottom. No scrollTop to restore
+    // otherwise: morphing leaves the surrounding nodes alone, so the position does not move.
     if (wasAtBottom) toBottom(scroller);
-    else scroller.scrollTop = savedScrollTop;
   });
 }
 

@@ -94,14 +94,23 @@
     </div>
 
     {% comment %}
-      The message list. Polled so other residents' messages appear without a refresh;
-      frontend/src/feed.ts keeps the scroll position, re-opens threads and skips the swap entirely
-      while someone is typing in here.
+      The message list. Polled so other residents' messages appear without a refresh.
+
+      MORPHED, not replaced: idiomorph patches the existing nodes rather than swapping the list out,
+      so scroll position, open reply threads and a half-typed reply survive because they are simply
+      never touched. That is what let the interval drop from 20s to 5s — at 20s a new message read
+      as broken, and the old wholesale swap was too destructive to run any faster.
+
+      The response is still the WHOLE list, deliberately. An incremental "only what is new" endpoint
+      would be less traffic, but traffic was never the problem here (one request per tab per few
+      seconds, at ~60 rooms), and sending everything is what keeps deletions, expiry, reaction
+      counts and new replies correct without a second reconciliation path.
     {% endcomment %}
     <div id="js-feed"
          hx-get="{% url 'den_hurtige:feed_items' %}?kanal={{ channel.slug }}"
-         hx-trigger="every 20s"
-         hx-swap="innerHTML">
+         hx-trigger="every 5s"
+         hx-ext="morph"
+         hx-swap="morph:innerHTML">
       {% include "den_hurtige/_posts.html" %}
     </div>
 
