@@ -8,7 +8,9 @@ class DenHurtigeConfig(AppConfig):
     verbose_name = "Den Hurtige"
 
     def ready(self) -> None:
-        from .checks import check_channels, check_vapid_public_key
+        # Only the channel registry is validated here. The VAPID key pair moved to core.apps with
+        # the rest of the push stack — the keys are shared with opslagstavlen, so they are not this
+        # feature's to check any more.
+        from .checks import check_channels
 
-        register(check_vapid_public_key)
         register(check_channels)

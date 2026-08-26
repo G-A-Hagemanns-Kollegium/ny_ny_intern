@@ -1,36 +1,35 @@
 """Den Hurtige: feed lifecycle, notification targeting, and the subscribe endpoint.
 
-Push delivery is exercised without touching the network. Notification *targeting* is tested by
-collapsing `services._run_in_background` to a direct call and swapping `services._dispatch` for a
-recorder, so the assertions are about who would be notified. The delivery loop itself is tested
-separately by stubbing `services._send`, the single place that calls pywebpush.
+Notification *targeting* is tested by collapsing `core.push._run_in_background` to a direct call
+and swapping `core.push._dispatch` for a recorder, so the assertions are about who would be
+notified — this feature's policy. The shared transport (the delivery loop, the subscribe endpoint,
+the VAPID checks, per-topic consent) is tested in test_push.py.
 """
 
-import base64
 import json
 from collections.abc import Callable
 from datetime import timedelta
 from pathlib import Path
 
 import pytest
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import ec
 from django.conf import settings as django_settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
 from django.test import Client, RequestFactory
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
-from pywebpush import WebPushException
 
-from den_hurtige import access, channels, services
+from core import push
+from core.models import PushSubscription
+from den_hurtige import access, channels
 from den_hurtige.channels import Channel
-from den_hurtige.checks import check_channels, check_vapid_public_key
+
+# The VAPID checks moved to core with the push stack; check_channels stayed. See core/checks.py.
+from den_hurtige.checks import check_channels
 from den_hurtige.models import (
     DEFAULT_DURATION_MINUTES,
     QUICK_EMOJI,
     ChannelMute,
-    PushSubscription,
     QuickComment,
     QuickPost,
     QuickReaction,
@@ -74,9 +73,15 @@ def rollout_limited(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def subscribe(user: Resident, endpoint: str) -> PushSubscription:
-    """Register a fake device for `user`."""
+    """Register a fake device for `user`, opted in to Den Hurtige (explicit, not relying on the
+    field default — these tests are about who this feature reaches)."""
     return PushSubscription.objects.create(
-        user=user, endpoint=endpoint, auth="a" * 22, p256dh="p" * 87, user_agent="pytest"
+        user=user,
+        endpoint=endpoint,
+        auth="a" * 22,
+        p256dh="p" * 87,
+        user_agent="pytest",
+        wants_den_hurtige=True,
     )
 
 
@@ -92,8 +97,10 @@ def pushes(monkeypatch: pytest.MonkeyPatch, settings: object) -> list[tuple[list
         recorded.append((ids, payload))
         return len(ids)
 
-    monkeypatch.setattr(services, "_dispatch", fake_dispatch)
-    monkeypatch.setattr(services, "_run_in_background", lambda fn: fn())
+    # Patched on core.push, where the transport lives: den_hurtige.services now only decides *who*
+    # is notified, which is exactly what these tests are about.
+    monkeypatch.setattr(push, "_dispatch", fake_dispatch)
+    monkeypatch.setattr(push, "_run_in_background", lambda fn: fn())
     return recorded
 
 
@@ -123,56 +130,6 @@ def test_manifest_points_at_the_feed_and_ships_every_icon_it_references() -> Non
     assert {icon["purpose"] for icon in manifest["icons"]} >= {"any", "maskable"}
     for icon in manifest["icons"]:
         assert (static_dir / icon["src"].removeprefix("/static/")).is_file(), icon["src"]
-
-
-def _vapid_pair() -> tuple[str, str]:
-    """A throwaway P-256 pair in the raw base64url form the app expects. Generated rather than
-    hardcoded so the tests never carry key material, real or otherwise."""
-    key = ec.generate_private_key(ec.SECP256R1())
-    b64 = lambda raw: base64.urlsafe_b64encode(raw).rstrip(b"=").decode()  # noqa: E731
-    point = key.public_key().public_bytes(
-        serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint
-    )
-    return b64(point), b64(key.private_numbers().private_value.to_bytes(32, "big"))
-
-
-GOOD_PUBLIC, GOOD_PRIVATE = _vapid_pair()
-OTHER_PUBLIC, OTHER_PRIVATE = _vapid_pair()
-# 65 bytes with the right 0x04 tag, but the coordinates are not on the curve. Passes a pure shape
-# check and is then rejected by the browser's push service as an opaque failure.
-OFF_CURVE = base64.urlsafe_b64encode(b"\x04" + b"\x01" * 64).rstrip(b"=").decode()
-# The body of a public_key.pem — SPKI DER, not the raw point. The most tempting wrong value.
-SPKI_DER = (
-    "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEgoXFqQdn2xSbAJlFjidkDqZ50LpS"
-    "7q7l91RkEPpL3e6yazihJmXw6JUEGTQROvV0MowPIRtZUXkRfP1XIf_R8g=="
-)
-
-
-@pytest.mark.parametrize(
-    ("public_key", "private_key", "expected_id"),
-    [
-        (GOOD_PUBLIC, GOOD_PRIVATE, None),
-        ("", "", None),  # unset: push disabled on purpose, not an error
-        ("not base64!!", GOOD_PRIVATE, "den_hurtige.E001"),
-        (SPKI_DER, GOOD_PRIVATE, "den_hurtige.E002"),
-        (GOOD_PUBLIC, "", "den_hurtige.E003"),
-        (OFF_CURVE, GOOD_PRIVATE, "den_hurtige.E004"),
-        (GOOD_PUBLIC, "tooshort", "den_hurtige.E005"),
-        # Regenerating the pair and updating only one env var — silent, and fatal to every push.
-        (GOOD_PUBLIC, OTHER_PRIVATE, "den_hurtige.E006"),
-    ],
-)
-def test_vapid_configuration_is_validated_at_startup(
-    settings: object, public_key: str, private_key: str, expected_id: str | None
-) -> None:
-    """A wrong key pair is invisible server-side — the page renders, the button appears, and only
-    the browser objects, as a generic failure. `manage.py check` has to be what catches it."""
-    settings.VAPID_PUBLIC_KEY = public_key  # type: ignore[attr-defined]
-    settings.VAPID_PRIVATE_KEY = private_key  # type: ignore[attr-defined]
-
-    errors = check_vapid_public_key(None)
-
-    assert [e.id for e in errors] == ([expected_id] if expected_id else [])
 
 
 # --- staged rollout ------------------------------------------------------------------------------
@@ -377,6 +334,12 @@ def test_an_attached_image_is_erased_with_its_post(
     [
         ("evil.pdf", "application/pdf", 5, "not an image"),
         ("huge.jpg", "image/jpeg", 0, "over the size cap"),  # cap 0 → any file is too big
+        # An SVG is a document: served from our own /media/ origin a direct navigation executes its
+        # <script> as us. This feed accepted it until the validators were consolidated in
+        # core.uploads, because the old check only asked whether the content type began "image/".
+        ("evil.svg", "image/svg+xml", 5, "an SVG can carry script"),
+        # content_type is a client-supplied hint; the extension is what the file is served as.
+        ("evil.svg", "image/png", 5, "a disguised extension"),
     ],
 )
 def test_create_post_drops_a_bad_image_but_keeps_the_message(
@@ -432,8 +395,10 @@ def test_den_hurtige_pages_leak_no_template_syntax(
     """Django's {# … #} is single-line only; a multi-line one renders verbatim onto the page. This
     has bitten base.html and both feed templates already — assert every Den Hurtige surface is
     clean, with content present so the post/comment branches actually render."""
-    settings.VAPID_PUBLIC_KEY = GOOD_PUBLIC  # type: ignore[attr-defined]
-    settings.VAPID_PRIVATE_KEY = GOOD_PRIVATE  # type: ignore[attr-defined]
+    # Any non-empty pair: this only needs `push_configured` to be true so the subscribe bar renders
+    # and its markup is covered. Whether a pair is *valid* is test_push.py's business.
+    settings.VAPID_PUBLIC_KEY = "test-public-key"  # type: ignore[attr-defined]
+    settings.VAPID_PRIVATE_KEY = "test-private-key"  # type: ignore[attr-defined]
     author = make_resident(email="a@gahk.dk")
     post = QuickPost.objects.create(author=author, content="Kaffe i køkkenet")
     QuickComment.objects.create(post=post, author=author, content="Jeg kommer")
@@ -594,182 +559,6 @@ def test_nothing_is_sent_when_vapid_keys_are_missing(
     client.post(FEED_URL + "opret", {"content": "Hej", "duration": "60"})
 
     assert pushes == []
-
-
-# --- delivery loop ------------------------------------------------------------------------------
-
-
-def _raiser(status: int | None) -> WebPushException:
-    """A WebPushException carrying `status`, or one with response=None as pywebpush raises for a
-    connection-level failure — the case that makes a bare `exc.response.status_code` blow up."""
-    if status is None:
-        return WebPushException("connection refused")
-    return WebPushException("failed", response=type("Response", (), {"status_code": status})())
-
-
-def test_dispatch_drops_a_gone_subscription_and_keeps_going(
-    monkeypatch: pytest.MonkeyPatch, make_resident: Callable[..., Resident]
-) -> None:
-    """A 410 endpoint must be deleted, and must not cost the later recipients their notification."""
-    dead = subscribe(make_resident(email="a@gahk.dk"), "https://push.example/dead")
-    alive = subscribe(make_resident(email="b@gahk.dk"), "https://push.example/alive")
-    seen: list[str] = []
-
-    def fake_send(subscription: PushSubscription, body: str) -> None:
-        seen.append(subscription.endpoint)
-        if subscription.endpoint.endswith("dead"):
-            raise _raiser(410)
-
-    monkeypatch.setattr(services, "_send", fake_send)
-
-    sent = services._dispatch(
-        services.subscribers(channels.DEFAULT.slug).order_by("pk"), {"head": "h", "body": "b"}
-    )
-
-    assert seen == ["https://push.example/dead", "https://push.example/alive"]
-    assert sent == 1
-    assert not PushSubscription.objects.filter(pk=dead.pk).exists()
-    assert PushSubscription.objects.filter(pk=alive.pk).exists()
-
-
-@pytest.mark.parametrize("status", [503, None])
-def test_dispatch_keeps_a_subscription_that_failed_transiently(
-    monkeypatch: pytest.MonkeyPatch, make_resident: Callable[..., Resident], status: int | None
-) -> None:
-    """A server error or a dropped connection is not evidence the endpoint is gone — keep the row so
-    the next post retries it."""
-    kept = subscribe(make_resident(email="a@gahk.dk"), "https://push.example/flaky")
-
-    def fake_send(subscription: PushSubscription, body: str) -> None:
-        raise _raiser(status)
-
-    monkeypatch.setattr(services, "_send", fake_send)
-
-    assert services._dispatch(services.subscribers(channels.DEFAULT.slug), {"head": "h", "body": "b"}) == 0
-    assert PushSubscription.objects.filter(pk=kept.pk).exists()
-
-
-def test_dispatch_sends_the_payload_as_json(
-    monkeypatch: pytest.MonkeyPatch, make_resident: Callable[..., Resident]
-) -> None:
-    """sw.js parses the body with event.data.json(), so it must arrive as a JSON string."""
-    subscribe(make_resident(email="a@gahk.dk"), "https://push.example/one")
-    bodies: list[str] = []
-    monkeypatch.setattr(services, "_send", lambda sub, body: bodies.append(body))
-
-    services._dispatch(
-        services.subscribers(channels.DEFAULT.slug), {"head": "Hej", "body": "kaffe", "url": FEED_URL}
-    )
-
-    assert json.loads(bodies[0]) == {"head": "Hej", "body": "kaffe", "url": FEED_URL}
-
-
-# --- subscribe endpoint -------------------------------------------------------------------------
-
-
-def _subscribe_body(**extra: object) -> str:
-    payload = {
-        "status_type": "subscribe",
-        "subscription": {
-            "endpoint": "https://fcm.googleapis.com/fcm/send/abc",
-            "keys": {"auth": "a" * 22, "p256dh": "p" * 87},
-        },
-        "user_agent": "pytest",
-    }
-    payload.update(extra)
-    return json.dumps(payload)
-
-
-def test_subscribe_requires_login(client: Client) -> None:
-    response = client.post(FEED_URL + "abonner", data=_subscribe_body(), content_type="application/json")
-    assert response.status_code == 302
-    assert "/intern/admin/login" in response["Location"]
-
-
-def test_subscribe_binds_the_device_to_the_logged_in_user(
-    client: Client, make_resident: Callable[..., Resident]
-) -> None:
-    """The audience comes from the session, never the request body — django-webpush's endpoint took
-    a group name from the payload, so anyone could have joined the dorm's notification list."""
-    user = make_resident(email="a@gahk.dk")
-    client.force_login(user)
-
-    response = client.post(
-        FEED_URL + "abonner", data=_subscribe_body(user="somebody-else"), content_type="application/json"
-    )
-
-    assert response.status_code == 201
-    subscription = PushSubscription.objects.get()
-    assert subscription.user_id == user.pk
-    assert subscription.endpoint == "https://fcm.googleapis.com/fcm/send/abc"
-
-
-def test_resubscribing_the_same_device_updates_rather_than_duplicates(
-    client: Client, make_resident: Callable[..., Resident]
-) -> None:
-    """The endpoint is the device identity. django-webpush keyed on every field, so a browser that
-    merely changed its user-agent string silently produced a second row and a double notification."""
-    first = make_resident(email="a@gahk.dk")
-    second = make_resident(email="b@gahk.dk")
-
-    client.force_login(first)
-    client.post(FEED_URL + "abonner", data=_subscribe_body(), content_type="application/json")
-    client.force_login(second)  # same browser, different resident logs in
-    client.post(
-        FEED_URL + "abonner", data=_subscribe_body(user_agent="pytest/2"), content_type="application/json"
-    )
-
-    subscription = PushSubscription.objects.get()  # exactly one row, not two
-    assert subscription.user_id == second.pk  # and it no longer pushes to the previous owner
-    assert subscription.user_agent == "pytest/2"
-
-
-def test_unsubscribe_removes_the_device(client: Client, make_resident: Callable[..., Resident]) -> None:
-    user = make_resident(email="a@gahk.dk")
-    client.force_login(user)
-    client.post(FEED_URL + "abonner", data=_subscribe_body(), content_type="application/json")
-
-    response = client.post(
-        FEED_URL + "abonner",
-        data=_subscribe_body(status_type="unsubscribe"),
-        content_type="application/json",
-    )
-
-    assert response.status_code == 202
-    assert not PushSubscription.objects.exists()
-
-
-def test_unsubscribe_cannot_remove_another_residents_device(
-    client: Client, make_resident: Callable[..., Resident]
-) -> None:
-    """Endpoints are guessable-ish strings that travel in push traffic; deleting must be scoped to
-    the requesting user so a replayed endpoint cannot silence someone else's phone."""
-    owner = make_resident(email="a@gahk.dk")
-    attacker = make_resident(email="b@gahk.dk")
-    client.force_login(owner)
-    client.post(FEED_URL + "abonner", data=_subscribe_body(), content_type="application/json")
-
-    client.force_login(attacker)
-    response = client.post(
-        FEED_URL + "abonner",
-        data=_subscribe_body(status_type="unsubscribe"),
-        content_type="application/json",
-    )
-
-    assert response.status_code == 202  # nothing to report to the caller
-    assert PushSubscription.objects.filter(user=owner).exists()  # but the owner's device survives
-
-
-@pytest.mark.parametrize(
-    "body",
-    ["not json", json.dumps(["a", "list"]), json.dumps({"status_type": "nonsense"})],
-)
-def test_subscribe_rejects_malformed_payloads(
-    client: Client, make_resident: Callable[..., Resident], body: str
-) -> None:
-    client.force_login(make_resident(email="a@gahk.dk"))
-    response = client.post(FEED_URL + "abonner", data=body, content_type="application/json")
-    assert response.status_code == 400
 
 
 # --- emoji reactions -----------------------------------------------------------------------------
@@ -1701,3 +1490,141 @@ def test_every_channel_url_resolves(client: Client, make_resident: Callable[...,
 
     for channel in channels.CHANNELS:
         assert client.get(channel.url).status_code == 200, channel.slug
+
+
+# --- who reacted --------------------------------------------------------------------------------
+
+
+def test_reaction_rows_name_the_people_behind_each_emoji(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """The panel and the pills are rendered from one list, so `people` must group and order exactly
+    as the counts do — most-used first, ties by first use."""
+    author = make_resident(email="a@gahk.dk", first_name="Anton", last_name="Storgaard")
+    mette = make_resident(email="b@gahk.dk", first_name="Mette", last_name="Hansen")
+    anders = make_resident(email="c@gahk.dk", first_name="Anders", last_name="Bo")
+    post = QuickPost.objects.create(author=author, content="Kaffe?")
+    QuickReaction.objects.create(post=post, author=author, emoji=PARTY)
+    QuickReaction.objects.create(post=post, author=mette, emoji=THUMB)
+    QuickReaction.objects.create(post=post, author=anders, emoji=THUMB)
+
+    rows = reactions_for(post, author.pk)
+
+    # THUMB has two, so it sorts ahead of PARTY even though PARTY was used first.
+    assert [r["emoji"] for r in rows] == [THUMB, PARTY]
+    assert rows[0]["people"] == ["Mette Hansen", "Anders Bo"]  # in the order they reacted
+    assert rows[1]["people"] == ["Anton Storgaard"]
+
+
+def test_the_feed_shows_who_reacted_and_with_what(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    author = make_resident(email="a@gahk.dk", first_name="Anton", last_name="Storgaard")
+    post = QuickPost.objects.create(author=author, content="Kaffe?")
+    QuickReaction.objects.create(post=post, author=author, emoji=THUMB)
+    client.force_login(author)
+
+    body = client.get(FEED_URL).content.decode()
+
+    assert "who-list" in body
+    assert "Anton Storgaard" in body
+
+
+def test_no_reader_panel_when_nobody_has_reacted(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """An empty panel behind a button that says "see who reacted" is worse than no button."""
+    author = make_resident(email="a@gahk.dk")
+    QuickPost.objects.create(author=author, content="Kaffe?")
+    client.force_login(author)
+
+    body = client.get(FEED_URL).content.decode()
+
+    assert "who-picker" not in body
+
+
+def test_both_reaction_panels_are_overlays_with_a_backdrop(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """The panels are fixed-position overlays over a backdrop, not absolutely positioned beside
+    their summary: anchored to the "+" button — which sits after the pills — a message with several
+    reactions opened the picker off the right edge of a phone. The backdrop must be a real element,
+    because a click on a ::before pseudo-element targets its originating element and so could never
+    be told apart from a click inside the picker (see frontend/src/feed.ts)."""
+    author = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=author, content="Kaffe?")
+    QuickReaction.objects.create(post=post, author=author, emoji=THUMB)
+    client.force_login(author)
+
+    body = client.get(FEED_URL).content.decode()
+
+    assert body.count('class="pop-backdrop"') == 2  # one per panel
+    assert body.count('class="pop-panel"') == 2
+    assert 'class="pop who-picker"' in body
+    assert 'class="pop emoji-picker"' in body
+
+
+def test_the_reaction_row_survives_a_toggle_with_its_reader_panel(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """The toggle re-renders only this row, so it has to carry the panel back with it — otherwise
+    reacting would make the "who reacted" button vanish until the next poll."""
+    author = make_resident(email="a@gahk.dk", first_name="Anton", last_name="Storgaard")
+    post = QuickPost.objects.create(author=author, content="Kaffe?")
+    client.force_login(author)
+
+    body = react(client, post, THUMB).content.decode()  # type: ignore[attr-defined]
+
+    assert "who-list" in body
+    assert "Anton Storgaard" in body
+
+
+def test_deleting_a_message_asks_first(client: Client, make_resident: Callable[..., Resident]) -> None:
+    """The delete control is a bare x on every message in a scrolling feed, and purge_expired is a
+    HARD delete with no history to restore from — so a mis-tap has to be recoverable at the point of
+    the tap or not at all. The message text is quoted so a moderator can see which one they are
+    about to remove."""
+    author = make_resident(email="a@gahk.dk")
+    QuickPost.objects.create(author=author, content="Kaffe i koekkenet")
+    client.force_login(author)
+
+    body = client.get(FEED_URL).content.decode()
+
+    assert "return confirm(" in body
+    assert "Kaffe i koekkenet" in body
+
+
+def test_the_confirmation_survives_the_poll_re_rendering_the_row(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """It is an inline onsubmit rather than a delegated listener precisely so the 20-second swap
+    cannot leave a message whose delete no longer asks."""
+    author = make_resident(email="a@gahk.dk")
+    QuickPost.objects.create(author=author, content="Kaffe")
+    client.force_login(author)
+
+    assert "return confirm(" in client.get(FEED_URL + "opslag").content.decode()
+
+
+def test_the_reader_panel_lists_one_row_per_person(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """Comma-joining a whole group onto one line stopped being readable as soon as a post got
+    popular. A row each, with the emoji repeated beside every name, so the list scrolls and you can
+    still tell which emoji you are looking at halfway down it."""
+    author = make_resident(email="a@gahk.dk", first_name="Anton", last_name="Storgaard")
+    mette = make_resident(email="b@gahk.dk", first_name="Mette", last_name="Hansen")
+    anders = make_resident(email="c@gahk.dk", first_name="Anders", last_name="Bo")
+    post = QuickPost.objects.create(author=author, content="Kaffe?")
+    for person in (author, mette):
+        QuickReaction.objects.create(post=post, author=person, emoji=THUMB)
+    QuickReaction.objects.create(post=post, author=anders, emoji=PARTY)
+    client.force_login(author)
+
+    body = client.get(FEED_URL).content.decode()
+    panel = body[body.index("who-list") : body.index("</ul>")]
+
+    assert body.count('class="who-row"') == 3  # one per reaction, not one per emoji
+    assert panel.count(THUMB) == 2  # the emoji repeats beside each of its two names
+    # The pills' order carries into the panel: THUMB has two reactions, so its rows come first.
+    assert panel.index("Mette Hansen") < panel.index("Anders Bo")

@@ -4,7 +4,12 @@
 const MAX_DIM = 1600; // longest edge, px
 const QUALITY = 0.82; // JPEG quality
 
-async function shrink(file: File): Promise<File> {
+/** Downscale one image to MAX_DIM/QUALITY, returning the original if there is nothing to gain.
+ *
+ * Exported because opslagstavlen uploads via fetch rather than a form submit, so it cannot use
+ * hookImageForms below — and a second canvas downscaler with its own parameters is exactly the
+ * drift worth avoiding. */
+export async function downscaleImage(file: File): Promise<File> {
   if (!file.type.startsWith("image/")) return file;
   let bmp: ImageBitmap;
   try {
@@ -38,7 +43,7 @@ function hook(form: HTMLFormElement) {
     for (const input of inputs) {
       if (!input.files || !input.files.length) continue;
       const dt = new DataTransfer();
-      for (const f of Array.from(input.files)) dt.items.add(await shrink(f));
+      for (const f of Array.from(input.files)) dt.items.add(await downscaleImage(f));
       input.files = dt.files;
     }
     form.dataset.imgReady = "1";

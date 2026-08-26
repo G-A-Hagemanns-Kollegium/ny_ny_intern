@@ -4,6 +4,7 @@ Room is seeded from the hard-coded room map in legacy `intern/delt.php` (there i
 Workgroup/Cleaning come from `intern_alumne_workgroup` / `intern_alumne_cleaning`.
 """
 
+from django.conf import settings
 from django.db import models
 
 
@@ -67,3 +68,69 @@ class DevClock(models.Model):
     @classmethod
     def get(cls) -> "DevClock":
         return cls.objects.get_or_create(pk=1)[0]
+
+
+class PushSubscription(models.Model):
+    """One browser/device that has opted in to Web Push notifications.
+
+    Lives in core, not in a feature app, because a browser has exactly **one** push endpoint per
+    service-worker registration — so this row is the *device*, not the feature. Two features now
+    notify through it (Den Hurtige and opslagstavlen), and per-topic consent is therefore a column
+    here rather than a second table keyed on the same endpoint: two rows on one natural key would
+    mean two upsert paths that can disagree about who owns the device.
+
+    Replaces django-webpush's three-table layout (SubscriptionInfo + PushInformation + Group). The
+    Group indirection bought nothing — there was exactly one audience, everyone who opted in — and
+    its get_or_create keyed on every field, so a browser that merely bumped its user-agent string
+    quietly produced a duplicate row and a duplicate notification.
+
+    `endpoint` is the device identity assigned by the push service, so it is the natural key: the
+    subscribe view upserts on it, which keeps re-subscribing (or a second person logging in on the
+    same browser) to a single row.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="push_subscriptions"
+    )
+    endpoint = models.URLField(max_length=500, unique=True)
+    # Encryption material from the browser's PushSubscription — opaque base64url, not secrets of
+    # ours: without them the push service cannot decrypt anything we send to this device.
+    auth = models.CharField(max_length=100)
+    p256dh = models.CharField(max_length=100)
+    user_agent = models.CharField(max_length=500, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # Per-topic consent. BOTH default to False, and that is the important part: consent to one
+    # feature's notifications is never consent to another's, so a device subscribing to the
+    # noticeboard must not come out of it also wanting Den Hurtige's urgent buzz. A True default
+    # here would do exactly that to every new subscriber, silently.
+    #
+    # Rows that predate topics are opted into Den Hurtige by an explicit data migration
+    # (core/migrations/0005) rather than by this default — they subscribed when it was the only
+    # topic, and dropping them would look like push breaking.
+    #
+    # The subscribe view writes exactly ONE of these per request; writing both would clear the topic
+    # the resident did not just ask about.
+    wants_den_hurtige = models.BooleanField(default=False, verbose_name="Den Hurtige")
+    wants_opslagstavle = models.BooleanField(default=False, verbose_name="Opslagstavlen")
+
+    class Meta:
+        verbose_name = "Push-abonnement"
+        verbose_name_plural = "Push-abonnementer"
+
+    def __str__(self) -> str:
+        return f"Push-abonnement for {self.user}"
+
+    def as_subscription_info(self) -> dict[str, object]:
+        """The shape pywebpush expects — mirrors the browser's `PushSubscription.toJSON()`."""
+        return {"endpoint": self.endpoint, "keys": {"auth": self.auth, "p256dh": self.p256dh}}
+
+
+# Topic -> the consent column above. A dict rather than hardcoded branches so adding a third topic
+# is one AddField and one entry, and so core.push.subscribers cannot be called with a topic nobody
+# declared: a KeyError beats silently notifying everyone. Lives here, with the columns it names, so
+# core.forms can validate against it without importing core.push (which imports core.forms).
+TOPIC_FIELDS = {
+    "den_hurtige": "wants_den_hurtige",
+    "opslagstavle": "wants_opslagstavle",
+}

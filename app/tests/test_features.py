@@ -534,6 +534,40 @@ def test_room_photo_over_max_is_rejected(make_resident: Callable) -> None:
     assert not s.photo  # the oversized photo was skipped
 
 
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("filename", "content_type"),
+    [("evil.svg", "image/svg+xml"), ("evil.svg", "image/png")],  # declared, and disguised
+)
+def test_room_inspection_refuses_an_svg_photo(
+    make_resident: Callable, filename: str, content_type: str
+) -> None:
+    """An SVG is a document, not a picture: served from our own /media/ origin a direct navigation
+    executes its <script> as us. Værelsestjek is open to *every* resident, so before the validators
+    were consolidated in core.uploads this was a same-origin script upload available to anyone —
+    the old check only asked whether the content type began "image/".
+    """
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    from core.models import Room
+    from rooms.models import RoomConditionScore, RoomCriterion
+
+    rm = Room.objects.create(legacy_index=91, number=91, floor="stuen", side="mod gaden")
+    RoomCriterion.objects.create(code="floor", name="Gulv", options=5)
+    c = Client()
+    c.force_login(make_resident(email="beboer-svg@gahk.dk"))
+    evil = SimpleUploadedFile(filename, b"<svg xmlns='http://www.w3.org/2000/svg'/>", content_type)
+
+    c.post(
+        f"/intern/vaerelsestjek/besvar/{rm.number}",
+        {"score_floor": "3", "comment_floor": "", "image_floor": evil},
+    )
+
+    s = RoomConditionScore.objects.get(criterion__code="floor")
+    assert s.score == 3  # the rest of the inspection still saved
+    assert not s.photo, "an SVG reached /media/"
+
+
 def test_room_condition_image_urls() -> None:
     from rooms.models import RoomConditionScore
 

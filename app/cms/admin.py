@@ -11,15 +11,16 @@ save (see the *AdminForm classes), so a content editor cannot inject scripts/dan
 """
 
 from django import forms
+from django.conf import settings
 from django.contrib import admin
 from django.core.exceptions import ValidationError
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.urls import URLPattern, path
 from django.utils.html import format_html
 
+from core.uploads import validate_image_upload
 from residents.permissions import CMS_EDITOR_ROLES, current_resident, has_active_role
 
-from .images import validate_upload
 from .models import CmsImage, Event, NewsItem, Page
 from .sanitize import clean_html
 
@@ -144,7 +145,7 @@ class CmsImageAdminForm(forms.ModelForm):
         # Validate only a *new* upload: re-saving an existing row hands back a FieldFile, which has
         # no content_type and would fail a check aimed at browser uploads.
         if upload and hasattr(upload, "content_type"):
-            validate_upload(upload)
+            validate_image_upload(upload, settings.CMS_IMAGE_MAX_MB)
         return upload
 
 
@@ -224,7 +225,7 @@ class CmsImageAdmin(ContentEditorAdmin):
         if not upload:
             return JsonResponse({"error": "Vælg en fil."}, status=400)
         try:
-            validate_upload(upload)
+            validate_image_upload(upload, settings.CMS_IMAGE_MAX_MB)
         except ValidationError as exc:
             return JsonResponse({"error": " ".join(exc.messages)}, status=400)
         image = CmsImage.objects.create(

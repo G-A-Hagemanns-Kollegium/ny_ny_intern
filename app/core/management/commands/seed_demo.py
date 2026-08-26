@@ -42,6 +42,8 @@ from oelkaelder.models import (
     Transaction,
     TransactionItem,
 )
+from opslagstavle.demo import seed as seed_opslagstavle
+from opslagstavle.models import Notice, NoticeComment, NoticeReaction
 from residents.models import WORKGROUP_ROLE, Residency, Resident, Role, RoleAssignment
 from rooms.models import (
     KvotientApplication,
@@ -89,6 +91,9 @@ ROOM_CRITERIA = [
 
 # Deletion order: children before parents so PROTECT FKs don't block the wipe.
 WIPE_ORDER: list[type[models.Model]] = [
+    NoticeReaction,
+    NoticeComment,
+    Notice,
     PurchaseShare,
     TransactionItem,
     Transaction,
@@ -165,6 +170,7 @@ class Command(BaseCommand):
             self._seed_room_conditions(rooms, residents)
             self._seed_kvotient(residents, rooms)
             self._seed_stats()
+            seed_opslagstavle(residents, self.now, self.rng)
 
         self._report(residents)
 

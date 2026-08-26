@@ -36,7 +36,7 @@
         <details class="channel-picker">
           <summary>
             <svg class="ni" aria-hidden="true"><use href="#i-{{ channel.icon }}"></use></svg>
-            <span>{{ channel.name }}</span>
+            <span class="channel-name">{{ channel.name }}</span>
             <span class="caret" aria-hidden="true">▾</span>
           </summary>
           <nav class="channel-menu" aria-label="Kanaler">
@@ -59,13 +59,24 @@
         {% comment %}
           Slim one-line bar rather than a card: during the trial it matters that people can turn
           notifications on, but it must not push the messages below the fold. Driven by
-          frontend/src/push.ts, which is a no-op without #js-push.
+          frontend/src/push.ts, which is a no-op without a [data-push] element.
+
+          data-subscribed is rendered server-side because the browser cannot answer it: a device has
+          one push endpoint shared by every topic, so getSubscription() only says "subscribed to
+          something". Whether it wants *this* feature is a column on the server.
         {% endcomment %}
-        <div class="push-bar" id="js-push" data-vapid-key="{{ vapid_public_key }}"
-             data-url="{% url 'den_hurtige:save_subscription' %}">
+        <div class="push-bar" data-push data-topic="den_hurtige"
+             data-vapid-key="{{ vapid_public_key }}"
+             data-url="{% url 'den_hurtige:save_subscription' %}"
+             data-subscribed="{% if push_subscribed %}1{% else %}0{% endif %}"
+             data-on-label="Slå notifikationer til"
+             data-off-label="Slå fra på denne enhed"
+             data-off-label-short="Slå fra på enheden"
+             data-success-text="Du får nu besked når nogen slår op."
+             data-off-text="Notifikationer er slået fra på denne enhed.">
           {% csrf_token %}
-          <button type="button" id="js-push-button" hidden></button>
-          <span class="muted" id="js-push-message" hidden></span>
+          <button type="button" data-push-button hidden></button>
+          <span class="muted" data-push-message hidden></span>
         </div>
         {% comment %}
           Per-channel mute. Separate from the subscribe button above, which is per *device* and
@@ -76,7 +87,7 @@
           {% csrf_token %}
           <button type="submit" class="btn-secondary"
                   title="{% if muted %}Slå notifikationer fra {{ channel.name }} til igen{% else %}Slå notifikationer fra {{ channel.name }} fra{% endif %}">
-            {% if muted %}🔕 Lyd fra{% else %}🔔 Lyd til{% endif %}
+            {% if muted %}🔕 <span class="mute-label">Lyd fra</span>{% else %}🔔 <span class="mute-label">Lyd til</span>{% endif %}
           </button>
         </form>
       {% endif %}

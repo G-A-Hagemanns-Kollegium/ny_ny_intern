@@ -12,7 +12,7 @@ task dev         # kør udviklingsserveren
 ```
 
 `task seed` genererer deterministisk demo-data (beboere, værelser, AK, ølkælder,
-ansøgninger m.m.), så nye udviklere ser en udfyldt side med det samme. Kommandoen
+ansøgninger, opslagstavlen m.m.), så nye udviklere ser en udfyldt side med det samme. Kommandoen
 kan køres igen når som helst (`--fresh` rydder først). Logins (kodeord `demo1234`):
 
 | Email | Adgang |
@@ -21,7 +21,7 @@ kan køres igen når som helst (`--fresh` rydder først). Logins (kodeord `demo1
 | `formand@gahk.dk` | administrator-rolle |
 | `ak@gahk.dk` | AK-rolle |
 | `oel@gahk.dk` | Ølkælder-rolle |
-| `beboer@gahk.dk` | almindelig beboer |
+| `beboer@gahk.dk` | almindelig beboer (kan bruge opslagstavlen, men ikke Den Hurtige endnu) |
 
 ## Test
 
