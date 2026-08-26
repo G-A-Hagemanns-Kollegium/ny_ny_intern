@@ -478,9 +478,10 @@
 
   /* ---- Opslagstavlen (the noticeboard) --------------------------------------------------------
      Reuses .card-flat/.chip/.btn/.push-bar and, for the reaction row and comment replies, the
-     .reaction*/.emoji-*/.reply*/.msg-text rules in the Den Hurtige block below. Deliberately does
-     NOT reuse .chat*/.msg*/.composer*: those encode a one-viewport-tall chat shell with its own
-     internal scroller, and a paginated document list wants the normal page scroll. */
+     .reaction, .emoji-, .reply and .msg-text families in the Den Hurtige block below. Deliberately
+     does NOT reuse the .chat, .msg and .composer families: those encode a one-viewport-tall chat
+     shell with its own internal scroller, and a paginated document list wants the normal page
+     scroll.
   .board-filters { @apply flex flex-wrap gap-2 mb-4; }
   .board-filters .chip { @apply no-underline; }
   .board-filters .chip.is-active { background: var(--green); color: #fff; border-color: var(--green); }
@@ -530,7 +531,8 @@
     border: 1px solid var(--border);
   }
   .notice-gallery-count { @apply text-sm; }
-  .notice-head { @apply flex items-start justify-between gap-3 flex-wrap; }
+  .notice-head { @apply flex items-start justify-between gap-3; flex-wrap: nowrap; }
+  .notice-headline { flex: 1; min-width: 0; }
   .notice-tags { @apply flex flex-wrap items-center gap-2 mb-1; }
   /* The author heads the card now that posts have no title. The avatar is deliberately the same
      shape and colour as Den Hurtige's .msg-avatar so the two feeds read as one product; it is a
@@ -564,7 +566,7 @@
     bottom: auto; transform: none; min-width: 190px; max-width: min(260px, calc(100vw - 32px)); }
   .notice-menu .pop-backdrop { background: transparent; }
 
-  .notice-author { @apply flex items-center gap-2.5; }
+  .notice-author { @apply flex items-center gap-2.5; min-width: 0; }
   .notice-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--brass);
     color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none;
     text-transform: uppercase; }

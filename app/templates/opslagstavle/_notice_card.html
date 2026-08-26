@@ -18,7 +18,7 @@
 {% endcomment %}
 <article class="notice-card card-flat{% if notice.pinned_at %} is-pinned{% endif %}{% if not full %} is-clickable{% endif %}" id="opslag-{{ notice.pk }}">
   <div class="notice-head">
-    <div>
+    <div class="notice-headline">
       <div class="notice-tags">
         {% if notice.pinned_at %}
           <span class="chip chip-brass" title="Fastgjort af {{ notice.pinned_by.full_name|default:'Inspektionen' }}">📌 Fastgjort</span>
