@@ -62,6 +62,52 @@ def test_monthly_role_is_time_bound(make_resident: Callable) -> None:
 
 
 # ---------------------------------------------------------------- admissions (F-001)
+def _rundvisning_data(motivation: str) -> dict[str, str]:
+    return {
+        "full_name": "Ny",
+        "email": "ny@x.dk",
+        "gender": "male",
+        "age": "22",
+        "study_year": "1",
+        "year_left": "3",
+        "university": "DTU",
+        "field_of_study": "Fysik",
+        "heard_about_us": "plakat",
+        "motivation": motivation,
+    }
+
+
+def test_rundvisning_motivation_renders_500_character_limit() -> None:
+    response = Client().get("/optagelse/ansoeg")
+
+    assert response.status_code == 200
+    assert response.context["form"]["motivation"].field.max_length == 500
+    assert 'maxlength="500"' in str(response.context["form"]["motivation"])
+
+
+@pytest.mark.django_db
+def test_rundvisning_accepts_500_character_motivation() -> None:
+    motivation = ("a " * 249) + "ab"
+    assert len(motivation) == 500
+
+    response = Client().post("/optagelse/send_rundvisning", _rundvisning_data(motivation))
+
+    assert response.status_code == 302
+    assert Application.objects.get().motivation == motivation
+
+
+@pytest.mark.django_db
+def test_rundvisning_rejects_501_character_motivation() -> None:
+    motivation = ("a " * 249) + "abc"
+    assert len(motivation) == 501
+
+    response = Client().post("/optagelse/send_rundvisning", _rundvisning_data(motivation))
+
+    assert response.status_code == 200
+    assert "motivation" in response.context["form"].errors
+    assert not Application.objects.exists()
+
+
 @pytest.mark.django_db
 def test_rundvisning_emails_applicant_only() -> None:
     """The committee is no longer notified per rundvisning request; only the applicant auto-reply
