@@ -307,7 +307,8 @@
   .pop > summary { list-style:none; }
   .pop > summary::-webkit-details-marker { display:none; }
   .pop[open] > summary { border-style:solid; border-color:var(--green); color:var(--green-700); }
-  .pop-backdrop { position:fixed; inset:0; z-index:60; background:rgba(15, 30, 22, .38); }
+  .pop-backdrop { position:fixed; inset:0; z-index:60; background:rgba(15, 30, 22, .38);
+    touch-action:none; }
   .pop-panel { position:fixed; z-index:61; left:50%; top:50%; transform:translate(-50%, -50%);
     width:max-content; max-width:min(340px, calc(100vw - 32px)); max-height:70dvh; overflow-y:auto;
     overscroll-behavior:contain; padding:12px;
@@ -413,6 +414,13 @@
     .reaction, .reaction-add, .reaction-who { padding:3px 8px; font-size:12.5px; }
     /* Bottom sheet on a phone: easier to reach one-handed than a centred box, and anchoring to the
        bottom keeps it out of the way of the emoji keyboard the free-text field opens. */
+    /* Freeze the page while a sheet is open. The sheet is position:fixed against the LAYOUT
+       viewport, so on a phone the URL bar animating during a scroll lifts it visibly off the bottom
+       edge — it looked "disconnected". Den Hurtige never showed this because its shell already locks
+       the document (html:has(body.chat-page) above); opslagstavlen scrolls like a normal page.
+       Not locked at desktop widths on purpose: there the panel is centred rather than a sheet, so it
+       cannot detach, and removing the scrollbar mid-interaction would jump the layout sideways. */
+    html:has(.pop[open]) { overflow:hidden; }
     .pop-panel { left:0; right:0; bottom:0; top:auto; transform:none; width:auto; max-width:none;
       max-height:62dvh; border-radius:16px 16px 0 0; padding:14px 16px calc(16px + env(safe-area-inset-bottom)); }
     .emoji-grid { grid-template-columns:repeat(8, 1fr); gap:4px; }
