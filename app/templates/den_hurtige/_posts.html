@@ -22,7 +22,8 @@
         {% if not post.grouped %}<span class="msg-name">{{ post.author.full_name }}</span>{% endif %}
         <span class="msg-meta">{{ post.created_at|date:"H:i" }} · udløber om {{ post.minutes_left }} min</span>
         {% if post.author_id == user.id or can_moderate %}
-          <form method="post" action="{% url 'den_hurtige:delete_post' post.pk %}" class="msg-del">
+          <form method="post" action="{% url 'den_hurtige:delete_post' post.pk %}" class="msg-del"
+                onsubmit="return confirm('Slet «{{ post.content|truncatechars:60|escapejs }}» permanent?')">
             {% csrf_token %}
             <button type="submit" title="Slet besked" aria-label="Slet besked">&times;</button>
           </form>
@@ -97,7 +98,7 @@
     <p class="muted">
       Skriv noget der er relevant den næste times tid — fælles kaffe, en pakke i porten, hjælp til
       at bære. Beskeder slettes automatisk når de udløber, så skal noget gemmes, hører det hjemme i
-      ankebogen eller på opslagstavlen.
+      ankebogen eller på <a href="/intern/opslagstavle/">opslagstavlen</a>.
     </p>
   </div>
 {% endfor %}

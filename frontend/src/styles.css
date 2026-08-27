@@ -156,14 +156,27 @@
   .chat-page .main { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
   /* No vertical padding: the header and composer bring their own and bleed to the gutters, so
      inherited padding would leave both floating away from the edges they are meant to sit on. */
-  .chat-page .content { flex:1; min-height:0; display:flex; flex-direction:column;
+  /* width:100% is load-bearing, and subtly so. .content carries Tailwind's `mx-auto`, and auto
+     margins on the cross axis CANCEL align-items:stretch — so as a flex item of .main (which is
+     flex only here) it would size to its own content instead of filling, capped by max-w-3xl.
+     The chat then became exactly as wide as the widest thing inside it: post one short message and
+     the whole shell collapsed to roughly the width of its header. It went unnoticed while the
+     header held a five-channel tab strip that propped it open; the single-line picker that replaced
+     that strip removed the prop. Desktop only — on a phone the viewport is narrower than the cap.
+     width:100% restores the fill; max-w-3xl still caps it and the auto margins still centre it. */
+  .chat-page .content { flex:1; min-height:0; width:100%; display:flex; flex-direction:column;
     padding-top:0; padding-bottom:0; }
   .chat { display:flex; flex-direction:column; flex:1; min-height:0; gap:0; }
   /* Pinned like a conversation title bar. It used to scroll away instantly: the feed jumps to the
      newest message on load, so on a phone you never saw the header at all. Bleeds to the gutters
      the same way the composer does, so nothing shows through behind it. */
+  /* One line, always. flex-wrap:wrap used to be load-bearing — the old channel tab strip forced a
+     second row with `order:1; width:100%` — but with the picker there is nothing left that wants to
+     wrap, and wrapping was instead happening by accident: a long channel name next to "Slå fra på
+     denne enhed" and the bell overflows a phone, and the row silently became two, taking that much
+     height off the feed. Now the name ellipsises instead (see .channel-name). */
   .chat-head { flex:none; position:relative;
-    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:nowrap;
     background:var(--paper); border-bottom:1px solid var(--border);
     margin:0 -30px; padding:8px 30px; }
   /* Channel picker. Sits exactly where the <h1> used to and replaces it, so five channels cost
@@ -171,14 +184,17 @@
      than pushing it down. It superseded a horizontally scrolling tab strip, which at five channels
      ran off the edge of a phone with nothing to say the rest were there.
      `position:relative` on .chat-head is what the menu positions against. */
-  .channel-picker { position:relative; }
+  /* min-width:0 on both: a flex item defaults to min-width:auto and refuses to shrink below its
+     content, so without these the name would push the row wide rather than ellipsising. */
+  .channel-picker { position:relative; min-width:0; }
+  .channel-name, .channel-single { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .channel-picker > summary { list-style:none; display:inline-flex; align-items:center; gap:8px;
     cursor:pointer; font-size:22px; font-weight:750; line-height:1.2; padding:2px 6px 2px 0;
-    -webkit-tap-highlight-color:transparent; }
+    min-width:0; -webkit-tap-highlight-color:transparent; }
   /* Safari draws its own disclosure triangle unless both of these are cleared. */
   .channel-picker > summary::-webkit-details-marker { display:none; }
   .channel-picker > summary::marker { content:""; }
-  .channel-picker > summary .caret { font-size:13px; color:var(--muted); font-weight:600; }
+  .channel-picker > summary .caret { font-size:13px; color:var(--muted); font-weight:600; flex:none; }
   .channel-picker[open] > summary .caret { transform:rotate(180deg); }
   /* max-height matters more than it looks: the document is locked against scrolling (see the shell
      rules above), so a menu taller than the viewport would simply be unreachable below the fold. */
@@ -202,11 +218,21 @@
     background:var(--green-100); color:var(--green-700); }
   .channel-option.active .channel-count { background:var(--brass); color:#fff; }
 
+  .chat-mute { flex:none; }
+  /* The push button renders both wordings; one is hidden per breakpoint. Wide screens get the full
+     "Slå fra på denne enhed"; phones get the shorter one, and the per-channel bell drops to its
+     icon alone (its state is the icon, and the button keeps a title). Together that is what buys
+     the channel name enough room to sit on one line beside them. */
+  .label-short { display:none; }
+  /* Everything except the channel name keeps its natural width, so the name is the one thing
+     that gives way when the row is tight. Includes the "Under test" chip for whenever the
+     rollout gate is turned back on. */
+  .chat-head .chip { flex:none; }
   .chat-mute button { font-size:13px; padding:5px 12px; border-radius:999px; }
 
   /* margin-left:auto groups the push controls on the right, so the picker and the "Under test"
      chip stay together on the left instead of being spread apart by space-between. */
-  .push-bar { margin-left:auto; display:flex; align-items:center; gap:10px; font-size:13px; }
+  .push-bar { margin-left:auto; flex:none; display:flex; align-items:center; gap:8px; font-size:13px; }
   .push-bar button { font-size:13px; font-weight:600; padding:5px 12px; border-radius:999px;
     background:var(--surface); border:1px solid var(--border-strong); color:var(--ink); cursor:pointer; }
   .push-bar button:hover { background:var(--green-050); border-color:var(--green-100); color:var(--green-700); }
@@ -261,19 +287,65 @@
   .reaction:hover { border-color:var(--faint); }
   .reaction.is-mine { background:var(--green-050); border-color:var(--green); color:var(--green-700); font-weight:650; }
   .reaction .n { font-variant-numeric:tabular-nums; }
-  /* Picker. A bare text input was the first attempt and read as a stray form field on desktop. */
-  .emoji-picker { position:relative; display:inline-block; }
-  .reaction-add { list-style:none; border-style:dashed; color:var(--muted); user-select:none; }
-  .reaction-add::-webkit-details-marker { display:none; }
-  .emoji-picker[open] > .reaction-add { border-style:solid; border-color:var(--green); color:var(--green-700); }
-  /* Opens upward: the composer is pinned to the bottom, so recent messages sit near it. */
-  .emoji-grid { position:absolute; bottom:calc(100% + 6px); left:0; z-index:20; width:max-content;
-    display:grid; grid-template-columns:repeat(6, 1fr); gap:2px; padding:8px;
-    background:var(--surface); border:1px solid var(--border-strong); border-radius:12px; box-shadow:var(--shadow); }
-  .emoji-choice { font-size:19px; line-height:1; padding:5px 6px; border:0; border-radius:8px;
+  /* --- Overlay panels hanging off a reaction row (.pop) --------------------------------------
+     Both the emoji picker and the "who reacted" list are a native <details> whose panel is
+     position:fixed over a full-screen backdrop, NOT absolutely positioned beside its summary.
+     The old anchored panel was reported unusable and deserved to be: it hung off the "+" button,
+     which sits after the pills, so a message with several reactions opened it far to the right and
+     off the edge of the phone — and #js-feed is an overflow:auto scroll container, which could clip
+     it too. Fixed positioning escapes both, because no ancestor here has a transform (that would
+     make one a containing block and quietly re-anchor the panel).
+     The matching requirement is that NO ancestor of a .pop may create a stacking context — no
+     z-index on a positioned box, no transform, filter, will-change or contain. This widget is
+     embedded in two different page layouts, and opslagstavlen's card broke it exactly that way
+     (see .notice-foot below): the backdrop and panel are confined to the nearest stacking context,
+     so anything outside it stays undimmed and can paint over the panel.
+     The backdrop is a real element, not a ::before on the <details>: a click on a pseudo-element
+     targets its originating element, so a ::before backdrop would report itself as "inside the
+     picker" and tap-away could never close it. See the handler in frontend/src/feed.ts. */
+  .pop { position:relative; display:inline-block; }
+  .pop > summary { list-style:none; }
+  .pop > summary::-webkit-details-marker { display:none; }
+  .pop[open] > summary { border-style:solid; border-color:var(--green); color:var(--green-700); }
+  .pop-backdrop { position:fixed; inset:0; z-index:60; background:rgba(15, 30, 22, .38); }
+  .pop-panel { position:fixed; z-index:61; left:50%; top:50%; transform:translate(-50%, -50%);
+    width:max-content; max-width:min(340px, calc(100vw - 32px)); max-height:70dvh; overflow-y:auto;
+    overscroll-behavior:contain; padding:12px;
+    background:var(--surface); border:1px solid var(--border-strong); border-radius:14px;
+    box-shadow:var(--shadow); }
+  .pop-title { font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--faint); margin-bottom:8px; }
+  /* A row in a .pop used as a menu. Full-width and left-aligned so a <button> in a <form> and a
+     bare <a> are indistinguishable to the eye — the pin action has to be a POST, so the menu is
+     necessarily a mix of the two. */
+  .pop-item { display:block; width:100%; text-align:left; padding:9px 10px; border:0;
+    border-radius:9px; background:none; cursor:pointer; text-decoration:none;
+    font:inherit; font-size:15px; font-weight:600; color:var(--ink); }
+  .pop-item:hover { background:var(--surface-2); }
+  /* Same --neg/--neg-bg pair .btn-danger uses, so destructive reads the same everywhere. */
+  .pop-item-danger { color:var(--neg); }
+  .pop-item-danger:hover { background:var(--neg-bg); color:var(--neg); }
+
+  .reaction-add { border-style:dashed; color:var(--muted); user-select:none; }
+  .reaction-who { border-style:dashed; color:var(--muted); user-select:none; }
+
+  .emoji-grid { display:grid; grid-template-columns:repeat(6, 1fr); gap:2px; }
+  .emoji-choice { font-size:22px; line-height:1; padding:7px 6px; border:0; border-radius:8px;
     background:none; cursor:pointer; }
   .emoji-choice:hover { background:var(--green-050); }
-  .emoji-other { grid-column:1 / -1; margin-top:4px; }
+  .emoji-other { margin-top:8px; }
+  .emoji-other input { width:100%; }
+
+  /* Who reacted: one row per person, ordered by emoji exactly as the pills are
+     (core.reactions.reaction_rows). A grid rather than a flex row so the names line up in a column
+     no matter how wide the emoji renders -- a flag or a ZWJ family is much wider than 👍, and ragged
+     names are hard to scan in a list you scroll. */
+  .who-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; }
+  .who-row { display:grid; grid-template-columns:26px 1fr; align-items:baseline; gap:8px;
+    padding:5px 2px; font-size:14px; line-height:1.35; }
+  .who-row + .who-row { border-top:1px solid var(--border); }
+  .who-emoji { font-size:17px; line-height:1.2; }
+  .who-names { color:var(--ink); overflow-wrap:anywhere; }
   .emoji-other input { width:100%; padding:5px 8px; text-align:center; }
 
   .thread { min-width:0; }
@@ -325,6 +397,10 @@
        — the hamburger and the topbar still carry every link it held. */
     .chat-page .brandcell { display:none; }
     .chat-head { margin:0 -18px; padding:5px 18px; }
+    .chat-head { gap:6px; }
+    .label-long { display:none; }
+    .label-short { display:inline; }
+    .mute-label { display:none; }
     .channel-picker > summary, .channel-single { font-size:16px; }
     .channel-menu { min-width:210px; }
     .push-bar button, .chat-mute button { padding:3px 10px; font-size:12px; }
@@ -334,7 +410,13 @@
     .msg-name { font-size:13.5px; }
     .msg-text { font-size:14.5px; line-height:1.35; }
     .msg-actions { gap:8px; margin-top:4px; }
-    .reaction, .reaction-add { padding:3px 8px; font-size:12.5px; }
+    .reaction, .reaction-add, .reaction-who { padding:3px 8px; font-size:12.5px; }
+    /* Bottom sheet on a phone: easier to reach one-handed than a centred box, and anchoring to the
+       bottom keeps it out of the way of the emoji keyboard the free-text field opens. */
+    .pop-panel { left:0; right:0; bottom:0; top:auto; transform:none; width:auto; max-width:none;
+      max-height:62dvh; border-radius:16px 16px 0 0; padding:14px 16px calc(16px + env(safe-area-inset-bottom)); }
+    .emoji-grid { grid-template-columns:repeat(8, 1fr); gap:4px; }
+    .emoji-choice { font-size:25px; padding:8px 4px; }
     .thread > summary { font-size:12px; }
     #js-feed { padding:2px 0 8px; }
     /* Duration drops below the message box and sits left, so the text gets the full width. */
@@ -381,6 +463,150 @@
   .prose-gahk a { @apply text-emerald-700 underline; }
   .prose-gahk img { @apply max-w-full h-auto rounded my-3; }
   .prose-gahk blockquote { @apply border-l-4 border-emerald-700 pl-4 my-4 italic text-gray-700; }
+  /* Added for rendered Markdown (opslagstavlen). Migrated CMS pages get them too, which is a bonus
+     rather than a coincidence: they were always allowed by cms/sanitize.py and simply unstyled. */
+  .prose-gahk h4 { @apply text-base font-semibold mt-4 mb-1; }
+  .prose-gahk hr { @apply my-6 border-t; border-color: var(--border); }
+  .prose-gahk code { @apply px-1 py-0.5 rounded text-[0.9em]; background: var(--green-050); }
+  .prose-gahk pre { @apply p-3 my-3 rounded overflow-x-auto text-sm; background: #f6f8fa; }
+  .prose-gahk pre code { @apply p-0 bg-transparent; }
+  /* Tables are why the Markdown parser keeps the table plugin: the værelsesrunde results are one.
+     Scrolls inside its own box so a wide table never makes the page scroll sideways. */
+  .prose-gahk table { @apply my-4 w-full text-sm border-collapse; display: block; overflow-x: auto; }
+  .prose-gahk th, .prose-gahk td { @apply px-3 py-2 text-left align-top; border: 1px solid var(--border); }
+  .prose-gahk th { @apply font-semibold; background: var(--green-050); }
+
+  /* ---- Opslagstavlen (the noticeboard) --------------------------------------------------------
+     Reuses .card-flat/.chip/.btn/.push-bar and, for the reaction row and comment replies, the
+     .reaction*/.emoji-*/.reply*/.msg-text rules in the Den Hurtige block below. Deliberately does
+     NOT reuse .chat*/.msg*/.composer*: those encode a one-viewport-tall chat shell with its own
+     internal scroller, and a paginated document list wants the normal page scroll. */
+  .board-filters { @apply flex flex-wrap gap-2 mb-4; }
+  .board-filters .chip { @apply no-underline; }
+  .board-filters .chip.is-active { background: var(--green); color: #fff; border-color: var(--green); }
+  /* Tight vertical rhythm: the feed is scanned, so the gap only has to say "separate card", and
+     more than that costs posts-per-screen. The card border does most of the separating work. */
+  .board-list { @apply flex flex-col gap-2; }
+  .board-pinned { @apply mb-2; }
+  .notice-card { @apply px-4 py-3; }
+  /* .prose-gahk gives every block a top+bottom margin, which inside a card is dead space at the
+     edges — ~24px per card, i.e. a post per screen on a phone. Trimmed only at the boundaries, and
+     only inside a card, so CMS pages keep their spacing. */
+  .notice-card .board-body > :first-child { margin-top: 0; }
+  .notice-card .board-body > :last-child { margin-bottom: 0; }
+  .notice-card.is-pinned { border-left: 3px solid var(--brass); }
+  /* Tap anywhere on a feed card to open the post (user testing: people tried the card, not the
+     heading). The title's <a> is stretched over the whole card with a pseudo-element, so there is
+     still exactly ONE link — keyboard reachable, right-clickable, no JS and no nested anchors.
+     Everything interactive has to be raised above that overlay, or it stops responding. */
+  .notice-card.is-clickable { position: relative; cursor: pointer; }
+  .notice-card.is-clickable:hover { border-color: var(--green-100); box-shadow: var(--shadow); }
+  .notice-card.is-clickable .notice-link::after { content: ""; position: absolute; inset: 0; z-index: 0; }
+  /* Raised by POSITION ONLY — deliberately no z-index. Both of these come after .notice-link in the
+     markup, and positioned elements with `z-index:auto` paint (and hit-test) above a positioned
+     `z-index:0` sibling in tree order, so they stay clickable without one.
+     `z-index:1` here used to look equivalent and was not: a z-index on a positioned element creates
+     a STACKING CONTEXT, which trapped the reaction overlays rendered inside .notice-foot. Their
+     backdrop could then only dim what was inside this one box, leaving every other card's actions
+     and pills sitting undimmed on top of it — and the panel itself could be painted under a later
+     card. See the .pop rules above: nothing wrapping a .pop may create a stacking context. */
+  .notice-card.is-clickable .notice-actions,
+  .notice-card.is-clickable .notice-foot { position: relative; }
+  /* Trade-off worth knowing: the overlay means dragging across the excerpt starts a link-drag rather
+     than a text selection. Accepted because the excerpt is 40 words and the detail page — which has
+     no overlay — is where you copy a room number out of a table. */
+
+  /* A post with several pictures is collapsed to one thumbnail in the feed, so a photo album cannot
+     push every other post below the fold. Fixed height, so the card stays a predictable size. */
+  /* Marks a trimmed excerpt. A bare "…" at the end of a paragraph reads as the author trailing off,
+     not as "there is more of this post" — green and worded, it says which. */
+  .see-more { display: inline-block; margin-left: 4px; color: var(--green-700); font-weight: 650;
+    font-size: 14px; white-space: nowrap; }
+  .notice-card.is-clickable:hover .see-more { text-decoration: underline; }
+
+  .notice-gallery { @apply flex items-center gap-3 mt-2; }
+  .notice-gallery img {
+    @apply rounded object-cover; width: 72px; height: 72px; flex: none;
+    border: 1px solid var(--border);
+  }
+  .notice-gallery-count { @apply text-sm; }
+  .notice-head { @apply flex items-start justify-between gap-3 flex-wrap; }
+  .notice-tags { @apply flex flex-wrap items-center gap-2 mb-1; }
+  /* The author heads the card now that posts have no title. The avatar is deliberately the same
+     shape and colour as Den Hurtige's .msg-avatar so the two feeds read as one product; it is a
+     separate class rather than a shared one because .msg-avatar lives inside the chat shell's own
+     sizing rules, and reusing it would drag those along. */
+  /* Meatballs trigger. Sized to a comfortable tap target rather than to the glyph, which at 20px
+     of dots alone would be well under the ~44px a thumb wants. */
+  .notice-menu { flex: none; }
+  .notice-menu-button { display: grid; place-items: center; width: 34px; height: 34px;
+    border-radius: 9px; cursor: pointer; color: var(--muted); font-size: 20px; line-height: 1;
+    user-select: none; }
+  .notice-menu-button:hover { background: var(--surface-2); color: var(--ink); }
+  .notice-menu[open] > .notice-menu-button { background: var(--surface-2); color: var(--ink); }
+
+  /* The moderation menu is anchored to its button rather than centred like the reaction panels: a
+     three-item list reads better beside the control that opened it, and a wide emoji grid does not.
+     `right:0` is what keeps it inside the page — it grows leftward, toward the centre, so a card at
+     the right-hand edge cannot push the menu off screen.
+
+     Two things make an absolutely positioned panel possible here at all:
+       - .notice-card lifts .card-flat's `overflow:hidden`, which would otherwise slice the menu off
+         at the card's edge. Safe to lift because the card is padded, so nothing inside it sits flush
+         against the rounded corners that clip was protecting.
+       - z-index 61 still beats the backdrop's 60, because .notice-actions carries position WITHOUT
+         a z-index. Adding one there would make it a stacking context and trap the panel inside the
+         card again -- the exact bug that made every other card stay undimmed. See .notice-foot.
+     The backdrop stays, transparent: it is what the tap-away handler tests against, and dimming the
+     whole page for a three-item menu would be heavy-handed. */
+  .notice-card { overflow: visible; }
+  .notice-menu .pop-panel { position: absolute; top: calc(100% + 6px); right: 0; left: auto;
+    bottom: auto; transform: none; min-width: 190px; max-width: min(260px, calc(100vw - 32px)); }
+  .notice-menu .pop-backdrop { background: transparent; }
+
+  .notice-author { @apply flex items-center gap-2.5; }
+  .notice-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--brass);
+    color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none;
+    text-transform: uppercase; }
+  .notice-byline { @apply flex flex-col; min-width: 0; }
+  .notice-name { @apply font-semibold leading-snug; color: var(--ink); }
+  .notice-meta { @apply text-sm; }
+  /* The timestamp is the permalink. Undecorated so the header reads as a byline rather than a row
+     of links -- the whole card is the real tap target (see .is-clickable). */
+  .notice-meta a { @apply no-underline; color: inherit; }
+  .notice-meta a:hover { color: var(--green-700); text-decoration: underline; }
+  .notice-actions { @apply flex items-center gap-2 shrink-0; }
+  .notice-actions form { @apply m-0; }
+  .notice-foot { @apply flex items-center justify-between gap-3 flex-wrap mt-2; }
+  .notice-comments-link { @apply text-sm; }
+  .notice-comments { @apply mt-6; }
+  .notice-comments h2 { @apply text-base font-semibold mb-2; }
+  .comment-form { @apply mt-4; }
+
+  /* Compose form: toolbar + zero-JS tab panels. The radios live outside the panels so the CSS
+     sibling selectors below can reach them; they are visually hidden, not display:none, so they stay
+     keyboard-reachable. */
+  .board-compose textarea { @apply w-full font-mono text-sm; }
+  .md-toolbar { @apply flex flex-wrap items-center gap-1 mb-2; }
+  .md-toolbar button, .md-upload {
+    @apply px-2 py-1 rounded cursor-pointer text-sm leading-none;
+    border: 1px solid var(--border); background: var(--surface);
+  }
+  .md-toolbar button:hover, .md-upload:hover { background: var(--green-050); border-color: var(--green-100); }
+  .md-upload { @apply inline-flex items-center; margin: 0; }
+  .md-hint { @apply text-xs ml-1; }
+  .md-tabs > input[type="radio"] { @apply sr-only; }
+  .md-tab {
+    @apply inline-block px-3 py-1.5 cursor-pointer text-sm font-semibold;
+    border-bottom: 2px solid transparent; color: var(--muted);
+  }
+  .md-tabs > input:checked + .md-tab { color: var(--green-700); border-bottom-color: var(--green); }
+  .md-tabs > input:focus-visible + .md-tab { outline: 2px solid var(--green); outline-offset: 2px; }
+  .md-panel { @apply hidden pt-3; }
+  /* Each panel follows BOTH radios in the DOM, so match on the radio that owns it. */
+  .md-tabs > input[type="radio"]:nth-of-type(1):checked ~ .md-panel-write,
+  .md-tabs > input[type="radio"]:nth-of-type(2):checked ~ .md-panel-preview { @apply block; }
+  .md-panel-preview { min-height: 8rem; }
 
   /* Horizontal, side-scrollable lineage chart (stamtræ, F-011): each node's children fan out to the
      right; connectors are pure-CSS pseudo-elements so there is no JS/CDN dependency. */

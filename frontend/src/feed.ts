@@ -6,6 +6,9 @@
 //
 // Note the scroll container is #js-feed itself, not the window and not `.main`: the chat shell is
 // exactly one viewport tall and only the message list scrolls (see .chat-page in styles.css).
+//
+// The site-wide htmx X-CSRFToken hook used to live here; it is now ./htmx-csrf, imported from
+// main.ts, because opslagstavlen's hx-posts depend on it too.
 
 import { hookImageForms } from "./imageupload";
 
@@ -38,21 +41,6 @@ function atBottom(el: HTMLElement): boolean {
 function toBottom(el: HTMLElement): void {
   el.scrollTop = el.scrollHeight;
 }
-
-// ---- CSRF ------------------------------------------------------------------------------------
-// htmx does not add Django's CSRF header by itself, and the reaction buttons are the project's
-// first hx-post. Registered globally rather than per-element so every future hx-post is covered.
-function csrfToken(): string {
-  const cookie = document.cookie.split("; ").find((c) => c.startsWith("csrftoken="));
-  if (cookie) return decodeURIComponent(cookie.slice("csrftoken=".length));
-  // Fallback for CSRF_USE_SESSIONS or a missing cookie: any rendered {% csrf_token %} input.
-  return document.querySelector<HTMLInputElement>('input[name="csrfmiddlewaretoken"]')?.value ?? "";
-}
-
-document.body.addEventListener("htmx:configRequest", (event: Event) => {
-  const detail = (event as CustomEvent<{ headers: Record<string, string> }>).detail;
-  detail.headers["X-CSRFToken"] = csrfToken();
-});
 
 if (feed && scroller) {
   // Start at the newest message, as a chat does.
@@ -113,13 +101,38 @@ if (document.body.classList.contains("no-zoom")) {
 }
 
 // ---- emoji picker ---------------------------------------------------------------------------
-// <details> has no concept of "click away to dismiss", so a picker would otherwise stay open behind
+// <details> has no concept of "click away to dismiss", so a panel would otherwise stay open behind
 // whatever you did next, and two could be open at once.
+//
+// The test is "outside the PANEL", not "outside the <details>". The reaction overlays put a
+// full-screen backdrop *inside* their own <details> (it has to be a real element — a click on a
+// ::before pseudo-element reports the originating element as its target), so a `details.contains`
+// check would treat a tap on the backdrop as a tap inside the picker and never close it. Excluding
+// the summary keeps the browser's own toggle working: without it, the tap that opens a panel would
+// be seen as an outside click on the panel and shut it again immediately.
+const DISMISSABLE = "details.pop[open], details.channel-picker[open]";
+const PANELS = ":scope > .pop-panel, :scope > .channel-menu";
+
 document.addEventListener("click", (event) => {
   const target = event.target as Node;
-  const dismissable = "details.emoji-picker[open], details.channel-picker[open]";
-  for (const picker of document.querySelectorAll<HTMLDetailsElement>(dismissable)) {
-    if (!picker.contains(target)) picker.open = false;
+  for (const picker of document.querySelectorAll<HTMLDetailsElement>(DISMISSABLE)) {
+    const summary = picker.querySelector(":scope > summary");
+    if (summary?.contains(target)) continue;
+    const panel = picker.querySelector(PANELS);
+    if (panel?.contains(target)) continue;
+    picker.open = false;
+  }
+});
+
+// Escape closes the topmost open panel, which is what a modal-looking overlay is expected to do and
+// the only way out for anyone not using a pointer.
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  const open = document.querySelectorAll<HTMLDetailsElement>(DISMISSABLE);
+  const last = open[open.length - 1];
+  if (last) {
+    last.open = false;
+    last.querySelector<HTMLElement>(":scope > summary")?.focus();
   }
 });
 

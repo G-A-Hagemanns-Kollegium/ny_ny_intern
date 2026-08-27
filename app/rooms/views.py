@@ -17,7 +17,7 @@ superseded ones are kept with `is_current=False`, so the history stays attributa
 remains AK-only: it is the AK group's own screen, not part of the inspection flow.
 """
 
-from typing import TypedDict, cast
+from typing import TypedDict
 
 from django.conf import settings
 from django.contrib import messages
@@ -29,6 +29,7 @@ from django.utils import timezone
 
 from core.exports import csv_or_xlsx_response
 from core.models import Room
+from core.uploads import check_image_upload
 from residents.permissions import current_resident, role_required
 
 from .models import RoomCondition, RoomConditionScore, RoomCriterion
@@ -132,15 +133,13 @@ def besvar(request: HttpRequest, room_id: int) -> HttpResponse:
                 comment = request.POST.get(f"comment_{crit.code}", "").strip()
                 photo = request.FILES.get(f"image_{crit.code}")
                 if photo:  # backstop: reject non-images / oversized uploads (client already downscales)
-                    if not (photo.content_type or "").startswith("image/"):
-                        messages.warning(request, f"{crit.name}: filen er ikke et billede og blev ikke gemt.")
-                        photo = None
-                    elif cast("int", photo.size) > settings.ROOM_PHOTO_MAX_MB * 1024 * 1024:
-                        messages.warning(
-                            request,
-                            f"{crit.name}: billedet var for stort (over {settings.ROOM_PHOTO_MAX_MB} MB) "
-                            "og blev ikke gemt.",
-                        )
+                    # Rules live in core.uploads so this cannot drift from the CMS and Den Hurtige.
+                    # This used to accept any content type starting with `image/`, which let an SVG
+                    # through — and værelsestjek is open to every resident, so that was a script
+                    # executable from our own /media/ origin, not just an editor-account risk.
+                    error = check_image_upload(photo, settings.ROOM_PHOTO_MAX_MB)
+                    if error is not None:
+                        messages.warning(request, f"{crit.name}: {error} Billedet blev ikke gemt.")
                         photo = None
                 score = _parse_score(raw)
                 if score is not None and not crit.accepts_score(score):

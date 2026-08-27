@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Opslag af {{ notice.author.full_name }} - Opslagstavlen{% endblock %}
+{% block content_width %}max-w-3xl{% endblock %}
+
+{% block content %}
+  <p class="muted mb-3"><a href="{% url 'opslagstavle:board' %}">‹ Opslagstavlen</a></p>
+
+  {% comment %}
+    Same partial as the list, with full=True: one definition of what a post looks like. This page
+    exists so a notification has something stable to link to — `?page=4` is not an address for a
+    thing, and it stops being the right one as soon as anyone posts again.
+  {% endcomment %}
+  {% include "opslagstavle/_notice_card.html" with full=True %}
+
+  <section class="notice-comments" aria-labelledby="kommentarer">
+    <h2 id="kommentarer">
+      {% with n=comments|length %}
+        {% if n == 1 %}1 kommentar{% elif n %}{{ n }} kommentarer{% else %}Kommentarer{% endif %}
+      {% endwith %}
+    </h2>
+
+    {% for comment in comments %}
+      <div class="reply">
+        <span class="reply-name">{{ comment.author.full_name }}</span>
+        <span class="msg-meta">{{ comment.created_at|date:"j. M Y, H:i" }}</span>
+        {% if comment.can_delete %}
+          <form method="post" action="{% url 'opslagstavle:delete_comment' comment.pk %}" class="msg-del"
+                onsubmit="return confirm('Slet «{{ comment.body|truncatechars:60|escapejs }}» permanent?')">
+            {% csrf_token %}
+            <button type="submit" title="Slet kommentar" aria-label="Slet kommentar">&times;</button>
+          </form>
+        {% endif %}
+        {% comment %}
+          Plain text, autoescaped, with white-space:pre-wrap from .msg-text — comments are
+          deliberately not Markdown (see NoticeComment). |urlize makes a pasted link clickable
+          without opening the door to arbitrary markup.
+        {% endcomment %}
+        <div class="msg-text">{{ comment.body|urlize }}</div>
+      </div>
+    {% empty %}
+      <p class="muted">Ingen kommentarer endnu.</p>
+    {% endfor %}
+
+    <form method="post" action="{% url 'opslagstavle:create_comment' notice.pk %}" class="comment-form">
+      {% csrf_token %}
+      {% for field in comment_form %}
+        <div class="mb-3">
+          <label class="sr-only" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% if field.errors %}<p class="errorlist text-sm">{{ field.errors|striptags }}</p>{% endif %}
+        </div>
+      {% endfor %}
+      <button type="submit" class="btn">Kommentér</button>
+    </form>
+  </section>
+{% endblock %}

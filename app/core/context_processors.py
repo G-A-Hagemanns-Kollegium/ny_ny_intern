@@ -6,6 +6,7 @@ from django.conf import settings
 from django.http import HttpRequest
 
 from den_hurtige.access import roles_allowed as den_hurtige_allowed
+from opslagstavle.access import roles_allowed as opslagstavle_allowed
 from residents.permissions import CMS_EDITOR_ROLES, can_preview, effective_roles
 
 # Public site nav, matching the legacy gahk.dk menu (labels + order)
@@ -47,6 +48,11 @@ def _nav_intern(roles: Collection[str]) -> list[NavSection]:
     # would answer 403, and means opening the rollout needs no change in this file.
     if den_hurtige_allowed(roles):
         oversigt.append(("/intern/den-hurtige/", "Den Hurtige", "flash"))
+    # Gated the same way while opslagstavlen is being tried out (opslagstavle.access.ACCESS_ROLES).
+    # Asking here keeps the sidebar from advertising a page that would answer 403, and means opening
+    # the rollout needs no change in this file.
+    if opslagstavle_allowed(roles):
+        oversigt.append(("/intern/opslagstavle/", "Opslagstavle", "board"))
     oversigt += [
         ("/intern/alumneliste/", "Alumneliste", "list"),
         ("/intern/stamtree/", "Stamtræ", "tree"),
