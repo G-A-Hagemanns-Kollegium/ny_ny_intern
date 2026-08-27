@@ -547,7 +547,7 @@ def test_an_out_of_range_page_falls_back(client: Client, beboer: Resident) -> No
 
 
 def test_the_board_does_not_poll_itself(client: Client, beboer: Resident) -> None:
-    """Den Hurtige polls every 20s because its messages die in 30 minutes. A paginated multi-year
+    """Den Hurtige polls every 5s because its messages die in 30 minutes. A paginated multi-year
     archive must not: polling fights the pager, throws away the reader's place, and re-renders every
     post's Markdown server-side every 20 seconds per open tab."""
     make_notice(beboer)
