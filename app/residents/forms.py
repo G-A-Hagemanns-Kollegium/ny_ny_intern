@@ -1,6 +1,8 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm
 
+from core.uploads import check_image_upload
+
 from .models import Resident
 
 
@@ -58,3 +60,35 @@ class ResidentEditForm(forms.ModelForm):
                 "first_name", "last_name"
             )
         sponsor.required = False
+
+
+class ProfileEditForm(forms.ModelForm):
+    """A resident edits their own public profile (picture, bio, social links)."""
+
+    class Meta:
+        model = Resident
+        fields = ["profile_picture", "bio", "facebook_link", "instagram_handle"]
+        labels = {
+            "profile_picture": "Profilbillede",
+            "bio": "Kort bio",
+            "facebook_link": "Facebook-link",
+            "instagram_handle": "Instagram-brugernavn",
+        }
+        widgets = {
+            "profile_picture": forms.ClearableFileInput(),
+            "bio": forms.Textarea(attrs={"rows": 4, "maxlength": 500}),
+            "instagram_handle": forms.TextInput(attrs={"placeholder": "@brugernavn"}),
+        }
+        help_texts = {
+            "bio": "Maks. 500 tegn.",
+            "instagram_handle": "Dit Instagram-brugernavn (med eller uden @).",
+        }
+
+    def clean_profile_picture(self) -> object:
+        upload = self.cleaned_data.get("profile_picture")
+        # upload is False (clear) or None (unchanged) when no new file is sent.
+        if upload and upload is not False:
+            error = check_image_upload(upload, max_mb=5)
+            if error:
+                raise forms.ValidationError(error)
+        return upload

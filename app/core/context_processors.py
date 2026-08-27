@@ -42,7 +42,10 @@ def _nav_intern(roles: Collection[str]) -> list[NavSection]:
     """Internal menu grouped into sidebar sections, built from the *effective* role set: base items for
     every resident plus each embedsgruppe's admin tools. Each item is (url, label, icon); empty sections
     are dropped. Honors the preview override (roles come from effective_roles)."""
-    oversigt: list[NavItem] = [("/intern/", "Dashboard", "dashboard")]
+    oversigt: list[NavItem] = [
+        ("/intern/", "Dashboard", "dashboard"),
+        ("/intern/beboer/min-profil/rediger", "Min profil", "users"),
+    ]
     # Den Hurtige is limited to the administrator group during its trial; the single switch is
     # den_hurtige.access.ACCESS_ROLES. Asking it here keeps the sidebar from advertising a page that
     # would answer 403, and means opening the rollout needs no change in this file.
