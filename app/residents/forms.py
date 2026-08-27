@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm
+from django.core.files.uploadedfile import UploadedFile
 
 from core.uploads import check_image_upload
 
@@ -77,17 +78,18 @@ class ProfileEditForm(forms.ModelForm):
         widgets = {
             "profile_picture": forms.ClearableFileInput(),
             "bio": forms.Textarea(attrs={"rows": 4, "maxlength": 500}),
+            "facebook_link": forms.TextInput(attrs={"placeholder": "https://www.facebook.com/..."}),
             "instagram_handle": forms.TextInput(attrs={"placeholder": "@brugernavn"}),
         }
         help_texts = {
             "bio": "Maks. 500 tegn.",
+            "facebook_link": "Fuld URL til din Facebook-profil.",
             "instagram_handle": "Dit Instagram-brugernavn (med eller uden @).",
         }
 
     def clean_profile_picture(self) -> object:
         upload = self.cleaned_data.get("profile_picture")
-        # upload is False (clear) or None (unchanged) when no new file is sent.
-        if upload and upload is not False:
+        if isinstance(upload, UploadedFile):
             error = check_image_upload(upload, max_mb=5)
             if error:
                 raise forms.ValidationError(error)

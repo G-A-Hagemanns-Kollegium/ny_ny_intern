@@ -657,11 +657,17 @@ def next_month_list(request: HttpRequest) -> HttpResponse | HttpResponseRedirect
 def profile(request: HttpRequest, pk: int) -> HttpResponse:
     """Public profile page for a resident. Shows bio, social links, and recent notices."""
     resident = get_object_or_404(Resident, pk=pk)
+    year, month = active_period()
+    residency = (
+        Residency.objects.filter(resident=resident, year=year, month=month)
+        .select_related("room", "workgroup", "cleaning")
+        .first()
+    )
     recent_notices = resident.notices.select_related("author").order_by("-created_at")[:10]
     return render(
         request,
         "residents/profile.html",
-        {"subject": resident, "recent_notices": recent_notices},
+        {"subject": resident, "residency": residency, "recent_notices": recent_notices},
     )
 
 

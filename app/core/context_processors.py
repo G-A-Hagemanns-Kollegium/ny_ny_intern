@@ -38,13 +38,13 @@ NavItem = tuple[str, str, str]  # (url, label, icon-key from the base.html sprit
 NavSection = tuple[str, list[NavItem]]
 
 
-def _nav_intern(roles: Collection[str]) -> list[NavSection]:
+def _nav_intern(roles: Collection[str], user_pk: int) -> list[NavSection]:
     """Internal menu grouped into sidebar sections, built from the *effective* role set: base items for
     every resident plus each embedsgruppe's admin tools. Each item is (url, label, icon); empty sections
     are dropped. Honors the preview override (roles come from effective_roles)."""
     oversigt: list[NavItem] = [
         ("/intern/", "Dashboard", "dashboard"),
-        ("/intern/beboer/min-profil/rediger", "Min profil", "users"),
+        (f"/intern/beboer/{user_pk}/profil", "Min profil", "users"),
     ]
     # Den Hurtige is limited to the administrator group during its trial; the single switch is
     # den_hurtige.access.ACCESS_ROLES. Asking it here keeps the sidebar from advertising a page that
@@ -126,7 +126,7 @@ def navigation(request: HttpRequest) -> dict[str, object]:
     authed = request.user.is_authenticated
     roles = effective_roles(request) if authed else set()
     previewer = can_preview(request.user) if authed else False
-    nav_intern = _nav_intern(roles) if authed else []
+    nav_intern = _nav_intern(roles, request.user.pk or 0) if authed else []
     ctx: dict[str, object] = {
         "nav_legacy": NAV_LEGACY,
         "nav_public": NAV_PUBLIC,
