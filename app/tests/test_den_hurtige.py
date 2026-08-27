@@ -1628,3 +1628,49 @@ def test_the_reader_panel_lists_one_row_per_person(
     assert panel.count(THUMB) == 2  # the emoji repeats beside each of its two names
     # The pills' order carries into the panel: THUMB has two reactions, so its rows come first.
     assert panel.index("Mette Hansen") < panel.index("Anders Bo")
+
+
+def test_the_feed_morphs_its_poll_instead_of_replacing_the_list(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """The poll patches the existing DOM rather than swapping it out.
+
+    A plain innerHTML swap threw away scroll position, collapsed open reply threads and deleted
+    half-typed replies, which is why ~40 lines of frontend/src/feed.ts existed to defend against the
+    page's own refresh. Morphing leaves untouched nodes untouched, so that defence is gone -- and if
+    this attribute ever reverts to a plain swap, the guards will not come back with it.
+    """
+    client.force_login(make_resident(email="a@gahk.dk"))
+
+    body = client.get(FEED_URL).content.decode()
+
+    assert 'hx-ext="morph"' in body
+    assert 'hx-swap="morph:innerHTML"' in body
+
+
+def test_the_feed_polls_every_five_seconds(client: Client, make_resident: Callable[..., Resident]) -> None:
+    """20s read as broken in a chat. The interval only became safe to shorten once the swap stopped
+    being destructive -- the two changes belong together, so this pins the pair."""
+    client.force_login(make_resident(email="a@gahk.dk"))
+
+    body = client.get(FEED_URL).content.decode()
+
+    assert 'hx-trigger="every 5s"' in body
+
+
+def test_the_poll_still_returns_the_whole_list(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """Deliberately NOT an incremental "only what is new" endpoint. Traffic was never the problem at
+    this scale, and sending everything is what keeps deletions, expiry, reaction counts and new
+    replies correct without a second reconciliation path. Morphing makes the full response cheap to
+    apply, so the two decisions depend on each other."""
+    author = make_resident(email="a@gahk.dk")
+    for n in range(3):
+        QuickPost.objects.create(author=author, content=f"Besked {n}")
+    client.force_login(author)
+
+    body = client.get(FEED_URL + "opslag").content.decode()
+
+    for n in range(3):
+        assert f"Besked {n}" in body

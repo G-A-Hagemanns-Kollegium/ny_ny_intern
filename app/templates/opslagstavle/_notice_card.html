@@ -18,20 +18,21 @@
 {% endcomment %}
 <article class="notice-card card-flat{% if notice.pinned_at %} is-pinned{% endif %}{% if not full %} is-clickable{% endif %}" id="opslag-{{ notice.pk }}">
   <div class="notice-head">
-    <div>
+    <div class="notice-headline">
       <div class="notice-tags">
         {% if notice.pinned_at %}
           <span class="chip chip-brass" title="Fastgjort af {{ notice.pinned_by.full_name|default:'Inspektionen' }}">📌 Fastgjort</span>
         {% endif %}
         <span class="chip">{{ notice.get_category_display }}</span>
       </div>
-      {% comment %}
-        Initials rather than a photo: there are no profile pictures anywhere in the project, and the
-        avatar is here to give the eye an anchor for where each post starts now that no headline
-        does that. aria-hidden because the name is right next to it in text.
-      {% endcomment %}
       <div class="notice-author">
-        <div class="notice-avatar" aria-hidden="true">{{ notice.author.first_name|slice:":1" }}{{ notice.author.last_name|slice:":1" }}</div>
+        <div class="notice-avatar" aria-hidden="true">
+          {% if notice.author.profile_picture %}
+            <img src="{{ notice.author.profile_picture.url }}" alt="" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:50%;display:block">
+          {% else %}
+            {{ notice.author.first_name|slice:":1" }}{{ notice.author.last_name|slice:":1" }}
+          {% endif %}
+        </div>
         <div class="notice-byline">
           <span class="notice-name">{{ notice.author.full_name }}</span>
           <span class="notice-meta muted">

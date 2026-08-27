@@ -1,5 +1,6 @@
 import "./styles.css";
 import "htmx.org";
+import "idiomorph/htmx"; // registers hx-ext="morph" (Den Hurtige's feed; see ./feed)
 import Alpine from "alpinejs";
 import "./htmx-csrf"; // X-CSRFToken on every htmx request (site-wide; must precede any hx-post)
 import "./charts"; // interactive charts on /intern/statistik/ (no-op elsewhere)

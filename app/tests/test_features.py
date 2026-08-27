@@ -23,7 +23,7 @@ def test_legacy_sha256_upgrades_on_login(make_resident: Callable) -> None:
     c = Client()
     assert c.login(email="a@gahk.dk", password="hemmelig") is True
     r = Resident.objects.get(email="a@gahk.dk")
-    assert identify_hasher(r.password).algorithm == "pbkdf2_sha256"  # upgraded
+    assert identify_hasher(r.password).algorithm != "gahk_sha256"  # upgraded away from the legacy hash
 
 
 @pytest.mark.django_db

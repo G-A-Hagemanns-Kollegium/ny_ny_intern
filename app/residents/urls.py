@@ -14,6 +14,8 @@ urlpatterns = [
     path("alumneliste/eksport", views.directory_export, name="directory_export"),
     path("alumneliste/naeste-maaned", views.next_month_list, name="next_month_list"),
     path("beboer/<int:pk>/rediger", views.edit_resident, name="edit_resident"),
+    path("beboer/<int:pk>/profil", views.profile, name="resident_profile"),
+    path("beboer/min-profil/rediger", views.edit_profile, name="edit_profile"),
     path("stamtree/", views.stamtree, name="stamtree"),
     path("den-hurtige/", include("den_hurtige.urls")),
     path("opslagstavle/", include("opslagstavle.urls")),
