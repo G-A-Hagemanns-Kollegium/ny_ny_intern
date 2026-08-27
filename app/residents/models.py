@@ -6,9 +6,15 @@ privileges come from the *current month's* assignments, not a static table — s
 02-schema-etl.md §5 / 99-index.md F-010. Network-closed / MAC fields are dropped (feature retired).
 """
 
+from typing import Any
+
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from django.utils import timezone
+
+from core.files import delete_attached_files
 
 
 class Role(models.TextChoices):
@@ -88,6 +94,11 @@ class Resident(AbstractBaseUser, PermissionsMixin):
         "self", null=True, blank=True, on_delete=models.SET_NULL, related_name="proteges"
     )
     fylgje_raw = models.CharField(max_length=255, blank=True)  # original free-text, kept if unresolved
+    # profile
+    profile_picture = models.FileField(upload_to="profile_pictures/", blank=True)
+    bio = models.TextField(max_length=500, blank=True)
+    facebook_link = models.URLField(blank=True)
+    instagram_handle = models.CharField(max_length=50, blank=True)
     # django auth
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(
@@ -191,3 +202,9 @@ def prev_period(period: tuple[int, int] | None = None) -> tuple[int, int]:
     """The month before `period` (defaults to the active period), as (year, month)."""
     year, month = period or active_period()
     return (year - 1, 12) if month == 1 else (year, month - 1)
+
+
+@receiver(post_delete, sender=Resident)
+def _delete_resident_files(sender: type[models.Model], instance: models.Model, **kwargs: Any) -> None:  # noqa: ANN401
+    """Remove the profile picture from storage when a resident row is deleted."""
+    delete_attached_files(instance)
