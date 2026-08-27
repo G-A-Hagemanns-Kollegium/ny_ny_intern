@@ -15,7 +15,13 @@
   <article class="msg{% if post.grouped %} msg-grouped{% endif %}{% if post.author_id == user.id %} msg-own{% endif %}"
            id="msg-{{ post.pk }}">
     <div class="msg-avatar" aria-hidden="true">
-      {% if not post.grouped %}{{ post.author.first_name|slice:":1" }}{{ post.author.last_name|slice:":1" }}{% endif %}
+      {% if not post.grouped %}
+        {% if post.author.profile_picture %}
+          <img src="{{ post.author.profile_picture.url }}" alt="" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:50%;display:block">
+        {% else %}
+          {{ post.author.first_name|slice:":1" }}{{ post.author.last_name|slice:":1" }}
+        {% endif %}
+      {% endif %}
     </div>
     <div class="msg-body">
       <div class="msg-head">
