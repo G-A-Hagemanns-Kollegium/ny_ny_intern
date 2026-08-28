@@ -36,3 +36,24 @@ def test_seed_demo_populates_and_is_idempotent() -> None:
     # Derived ølkælder balance is computable (no crash, integer øre).
     shopper = Shopper.objects.first()
     assert isinstance(shopper.balance_ore, int)
+
+
+@pytest.mark.django_db
+def test_seed_demo_fills_the_board_including_the_two_awkward_cases() -> None:
+    """The board needs demo content, but two specific rows are what make it useful locally: a pinned
+    post (so the pinned-first layout and the 📌 marker are visible without anyone pinning something)
+    and one past the retention window (so `purge_notices --dry-run` reports a real number instead of
+    zero until the retention window has actually elapsed)."""
+    from opslagstavle.models import RETENTION_DAYS, Notice
+
+    call_command("seed_demo", "--fresh", "--force", "--residents", "12", verbosity=0)
+
+    assert Notice.objects.count() >= 6
+    assert Notice.objects.pinned().count() == 1
+    assert Notice.objects.pinned().first().pinned_by is not None, "a pin with no attributor"
+    assert Notice.objects.expired().exists(), "nothing for purge_notices --dry-run to report"
+    # Every category represented, so the filter chips are all reachable in the demo.
+    assert len({n.category for n in Notice.objects.all()}) >= 5
+    # The pinned one must NOT be the one the purge would take.
+    assert not Notice.objects.expired().filter(pinned_at__isnull=False).exists()
+    assert RETENTION_DAYS == 2 * 365  # shortened from five after user testing

@@ -9,8 +9,10 @@
 #
 #     docker build -t gahk-wiki:1.35 .
 #
-# 1.35 is the last MediaWiki supporting PHP 7.4, so this is pinned there. The GahkAuthLogin sources
-# are PHP 8.1-clean, so they carry through the eventual 1.43 upgrade unchanged.
+# PHP comes from the base image and is currently 8.0.30 — 1.35's composer.json only requires
+# ">=7.3.19", and the official image maintainers ship 8.0. Do not assume 7.4 here. The GahkAuthLogin
+# sources are `php -l` clean on 7.4, 8.0 and 8.1, so they carry through the eventual 1.43 upgrade
+# (which requires 8.1+) unchanged.
 
 FROM mediawiki:1.35
 
@@ -37,6 +39,21 @@ COPY extensions/ /var/www/html/extensions/
 COPY skins/      /var/www/html/skins/
 
 COPY LocalSettings.php /var/www/html/LocalSettings.php
+
+# $wgScriptPath is "/wiki" (the legacy URL, preserved per DEPLOY.md §7.3) but the image serves
+# MediaWiki from the document root. Whether the reverse proxy strips the /wiki prefix decides which
+# of /index.php or /wiki/index.php actually reaches Apache — so serve both. With this alias the
+# container is correct either way, instead of depending on a proxy behaviour we would otherwise have
+# to discover by trial and error in production.
+RUN printf '%s\n' \
+      'Alias /wiki /var/www/html' \
+      '<Directory /var/www/html>' \
+      '    Require all granted' \
+      '    AllowOverride All' \
+      '</Directory>' \
+      > /etc/apache2/conf-available/gahk-wiki-alias.conf \
+    && a2enconf gahk-wiki-alias \
+    && a2enmod rewrite
 
 # User uploads (396 rows in wikiimage). Must be a mounted volume or they vanish on every redeploy.
 VOLUME /var/www/html/images

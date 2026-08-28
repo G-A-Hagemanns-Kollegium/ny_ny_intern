@@ -2,8 +2,13 @@
 mass-mailer are structurally gone; this provides the legitimate admin screens, chiefly assigning the
 monthly embedsgruppe roles."""
 
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+import datetime
+
+from django.conf import settings
+from django.contrib.auth.decorators import login_required
+from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from .models import Resident, Role, RoleAssignment, active_period
@@ -70,4 +75,36 @@ def preview_set(request: HttpRequest) -> HttpResponseRedirect:
     else:  # mode == "role"
         role = request.POST.get("role")
         request.session[PREVIEW_SESSION_KEY] = [role] if role in Role.values else []
+    return redirect("dashboard")
+
+
+# ---- DEV-ONLY simulated clock: fast-forward the month locally to test round rollover (F-004).
+# Hard-gated on settings.DEBUG — 404 in prod, so it can never be reached there. ----
+@require_POST
+@login_required
+def dev_clock_set(request: HttpRequest) -> HttpResponseRedirect:
+    if not settings.DEBUG:
+        raise Http404
+    from core.clock import current_date
+    from core.models import DevClock
+
+    action = request.POST.get("action")
+    clock = DevClock.get()
+    if action == "reset":
+        clock.simulated_date = None
+        clock.save(update_fields=["simulated_date"])
+    elif action == "advance":
+        base = current_date()  # the current effective date (override or real)
+        year, month = (base.year + 1, 1) if base.month == 12 else (base.year, base.month + 1)
+        clock.simulated_date = datetime.date(year, month, 1)
+        clock.save(update_fields=["simulated_date"])
+    elif action == "set":
+        try:
+            clock.simulated_date = datetime.date.fromisoformat(request.POST["date"])
+            clock.save(update_fields=["simulated_date"])
+        except (KeyError, ValueError):
+            pass
+    ref = request.META.get("HTTP_REFERER", "")
+    if ref and url_has_allowed_host_and_scheme(ref, {request.get_host()}, require_https=request.is_secure()):
+        return redirect(ref)
     return redirect("dashboard")

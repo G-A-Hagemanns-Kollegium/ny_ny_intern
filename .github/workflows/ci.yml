@@ -31,6 +31,22 @@ jobs:
         with: { enable-cache: true }
       - run: uv run mypy app
 
+  migrations:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: app } }
+    # Catches a model change whose migration was never generated. Cheap, and the only guard on
+    # hand-written migrations (SeparateDatabaseAndState, AlterModelTable): a state-only migration
+    # looks perfect against pytest's --reuse-db cache, so nothing else would notice a mismatch.
+    # No DB needed — makemigrations only compares the models to the migration graph.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { enable-cache: true }
+      - run: uv run python manage.py makemigrations --check --dry-run
+        env:
+          DJANGO_SECRET_KEY: ci-secret
+          VISIT_COUNTER_HMAC_KEY: ci
+
   test:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: app } }

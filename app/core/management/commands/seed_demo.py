@@ -30,7 +30,8 @@ from django.db import models, transaction
 from django.utils import timezone
 
 from admissions.models import Application
-from ak.models import AkEntry
+from ak.models import AkEntry, AkMonthlyCharge
+from ak.services import apply_monthly_charge
 from cms.models import Event, NewsItem, Page, PylonEvent
 from core.models import Cleaning, Room, Workgroup
 from oelkaelder.models import (
@@ -41,6 +42,8 @@ from oelkaelder.models import (
     Transaction,
     TransactionItem,
 )
+from opslagstavle.demo import seed as seed_opslagstavle
+from opslagstavle.models import Notice, NoticeComment, NoticeReaction
 from residents.models import WORKGROUP_ROLE, Residency, Resident, Role, RoleAssignment
 from rooms.models import (
     KvotientApplication,
@@ -60,9 +63,37 @@ SEED = 1908  # the year GAHK was founded — any fixed value works, we just want
 # Non-privileged chore groups (no site role) mixed in with the privileged ones from WORKGROUP_ROLE.
 EXTRA_WORKGROUPS = ["Haven", "Vinklubben", "Festudvalget", "Bladet", "IT / Netværk"]
 CLEANING_GROUPS = ["Køkken", "Bad 1. sal", "Bad 2. sal", "Trappe", "Kælder", "Fællesrum"]
+# (code, name, options, description) — real rows from intern_room_criteria covering all three scale
+# shapes, so the værelsestjek score explainer is visible in dev. See RoomCriterion.score_values.
+ROOM_CRITERIA = [
+    (
+        "walls",
+        "Vægge",
+        5,
+        "Maling.\n1: Nymalet/pæn stand,\n2: Få pletter eller misfarvninger,\n"
+        "3: Større pletter og misfarvninger,\n4: Revner,\n5: Huller el. svamp",
+    ),
+    (
+        "floor",
+        "Gulve",
+        5,
+        "Lakering og slibning.\n1: God/pæn stand,\n2: Få ridser og pletter,\n"
+        "3: Større ridser og pletter,\n4: Mellem de to,\n5: Huller i gulvet eller skibslak",
+    ),
+    (
+        "windows",
+        "Vinduer",
+        3,
+        "0: Virker/fin stand,\n1: Tætningslister eller hasper mangler,\n2: Virker ikke",
+    ),
+    ("curtains", "Gardiner", 2, "0: Er der\n1: Mangler"),
+]
 
 # Deletion order: children before parents so PROTECT FKs don't block the wipe.
 WIPE_ORDER: list[type[models.Model]] = [
+    NoticeReaction,
+    NoticeComment,
+    Notice,
     PurchaseShare,
     TransactionItem,
     Transaction,
@@ -139,6 +170,7 @@ class Command(BaseCommand):
             self._seed_room_conditions(rooms, residents)
             self._seed_kvotient(residents, rooms)
             self._seed_stats()
+            seed_opslagstavle(residents, self.now, self.rng)
 
         self._report(residents)
 
@@ -310,16 +342,8 @@ class Command(BaseCommand):
                     created_at=self.now - timedelta(days=120),
                 )
             )
-            for months_ago in range(3, 0, -1):
-                entries.append(
-                    AkEntry(
-                        resident=r,
-                        delta=-2,
-                        kind=AkEntry.Kind.MONTHLY,
-                        reason="Månedlig vurdering",
-                        created_at=self.now - timedelta(days=30 * months_ago),
-                    )
-                )
+            # Some labour history so balances vary.
+            for months_ago in (2, 1):
                 if self.rng.random() < 0.6:
                     entries.append(
                         AkEntry(
@@ -331,6 +355,14 @@ class Command(BaseCommand):
                         )
                     )
         AkEntry.objects.bulk_create(entries)
+
+        # The 12-month schedule rows are created by the migration; make sure they exist (belt-and-braces
+        # for a --fresh run) then apply the monthly deduction through the real service for the recent
+        # months, so demo MONTHLY entries respect alumneliste membership.
+        for month in range(1, 13):
+            AkMonthlyCharge.objects.get_or_create(month=month, defaults={"active": True, "krydser": 2})
+        for y, m in self._iter_recent_months(3):
+            apply_monthly_charge(y, m)
 
     # ----------------------------------------------------------- ølkælder
     def _seed_oelkaelder(self, residents: list[Resident]) -> None:
@@ -437,25 +469,35 @@ class Command(BaseCommand):
 
     # ------------------------------------------------------ room conditions
     def _seed_room_conditions(self, rooms: list[Room], residents: list[Resident]) -> None:
+        # Four real criteria from intern_room_criteria, chosen to cover all three scale shapes
+        # (5 -> 1..5, 3 -> 0..2, 2 -> 0..1) with their real Danish legends, so the score explainer and
+        # the range validation are both visible in dev. The previous invented set used options=4 —
+        # a shape no real criterion has — with no descriptions, which made the feature untestable.
+        # update_or_create, not get_or_create: re-seeding without --wipe must refresh stale rows.
         criteria = [
-            RoomCriterion.objects.get_or_create(code=c, defaults={"name": n, "options": 4})[0]
-            for c, n in [("walls", "Vægge"), ("floor", "Gulv"), ("windows", "Vinduer"), ("kitchen", "Køkken")]
+            RoomCriterion.objects.update_or_create(
+                code=code, defaults={"name": name, "options": options, "description": description}
+            )[0]
+            for code, name, options, description in ROOM_CRITERIA
         ]
         for room in self.rng.sample(rooms, k=min(15, len(rooms))):
-            cond = RoomCondition.objects.create(
-                room=room,
-                resident=self.rng.choice(residents),
-                recorded_by_name=self.rng.choice(residents).full_name,
-                recorded_at=self.now - timedelta(days=self.rng.randint(1, 300)),
-                is_current=True,
-            )
-            for crit in criteria:
-                RoomConditionScore.objects.create(
-                    condition=cond,
-                    criterion=crit,
-                    score=self.rng.randint(1, 4),
-                    comment=self.rng.choice(["", "Fin stand", "Slitage", "Skal males"]),
+            # A couple of superseded reports per room so the "vis tidligere rapport" dropdown has
+            # something to show (the real ones come from backfill_room_history).
+            for age, current in ((self.rng.randint(400, 700), False), (self.rng.randint(1, 300), True)):
+                cond = RoomCondition.objects.create(
+                    room=room,
+                    resident=self.rng.choice(residents),
+                    recorded_by_name=self.rng.choice(residents).full_name,
+                    recorded_at=self.now - timedelta(days=age),
+                    is_current=current,
                 )
+                for crit in criteria:
+                    RoomConditionScore.objects.create(
+                        condition=cond,
+                        criterion=crit,
+                        score=self.rng.choice(crit.score_values),  # always on-scale
+                        comment=self.rng.choice(["", "Fin stand", "Slitage", "Skal males"]),
+                    )
 
     # -------------------------------------------------------------- kvotient
     def _seed_kvotient(self, residents: list[Resident], rooms: list[Room]) -> None:

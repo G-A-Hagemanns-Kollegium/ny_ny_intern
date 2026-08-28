@@ -20,7 +20,7 @@ from django.utils.http import url_has_allowed_host_and_scheme, urlsafe_base64_en
 
 from core.models import Cleaning, Room, Workgroup
 
-from .forms import ResidentEditForm
+from .forms import ProfileEditForm, ResidentEditForm
 from .models import (
     WORKGROUP_ROLE,
     WORKGROUP_ROLE_VALUES,
@@ -31,7 +31,7 @@ from .models import (
     active_period,
     next_period,
 )
-from .permissions import effective_roles, role_required
+from .permissions import current_resident, effective_roles, role_required
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +41,11 @@ def dashboard(request: HttpRequest) -> HttpResponse:
     """Internal landing page (F-013). Shows the member's active-month roles and the shared
     WiFi/calendar info — now gated by authentication (not campus IP) with secrets read from env.
     Uses effective roles so the preview override is reflected here too."""
+    # Backstop for the ak_monthly_assessment cron job (DEPLOY.md §4b): books this month's AK
+    # deduction if the schedule missed it. Cheap and idempotent; see ak.services.
+    from ak.services import ensure_active_month_applied
+
+    ensure_active_month_applied()
     year, month = active_period()
     roles = sorted(effective_roles(request))
     return render(
@@ -59,7 +64,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
 
 def _calendar_embed_url() -> str:
     """Build the shared Google Calendar agenda embed shown on the dashboard (restored from the
-    legacy /nyintern dashboard). The calendar IDs are public embed IDs, not secrets, but come from
+    legacy /intern dashboard). The calendar IDs are public embed IDs, not secrets, but come from
     env so the source stays deployment-agnostic. Returns "" when no calendar is configured."""
     calendar_user = os.environ.get("GOOGLE_CALENDAR_USER", "").strip()
     if not calendar_user:
@@ -102,11 +107,70 @@ DA_MONTHS = [
 ]
 
 
-def _directory_rows(year: int, month: int, query: str) -> QuerySet[Residency]:
+# Sortable columns → the ORM fields to order by. Whitelisted, so ?sort= can't inject arbitrary paths.
+SORT_FIELDS = {
+    "navn": ("resident__first_name", "resident__last_name"),
+    "vaerelse": ("room__number",),
+    "embedsgruppe": ("workgroup__name",),
+    "rengoring": ("cleaning__name",),
+    "foedselsdag": ("resident__birthday",),
+    "indflyttet": ("resident__move_in_date",),
+    "studie": ("resident__study",),
+}
+# Which alumneliste column (by its label) maps to which sort key; labels not here aren't sortable.
+_LABEL_TO_SORT = {
+    "Navn": "navn",
+    "Værelse": "vaerelse",
+    "Embedsgruppe": "embedsgruppe",
+    "Rengøring": "rengoring",
+    "Fødselsdag": "foedselsdag",
+    "Indflyttet": "indflyttet",
+    "Studie": "studie",
+}
+DEFAULT_SORT = "navn"  # alphabetical by name — the natural default for finding people
+
+
+def _parse_sort(request: HttpRequest) -> tuple[str, str]:
+    """(sort_key, direction) from ?sort=&dir=, validated against SORT_FIELDS; defaults to name asc."""
+    sort = request.GET.get("sort") or DEFAULT_SORT
+    if sort not in SORT_FIELDS:
+        sort = DEFAULT_SORT
+    direction = "desc" if request.GET.get("dir") == "desc" else "asc"
+    return sort, direction
+
+
+def _sort_headers(sort: str, direction: str) -> list[dict[str, object]]:
+    """Column-header descriptors for the template: label, whether sortable, the direction a click
+    should apply (toggle when already active), and an arrow marking the active column."""
+    headers: list[dict[str, object]] = []
+    for label, _accessor in DIRECTORY_COLUMNS:
+        key = _LABEL_TO_SORT.get(label)
+        if key is None:
+            headers.append({"label": label, "sortable": False})
+            continue
+        active = key == sort
+        headers.append(
+            {
+                "label": label,
+                "sortable": True,
+                "key": key,
+                "next_dir": "desc" if active and direction == "asc" else "asc",
+                "arrow": ("▲" if direction == "asc" else "▼") if active else "",
+            }
+        )
+    return headers
+
+
+def _directory_rows(
+    year: int, month: int, query: str, sort: str = DEFAULT_SORT, direction: str = "asc"
+) -> QuerySet[Residency]:
+    prefix = "-" if direction == "desc" else ""
+    order = [f"{prefix}{f}" for f in SORT_FIELDS.get(sort, SORT_FIELDS[DEFAULT_SORT])]
+    order.append("resident_id")  # stable tiebreak for equal sort values
     qs = (
         Residency.objects.filter(year=year, month=month)
         .select_related("resident", "resident__sponsor", "room", "workgroup", "cleaning")
-        .order_by("room__number")
+        .order_by(*order)
     )
     q = (query or "").strip()
     if q:
@@ -140,30 +204,62 @@ def _period_options(selected: tuple[int, int]) -> list[dict[str, str | bool]]:
     ]
 
 
+def _clash_rooms(year: int, month: int) -> list[int]:
+    """Room numbers occupied by more than one resident in (year, month). Should always be empty —
+    end_round evicts the departing occupant and the next-month editor blocks a clashing save — but if
+    one ever slips through (e.g. hand-edited data), the list must show it rather than look merely
+    disordered."""
+    counts: dict[int, int] = {}
+    for room_number in Residency.objects.filter(year=year, month=month).values_list(
+        "room__number", flat=True
+    ):
+        counts[room_number] = counts.get(room_number, 0) + 1
+    return sorted(n for n, c in counts.items() if c > 1)
+
+
 @login_required
 def directory(request: HttpRequest) -> HttpResponse:
     """Full directory page (login-required). Legacy `json()` was campus-IP gated; with real auth the
-    members-only login is the control (F-010). HTMX powers the live search; the period picker shows any
-    past month's list (the legacy "oldLists")."""
+    members-only login is the control (F-010). HTMX powers the live search and column sorting; the
+    period picker shows any past month's list (the legacy "oldLists"). Default order is by name."""
     year, month = _parse_period(request)
+    sort, direction = _parse_sort(request)
+    q = request.GET.get("q", "")
     return render(
         request,
         "alumneliste/directory.html",
         {
-            "rows": _directory_rows(year, month, request.GET.get("q", "")),
+            "rows": _directory_rows(year, month, q, sort, direction),
             "periods": _period_options((year, month)),
             "period_value": f"{year}-{month}",
             "period_label": f"{DA_MONTHS[month].capitalize()} {year}",
+            "q": q,
+            "sort": sort,
+            "dir": direction,
+            "headers": _sort_headers(sort, direction),
+            # Only indstilling acts on (or sees) room conflicts; skip the query for everyone else.
+            "clash_rooms": _clash_rooms(year, month) if "indstilling" in effective_roles(request) else [],
         },
     )
 
 
 @login_required
 def directory_rows(request: HttpRequest) -> HttpResponse:
-    """HTMX fragment: just the filtered table rows (for the selected period)."""
+    """HTMX fragment: the sortable table (headers + rows) for the selected period/query/sort."""
     year, month = _parse_period(request)
+    sort, direction = _parse_sort(request)
+    q = request.GET.get("q", "")
     return render(
-        request, "alumneliste/_rows.html", {"rows": _directory_rows(year, month, request.GET.get("q", ""))}
+        request,
+        "alumneliste/_directory_table.html",
+        {
+            "rows": _directory_rows(year, month, q, sort, direction),
+            "period_value": f"{year}-{month}",
+            "q": q,
+            "sort": sort,
+            "dir": direction,
+            "headers": _sort_headers(sort, direction),
+        },
     )
 
 
@@ -214,9 +310,10 @@ DIRECTORY_COLUMNS = [
 
 @login_required
 def directory_export(request: HttpRequest) -> HttpResponse:
-    """Export the selected month's alumneliste as CSV or Excel (?format=csv|xlsx)."""
+    """Export the selected month's alumneliste as CSV or Excel (?format=csv|xlsx), in the shown order."""
     year, month = _parse_period(request)
-    rows = _directory_rows(year, month, request.GET.get("q", ""))
+    sort, direction = _parse_sort(request)
+    rows = _directory_rows(year, month, request.GET.get("q", ""), sort, direction)
     headers = [label for label, _ in DIRECTORY_COLUMNS]
     fname = f"alumneliste-{year}-{month:02d}"
 
@@ -337,14 +434,31 @@ def _room_taken(room: Room, year: int, month: int, exclude_resident_id: int | No
     return qs.exists()
 
 
+def _target_period(request: HttpRequest, current: tuple[int, int]) -> tuple[int, int]:
+    """Which month the list editor is working on: next (the default) or the one in effect.
+
+    Deliberately only those two. Editing an arbitrary past month would rewrite history — room
+    occupancy and embedsgruppe are what the stamtræ, kvotient and role assignments are read from —
+    and nothing in the kollegium's workflow needs it. Anything unrecognised falls back to next month.
+    """
+    if request.POST.get("period", request.GET.get("period", "")) == "current":
+        return current
+    return next_period(current)
+
+
 @role_required("indstilling")  # administrator/superuser pass via all-access
 def next_month_list(request: HttpRequest) -> HttpResponse | HttpResponseRedirect:
-    """Indstilling (and admin) prepare next month's alumneliste: copy the list forward, then edit each
-    resident's room, embedsgruppe (workgroup) and cleaning, and add/remove people. A privileged
-    embedsgruppe grants the matching role for next month; `administrator` is carried forward. Changes
-    take effect only when next month becomes the active period (see active_period)."""
+    """Indstilling (and admin) edit an alumneliste: copy the list forward, then set each resident's
+    room, embedsgruppe (workgroup) and cleaning, and add/remove people. A privileged embedsgruppe
+    grants the matching role for that month; `administrator` is carried forward.
+
+    Works on **next month** by default, and on the **current** one when asked (?period=current), so a
+    mistake in the live list can be fixed instead of waiting for the month to roll over. Editing the
+    live list takes effect immediately — including role assignments — which is why the template says
+    so plainly and why self-removal is refused below."""
     cy, cm = active_period()
-    ny, nm = next_period((cy, cm))
+    ny, nm = _target_period(request, (cy, cm))
+    editing_current = (ny, nm) == (cy, cm)
     rooms = list(Room.objects.order_by("number"))
     workgroups = list(Workgroup.objects.order_by("name"))
     cleanings = list(Cleaning.objects.order_by("name"))
@@ -379,9 +493,16 @@ def next_month_list(request: HttpRequest) -> HttpResponse | HttpResponseRedirect
         elif action == "save":  # edit room/workgroup/cleaning + remove people
             removed: set[int] = set()
             intended: dict[int, tuple[Room, Workgroup | None, Cleaning | None]] = {}
+            me = current_resident(request).pk
             for res in Residency.objects.filter(year=ny, month=nm):
                 rid = res.resident_id
                 if request.POST.get(f"remove_{rid}"):
+                    if editing_current and rid == me:
+                        # Removing yourself from the *live* list revokes your own indstilling role
+                        # on the next request — you would be locked out of the page mid-edit with
+                        # no way back. Removing yourself from next month is fine and still allowed.
+                        messages.error(request, "Du kan ikke fjerne dig selv fra den nuværende måned.")
+                        continue
                     removed.add(rid)
                     continue
                 room: Room | None = _pick(room_by_id, request.POST.get(f"room_{rid}", "")) or res.room
@@ -470,8 +591,12 @@ def next_month_list(request: HttpRequest) -> HttpResponse | HttpResponseRedirect
                 messages.error(request, f"Værelse {room.number:03d} er allerede optaget i {ny}-{nm:02d}.")
             else:
                 wg = _pick(wg_by_id, request.POST.get("workgroup", ""))
+                # Fylgje is set here rather than left for a follow-up edit: whoever adds a newcomer
+                # knows who introduced them right then, and a separate trip through the edit form is
+                # exactly the step that gets skipped, leaving holes in the stamtræ (F-011).
+                sponsor = _pick({r.id: r for r in Resident.objects.all()}, request.POST.get("sponsor", ""))
                 with transaction.atomic():
-                    r = Resident(email=email, first_name=first, last_name=last)
+                    r = Resident(email=email, first_name=first, last_name=last, sponsor=sponsor)
                     r.set_unusable_password()  # they set one via the welcome/password-reset link (F-014)
                     r.save()
                     Residency.objects.create(
@@ -493,7 +618,7 @@ def next_month_list(request: HttpRequest) -> HttpResponse | HttpResponseRedirect
                         "og tjek serverloggen.",
                     )
 
-        return redirect("next_month_list")
+        return redirect(f"{reverse('next_month_list')}?period={'current' if editing_current else 'next'}")
 
     next_rows = list(
         Residency.objects.filter(year=ny, month=nm)
@@ -516,6 +641,47 @@ def next_month_list(request: HttpRequest) -> HttpResponse | HttpResponseRedirect
             "available": available,
             "target": f"{ny}-{nm:02d}",
             "current_period": f"{cy}-{cm:02d}",
+            "editing_current": editing_current,
+            # Fylgje picker on the "create a new resident" form, so lineage is recorded at the point
+            # the person is added rather than in a follow-up edit nobody remembers to make.
+            "all_residents": Resident.objects.order_by("first_name", "last_name"),
             "priv_names": sorted(WORKGROUP_ROLE.keys()),
         },
     )
+
+
+# ---- User profile page ----
+
+
+@login_required
+def profile(request: HttpRequest, pk: int) -> HttpResponse:
+    """Public profile page for a resident. Shows bio, social links, and recent notices."""
+    resident = get_object_or_404(Resident, pk=pk)
+    year, month = active_period()
+    residency = (
+        Residency.objects.filter(resident=resident, year=year, month=month)
+        .select_related("room", "workgroup", "cleaning")
+        .first()
+    )
+    recent_notices = resident.notices.select_related("author").order_by("-created_at")[:10]
+    return render(
+        request,
+        "residents/profile.html",
+        {"subject": resident, "residency": residency, "recent_notices": recent_notices},
+    )
+
+
+@login_required
+def edit_profile(request: HttpRequest) -> HttpResponse | HttpResponseRedirect:
+    """A resident edits their own profile (picture, bio, social links)."""
+    resident = request.user
+    if request.method == "POST":
+        form = ProfileEditForm(request.POST, request.FILES, instance=resident)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Din profil er opdateret.")
+            return redirect("resident_profile", pk=resident.pk)
+        messages.error(request, "Ret fejlene og prøv igen.")
+    else:
+        form = ProfileEditForm(instance=resident)
+    return render(request, "residents/edit_profile.html", {"form": form})

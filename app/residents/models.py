@@ -6,9 +6,15 @@ privileges come from the *current month's* assignments, not a static table — s
 02-schema-etl.md §5 / 99-index.md F-010. Network-closed / MAC fields are dropped (feature retired).
 """
 
+from typing import Any
+
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from django.utils import timezone
+
+from core.files import delete_attached_files
 
 
 class Role(models.TextChoices):
@@ -18,6 +24,7 @@ class Role(models.TextChoices):
     AK = "ak", "AK"
     OELKAELDER = "oelkaelder", "Ølkælderen"
     REGNSKAB = "regnskab", "Regnskab"
+    PR = "pr", "PR"  # frontpage/CMS content editors (F-006)
     ADMINISTRATOR = "administrator", "Administrator"
     # NOTE: legacy `editpage` is intentionally omitted — there is no runtime CMS editing (F-006/F-007).
 
@@ -32,12 +39,29 @@ WORKGROUP_ROLE = {
     "AK-gruppen": Role.AK,
     "Ølkælderen": Role.OELKAELDER,
     "Regnskabsgruppen": Role.REGNSKAB,  # legacy intern_alumne_workgroup name (id 23)
+    "PR-gruppen": Role.PR,  # grants CMS/frontpage editing
 }
 WORKGROUP_ROLE_VALUES = frozenset(WORKGROUP_ROLE.values())
 
 
 class ResidentManager(BaseUserManager["Resident"]):
     use_in_migrations = True
+
+    def get_by_natural_key(self, username: str | None) -> "Resident":
+        """Look up the login principal (email) case-insensitively.
+
+        Email is the USERNAME_FIELD, and an email login id should not be case-sensitive - residents
+        typing a capital first letter could not log in (auth/login ticket). ModelBackend.authenticate
+        resolves the user through here, so making it case-insensitive fixes login for every path.
+
+        Exact match first: unambiguous, preserves behaviour, and avoids MultipleObjectsReturned if two
+        rows ever differ only by case. Fall back to iexact only when the exact form isn't found.
+        """
+        field = self.model.USERNAME_FIELD
+        try:
+            return self.get(**{field: username})
+        except self.model.DoesNotExist:
+            return self.get(**{f"{field}__iexact": username})
 
     def create_user(self, email: str, password: str | None = None, **extra: object) -> "Resident":
         if not email:
@@ -70,6 +94,11 @@ class Resident(AbstractBaseUser, PermissionsMixin):
         "self", null=True, blank=True, on_delete=models.SET_NULL, related_name="proteges"
     )
     fylgje_raw = models.CharField(max_length=255, blank=True)  # original free-text, kept if unresolved
+    # profile
+    profile_picture = models.FileField(upload_to="profile_pictures/", blank=True)
+    bio = models.TextField(max_length=500, blank=True)
+    facebook_link = models.URLField(blank=True)
+    instagram_handle = models.CharField(max_length=50, blank=True)
     # django auth
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(
@@ -143,17 +172,24 @@ def active_period() -> tuple[int, int]:
 
     Per F-010: the newest monthly list governs — but future-dated lists are held back so next month's
     roster can be edited ahead of time without changing who has access now.
+
+    Reads the date via core.clock.current_date so a developer can fast-forward the month locally
+    (DEBUG only); in prod this is exactly timezone.localdate().
     """
-    now = timezone.localtime()
+    from core.clock import current_date
+
+    today = current_date()
     latest = (
-        Residency.objects.filter(models.Q(year__lt=now.year) | models.Q(year=now.year, month__lte=now.month))
+        Residency.objects.filter(
+            models.Q(year__lt=today.year) | models.Q(year=today.year, month__lte=today.month)
+        )
         .order_by("-year", "-month")
         .values("year", "month")
         .first()
     )
     if latest:
         return latest["year"], latest["month"]
-    return now.year, now.month
+    return today.year, today.month
 
 
 def next_period(period: tuple[int, int] | None = None) -> tuple[int, int]:
@@ -166,3 +202,9 @@ def prev_period(period: tuple[int, int] | None = None) -> tuple[int, int]:
     """The month before `period` (defaults to the active period), as (year, month)."""
     year, month = period or active_period()
     return (year - 1, 12) if month == 1 else (year, month - 1)
+
+
+@receiver(post_delete, sender=Resident)
+def _delete_resident_files(sender: type[models.Model], instance: models.Model, **kwargs: Any) -> None:  # noqa: ANN401
+    """Remove the profile picture from storage when a resident row is deleted."""
+    delete_attached_files(instance)

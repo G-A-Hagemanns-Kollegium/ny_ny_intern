@@ -11,12 +11,15 @@ from django.views.decorators.http import require_POST
 
 from residents.models import Resident, active_period
 from residents.permissions import current_resident, role_required
+from residents.views import DA_MONTHS
 
-from .models import AkEntry
+from .models import AkEntry, AkMonthlyCharge
+from .services import apply_monthly_charge, ensure_active_month_applied
 
 
 @login_required
 def my_ak(request: HttpRequest) -> HttpResponse:
+    ensure_active_month_applied()  # backstop for the monthly cron job (DEPLOY.md §4b)
     user = current_resident(request)
     return render(
         request,
@@ -56,15 +59,71 @@ def add_self_entry(request: HttpRequest) -> HttpResponseRedirect:
     return redirect("ak:index")
 
 
+def _schedule_rows(active_month: int) -> list[dict]:
+    """The 12 calendar-month schedule rows (januar…december) for the template. Any missing row defaults
+    to on at 2 (the migration seeds all 12, so this is just belt-and-braces)."""
+    configs = {c.month: c for c in AkMonthlyCharge.objects.all()}
+    rows = []
+    for m in range(1, 13):
+        cfg = configs.get(m)
+        rows.append(
+            {
+                "month": m,
+                "label": DA_MONTHS[m].capitalize(),
+                "active": cfg.active if cfg else True,
+                "krydser": cfg.krydser if cfg else 2,
+                "is_active_month": m == active_month,
+            }
+        )
+    return rows
+
+
 @role_required("ak")
 def overview(request: HttpRequest) -> HttpResponse:
+    ensure_active_month_applied()  # backstop for the monthly cron job (DEPLOY.md §4b)
     year, month = active_period()
     residents = Resident.objects.filter(residencies__year=year, residencies__month=month).distinct()
     balances = dict(
         AkEntry.objects.values_list("resident").annotate(b=Sum("delta")).values_list("resident", "b")
     )
     rows = sorted(((r, balances.get(r.id, 0)) for r in residents), key=lambda t: t[1])
-    return render(request, "ak/overview.html", {"rows": rows, "period": f"{year}-{month:02d}"})
+    return render(
+        request,
+        "ak/overview.html",
+        {
+            "rows": rows,
+            "period": f"{year}-{month:02d}",
+            "schedule": _schedule_rows(month),
+            "active_month_label": DA_MONTHS[month].capitalize(),
+        },
+    )
+
+
+@require_POST
+@role_required("ak")
+def save_monthly_charges(request: HttpRequest) -> HttpResponseRedirect:
+    """Persist the per-calendar-month schedule (same amount every year) and re-book the *active* month's
+    deduction now. Only the active period is (re)applied — historical months are never touched, so
+    already-settled balances are safe."""
+    officer = current_resident(request)
+    for m in range(1, 13):
+        active = request.POST.get(f"active_{m}") == "1"
+        try:
+            krydser = int(request.POST.get(f"krydser_{m}", "2"))
+        except ValueError:
+            krydser = 2
+        krydser = max(1, krydser)  # a charged month deducts at least 1
+        AkMonthlyCharge.objects.update_or_create(
+            month=m,
+            defaults={"active": active, "krydser": krydser, "updated_by": officer},
+        )
+    year, month = active_period()
+    written, removed = apply_monthly_charge(year, month, officer=officer)
+    messages.success(
+        request,
+        f"Skema gemt. Denne måneds afskrivning: {written} bogført, {removed} fjernet.",
+    )
+    return redirect("ak:overview")
 
 
 @role_required("ak")

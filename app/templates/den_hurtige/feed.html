@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}{{ channel.name }} - Den Hurtige - GAHK Intern{% endblock %}
+{% block content_width %}max-w-3xl{% endblock %}
+
+{% comment %}
+  Den Hurtige is used one-handed on a phone and behaves like an app, so the browser's zoom gestures
+  get in the way rather than helping: a pinch while scrolling, or a double tap meant for a reaction,
+  leaves the composer off-screen. Locked here rather than in base.html so the rest of intern — the
+  alumneliste, statistik, long CMS pages — keeps pinch-to-zoom, which people genuinely need there.
+
+  This meta alone is not enough: iOS has ignored `user-scalable=no` since iOS 10 (deliberately, for
+  accessibility). It covers Android and desktop; `.no-zoom` and the gesture handlers in
+  frontend/src/feed.ts cover iOS.
+{% endcomment %}
+{% block viewport %}
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+{% endblock %}
+{% block body_class %}no-zoom chat-page{% endblock %}
+
+{% block content %}
+  <div class="chat">
+    <div class="chat-head">
+      {% comment %}
+        The channel picker doubles as the page title, so it costs no vertical space at all: a
+        <details> summary sitting exactly where the <h1> used to, with the menu absolutely
+        positioned over the feed rather than pushing it down.
+
+        A <details> rather than a native <select> because a <select> can only render text: these
+        five channels are told apart by their icons, and the live-post counts would have gone too.
+        It also needs no JavaScript to navigate (the options are plain links), matches the pattern
+        already used for reply threads and the emoji picker, and is dismissed by the same
+        click-away handler in frontend/src/feed.ts.
+      {% endcomment %}
+      <h1 class="sr-only">{{ channel.name }} — Den Hurtige</h1>
+      {% if tabs|length > 1 %}
+        <details class="channel-picker">
+          <summary>
+            <svg class="ni" aria-hidden="true"><use href="#i-{{ channel.icon }}"></use></svg>
+            <span class="channel-name">{{ channel.name }}</span>
+            <span class="caret" aria-hidden="true">▾</span>
+          </summary>
+          <nav class="channel-menu" aria-label="Kanaler">
+            {% for tab in tabs %}
+              <a class="channel-option{% if tab.current %} active{% endif %}" href="{{ tab.channel.url }}"
+                 {% if tab.current %}aria-current="page"{% endif %}>
+                <svg class="ni" aria-hidden="true"><use href="#i-{{ tab.channel.icon }}"></use></svg>
+                <span class="channel-option-name">{{ tab.channel.name }}</span>
+                {% if tab.live %}<span class="channel-count">{{ tab.live }}</span>{% endif %}
+              </a>
+            {% endfor %}
+          </nav>
+        </details>
+      {% else %}
+        <span class="channel-single">{{ channel.name }}</span>
+      {% endif %}
+      {% if limited_rollout %}<span class="chip chip-brass">Under test</span>{% endif %}
+
+      {% if push_configured %}
+        {% comment %}
+          Slim one-line bar rather than a card: during the trial it matters that people can turn
+          notifications on, but it must not push the messages below the fold. Driven by
+          frontend/src/push.ts, which is a no-op without a [data-push] element.
+
+          data-subscribed is rendered server-side because the browser cannot answer it: a device has
+          one push endpoint shared by every topic, so getSubscription() only says "subscribed to
+          something". Whether it wants *this* feature is a column on the server.
+        {% endcomment %}
+        <div class="push-bar" data-push data-topic="den_hurtige"
+             data-vapid-key="{{ vapid_public_key }}"
+             data-url="{% url 'den_hurtige:save_subscription' %}"
+             data-subscribed="{% if push_subscribed %}1{% else %}0{% endif %}"
+             data-on-label="Slå notifikationer til"
+             data-off-label="Slå fra på denne enhed"
+             data-off-label-short="Slå fra på enheden"
+             data-success-text="Du får nu besked når nogen slår op."
+             data-off-text="Notifikationer er slået fra på denne enhed.">
+          {% csrf_token %}
+          <button type="button" data-push-button hidden></button>
+          <span class="muted" data-push-message hidden></span>
+        </div>
+        {% comment %}
+          Per-channel mute. Separate from the subscribe button above, which is per *device* and
+          governs push at all; this is per resident and governs one channel. A plain form POST, not
+          htmx: it is pressed roughly twice a year and a full reload costs nothing.
+        {% endcomment %}
+        <form class="chat-mute" method="post" action="{% url 'den_hurtige:toggle_mute' channel.slug %}">
+          {% csrf_token %}
+          <button type="submit" class="btn-secondary"
+                  title="{% if muted %}Slå notifikationer fra {{ channel.name }} til igen{% else %}Slå notifikationer fra {{ channel.name }} fra{% endif %}">
+            {% if muted %}🔕 <span class="mute-label">Lyd fra</span>{% else %}🔔 <span class="mute-label">Lyd til</span>{% endif %}
+          </button>
+        </form>
+      {% endif %}
+    </div>
+
+    {% comment %}
+      The message list. Polled so other residents' messages appear without a refresh.
+
+      MORPHED, not replaced: idiomorph patches the existing nodes rather than swapping the list out,
+      so scroll position, open reply threads and a half-typed reply survive because they are simply
+      never touched. That is what let the interval drop from 20s to 5s — at 20s a new message read
+      as broken, and the old wholesale swap was too destructive to run any faster.
+
+      The response is still the WHOLE list, deliberately. An incremental "only what is new" endpoint
+      would be less traffic, but traffic was never the problem here (one request per tab per few
+      seconds, at ~60 rooms), and sending everything is what keeps deletions, expiry, reaction
+      counts and new replies correct without a second reconciliation path.
+    {% endcomment %}
+    <div id="js-feed"
+         hx-get="{% url 'den_hurtige:feed_items' %}?kanal={{ channel.slug }}"
+         hx-trigger="every 5s"
+         hx-ext="morph"
+         hx-swap="morph:innerHTML">
+      {% include "den_hurtige/_posts.html" %}
+    </div>
+
+    {% comment %}
+      Composer, pinned to the bottom like a chat input. `.main` is the scroll container (not the
+      window), so position:sticky is enough — no fixed positioning, which would fight the iOS
+      keyboard. The duration stays a native <select> so iOS gives it the wheel picker.
+    {% endcomment %}
+    <form class="composer" method="post" action="{% url 'den_hurtige:create_post' %}"
+          enctype="multipart/form-data" id="js-composer">
+      {% csrf_token %}
+      {% comment %}
+        Which feed this lands in. Rendered server-side, so the composer cannot disagree with the
+        page it is on — there is no client state to fall out of sync.
+      {% endcomment %}
+      <input type="hidden" name="kanal" value="{{ channel.slug }}">
+      <label class="composer-attach" for="id_image" title="Vedhæft billede">
+        <span aria-hidden="true">📎</span>
+        <span class="sr-only">Vedhæft billede</span>
+        <input type="file" id="id_image" name="image" accept="image/*">
+      </label>
+
+      <div class="composer-main">
+        <label class="sr-only" for="id_content">Besked</label>
+        <textarea id="id_content" name="content" rows="1" maxlength="{{ max_content_chars }}" required
+                  placeholder="Skriv i {{ channel.name }}…" enterkeyhint="enter"></textarea>
+        <div class="composer-file" id="js-composer-file" hidden></div>
+      </div>
+
+      <label class="composer-duration" title="Hvor længe beskeden er relevant">
+        <span class="sr-only">Relevant i</span>
+        <select name="duration">
+          {% for minutes, label in duration_choices %}
+            <option value="{{ minutes }}" {% if minutes == default_duration %}selected{% endif %}>⏱ {{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <button type="submit" class="composer-send" title="Send" aria-label="Send">↑</button>
+    </form>
+  </div>
+{% endblock %}
