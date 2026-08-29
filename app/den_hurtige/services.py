@@ -102,7 +102,13 @@ def notify_new_comment(comment: "QuickComment") -> None:
     channel = comment.post.channel
     head = f"{comment.author.full_name} svarede"
     body = push.preview(comment.content)
-    url = _channel_url(channel)
+    # Straight to the thread, not just the channel. Tapping "Anders svarede" used to land at the
+    # bottom of the feed, leaving you to find the message the notification was about -- which, in a
+    # channel where everything expires, may already have scrolled past. ?traad= opens the panel on
+    # the channel page, so the conversation and its surroundings both arrive. The service worker
+    # navigates an existing window rather than only focusing it (app/templates/sw.js), so this
+    # works whether or not the app is already open.
+    url = f"{_channel_url(channel)}?traad={comment.post_id}"
 
     if comment.notify_everyone:
         push.send(_audience(channel, exclude_user_id=comment.author_id), head=head, body=body, url=url)

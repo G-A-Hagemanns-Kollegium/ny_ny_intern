@@ -189,12 +189,20 @@
   .channel-picker { position:relative; min-width:0; }
   .channel-name, .channel-single { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .channel-picker > summary { list-style:none; display:inline-flex; align-items:center; gap:8px;
-    cursor:pointer; font-size:22px; font-weight:750; line-height:1.2; padding:2px 6px 2px 0;
+    cursor:pointer; font-size:18px; font-weight:750; line-height:1.2;
+    padding:4px 12px 4px 13px; border-radius:999px;
+    background:var(--green); border:1px solid var(--green); color:#fff;
     min-width:0; -webkit-tap-highlight-color:transparent; }
+  .channel-picker > summary:hover { background:var(--green-700); border-color:var(--green-700); }
+  .channel-picker[open] > summary { background:var(--green-700); border-color:var(--green-700); }
+  /* The default focus ring is green on green. Offset it against the paper instead. */
+  .channel-picker > summary:focus-visible { outline:2px solid var(--ink); outline-offset:2px; }
   /* Safari draws its own disclosure triangle unless both of these are cleared. */
   .channel-picker > summary::-webkit-details-marker { display:none; }
   .channel-picker > summary::marker { content:""; }
-  .channel-picker > summary .caret { font-size:13px; color:var(--muted); font-weight:600; flex:none; }
+  /* White on the green, and big enough to register at a glance. */
+  .channel-picker > summary .caret { font-size:15px; color:#fff; font-weight:700; flex:none;
+    transition:transform .12s ease-out; }
   .channel-picker[open] > summary .caret { transform:rotate(180deg); }
   /* max-height matters more than it looks: the document is locked against scrolling (see the shell
      rules above), so a menu taller than the viewport would simply be unreachable below the fold. */
@@ -206,7 +214,8 @@
     color:var(--ink); text-decoration:none; font-size:15px; font-weight:600; }
   .channel-option:hover { background:var(--surface-2); }
   .channel-option.active { background:var(--green-050); color:var(--green-700); }
-  .channel-single { font-size:22px; font-weight:750; }
+  /* Matches the picker's size: the two occupy the same slot, and only one renders per page. */
+  .channel-single { font-size:18px; font-weight:750; }
   /* stroke/fill are NOT inherited from the <g> wrapping the sprite in base.html: <use> clones the
      symbol into a shadow tree whose inherited styles come from this <svg>, not from the symbol's
      original ancestors. Without these the icons render as filled black blobs. */
@@ -258,28 +267,29 @@
   /* The empty slot on a grouped message keeps the text aligned without drawing a second circle. */
   .msg-grouped .msg-avatar { background:none; }
   .msg-body { min-width:0; }
-  .msg-head { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
-  .msg-name { font-weight:650; font-size:14px; }
+  .msg-head { display:flex; align-items:baseline; gap:8px; flex-wrap:nowrap; }
+  /* min-width:0 because a flex item defaults to min-width:auto and refuses to shrink below its
+     own content — without it the name pushes the row wide instead of ellipsising. */
+  .msg-name { font-weight:650; font-size:14px; min-width:0;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .msg-meta { color:var(--faint); font-size:11.5px; }
+  .msg-time, .msg-expiry { flex:none; }
+  /* Separator lives on the expiry, so hiding the expiry takes its dot with it. */
+  .msg-expiry::before { content:"· "; }
   .msg-text { white-space:pre-wrap; overflow-wrap:anywhere; font-size:15px; line-height:1.45; margin-top:1px; }
   .msg-image img { max-width:min(100%, 320px); height:auto; border-radius:10px; margin-top:8px; display:block; }
   /* Delete stays out of the way until the row is touched/hovered; always visible on coarse pointers. */
-  .msg-del { margin-left:auto; }
+  .msg-del { margin-left:auto; flex:none; }
   .msg-del button { background:none; border:0; color:var(--faint); font-size:17px; line-height:1;
     padding:0 4px; cursor:pointer; opacity:0; }
   .msg:hover .msg-del button, .msg-del button:focus-visible { opacity:1; }
   .msg-del button:hover { color:var(--neg); }
   @media (hover:none) { .msg-del button { opacity:.55; } }
 
-  /* Reactions + reply toggle on one line. `.thread` only claims the full width once it is open,
-     so the collapsed state stays beside the pills and the expanded one gets room for replies. */
+  /* Reactions and the "N svar" link share one line. Nothing here expands any more -- the thread
+     opens in the side panel rather than unfolding into the message -- so this row is now just a
+     wrapping strip of pills. (It carried a duplicated copy of itself for a while; both are gone.) */
   .msg-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:5px; }
-  .msg-actions .thread[open] { flex-basis:100%; }
-  .reactions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-  /* Reactions + reply toggle on one line. `.thread` only claims the full width once it is open,
-     so the collapsed state stays beside the pills and the expanded one gets room for replies. */
-  .msg-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:5px; }
-  .msg-actions .thread[open] { flex-basis:100%; }
   .reactions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
   .reaction { display:inline-flex; align-items:center; gap:5px; font-size:13px; line-height:1;
     padding:4px 9px; border-radius:999px; cursor:pointer;
@@ -327,7 +337,17 @@
   .pop-item-danger { color:var(--neg); }
   .pop-item-danger:hover { background:var(--neg-bg); color:var(--neg); }
 
-  .reaction-add { border-style:dashed; color:var(--muted); user-select:none; }
+  /* Reads as a control, not a placeholder. It was a dashed muted outline, which on a message with
+     no reactions yet — where it is the only thing in the row — looked like an empty slot waiting
+     for something else rather than the button that puts something there. Solid fill, real border
+     and ink-coloured glyph give it the same weight as a reaction pill, which is what it is. */
+  .reaction-add { color:var(--ink); user-select:none; font-size:14px; padding:4px 10px; }
+  .reaction-add:hover { background:var(--green-050); border-color:var(--green); }
+  /* Only on a message with nothing on it yet: there the row has room to spell out the invitation,
+     and it is exactly the case where "what do I tap?" needs answering. Hidden once a single pill
+     exists, so a busy message pays nothing for it. See _reactions.html. */
+  .reaction-add .add-label { display:none; }
+  .reactions.is-empty .reaction-add .add-label { display:inline; }
   .reaction-who { border-style:dashed; color:var(--muted); user-select:none; }
 
   .emoji-grid { display:grid; grid-template-columns:repeat(6, 1fr); gap:2px; }
@@ -342,20 +362,109 @@
      no matter how wide the emoji renders -- a flag or a ZWJ family is much wider than 👍, and ragged
      names are hard to scan in a list you scroll. */
   .who-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; }
-  .who-row { display:grid; grid-template-columns:26px 1fr; align-items:baseline; gap:8px;
+  /* Flex with a fixed-width .who-emoji rather than a grid column, so ONE rule serves both callers:
+     opslagstavlen still prefixes every row with its emoji and needs the names to line up in a
+     column, while Den Hurtige's panels are per emoji (it is in the title instead) and would
+     otherwise indent every name past an empty 26px gutter. Absent emoji, absent gutter. */
+  .who-row { display:flex; align-items:baseline; gap:8px;
     padding:5px 2px; font-size:14px; line-height:1.35; }
   .who-row + .who-row { border-top:1px solid var(--border); }
-  .who-emoji { font-size:17px; line-height:1.2; }
+  .who-emoji { font-size:17px; line-height:1.2; flex:none; width:26px; }
   .who-names { color:var(--ink); overflow-wrap:anywhere; }
+
+  /* Hover companion to the who panels, for mice only (frontend/src/feed.ts decides). A plain
+     tooltip rather than the .pop sheet: a .pop draws a full-screen backdrop, which under a cursor
+     means open/close/open flicker, and a centred modal is the wrong answer to a hover anyway.
+     Fixed and parented to <body>, so #js-feed's overflow cannot clip it and it needs no anchor.
+     pointer-events:none so it can never itself become what the cursor is over. */
+  .who-tip { position:fixed; z-index:60; pointer-events:none;
+    max-width:min(280px, calc(100vw - 12px));
+    background:var(--ink); color:var(--paper); font-size:12.5px; line-height:1.4;
+    padding:6px 9px; border-radius:8px; box-shadow:var(--shadow); }
+  .who-tip[hidden] { display:none; }
   .emoji-other input { width:100%; padding:5px 8px; text-align:center; }
 
-  .thread { min-width:0; }
-  .thread { min-width:0; }
-  .thread > summary { cursor:pointer; font-size:12.5px; font-weight:600; color:var(--green-700);
-    list-style:none; padding:2px 0; }
-  .thread > summary::-webkit-details-marker { display:none; }
-  .thread > summary::after { content:" ▾"; color:var(--faint); }
-  .thread[open] > summary::after { content:" ▴"; }
+  /* The way into a thread. Was a <details> summary that unfolded the replies in place; it is now a
+     link to den_hurtige:thread, which htmx turns into the side panel. Same weight and colour as the
+     old summary, minus the caret -- nothing folds open here any more. */
+  .msg-replies { min-width:0; font-size:12.5px; font-weight:600; color:var(--green-700);
+    text-decoration:none; padding:2px 0; white-space:nowrap; }
+  .msg-replies:hover { text-decoration:underline; }
+
+  /* --- thread side panel (den_hurtige/_thread.html) -------------------------------------------
+     Feed and panel side by side. #js-feed keeps every declaration it already had -- its
+     `flex:1; min-height:0; overflow-y:auto` now means "take the remaining WIDTH and scroll", and
+     the definite height it scrolls against comes from this row. The chat shell above is documented
+     as fragile (see the min-height:0 chain at the top of this block); this adds one box to it and
+     changes nothing else. */
+  .chat-cols { flex:1; min-height:0; display:flex; align-items:stretch; }
+  /* The swap target is a plain <div> that htmx owns; display:contents takes it out of the box tree
+     so .thread-panel is itself the flex item of .chat-cols. Without this the DIV is the flex item
+     and stretches, while the panel inside it keeps height:auto and collapses to its content —
+     a short thread rendered as a floating card two-thirds of the way up the column.
+     Empty (no thread open) it contributes nothing, so it costs no width either. */
+  #js-thread { display:contents; }
+
+  /* NOT position:fixed, NOT z-indexed, NOT left with a resting transform -- and that is
+     load-bearing, not a preference. The emoji picker and the reader panels rendered inside a
+     thread are `.pop`s, and a `.pop` breaks the moment ANY ancestor creates a stacking context
+     (see the .pop block above, and the opslagstavlen card that broke it exactly that way). An
+     in-flow flex item creates none, so the pickers still escape to the viewport from in here. */
+  .thread-panel { flex:0 0 clamp(300px, 38%, 420px); display:flex; flex-direction:column;
+    min-height:0; min-width:0; border-left:1px solid var(--border); background:var(--paper);
+    margin-right:-30px; padding:0 30px 0 20px; }
+  /* Focused programmatically when the panel opens, so a screen reader lands inside it rather than
+     back at the top of the document. That is not a keyboard focus, and drawing a ring around the
+     whole panel for it just looks like a rendering fault — :focus-visible still rings it when
+     somebody actually tabs there. */
+  .thread-panel:focus { outline:none; }
+  .thread-panel:focus-visible { outline:2px solid var(--ink); outline-offset:-2px; }
+  .thread-head { flex:none; display:flex; align-items:center; gap:8px; padding:10px 0;
+    border-bottom:1px solid var(--border); }
+  .thread-title { font-size:14px; font-weight:700; line-height:1.2; }
+  .thread-sub { font-size:11.5px; color:var(--muted); line-height:1.3;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .thread-back, .thread-x { background:none; border:0; color:var(--muted); line-height:1;
+    cursor:pointer; padding:2px 6px; font-size:19px; flex:none; }
+  .thread-back:hover, .thread-x:hover { color:var(--ink); }
+  /* One close control per breakpoint: an × on a docked desktop panel, a back arrow on a
+     full-screen phone view. Both are rendered; the wrong one is hidden. */
+  .thread-back { display:none; }
+  .thread-body { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:8px 0; }
+  /* The message the thread hangs off. Rendered by the same partial as the feed's messages, with
+     `bare` set, so it never drifts from them. */
+  .msg-parent { padding:0 0 8px; margin:0; border-radius:0;
+    border-bottom:1px solid var(--border); background:none; }
+  .thread-replies { display:flex; flex-direction:column; }
+  /* Pinned under the scroller rather than trailing the last reply. The base .reply-form rules
+     below are shared with opslagstavlen's inline comment forms, which still want the indent, so
+     the panel overrides rather than changes them. */
+  .thread-panel .reply-form { flex:none; margin:0; padding:10px 0;
+    border-top:1px solid var(--border); }
+  .thread-panel .reply-form .composer-send { width:34px; height:34px; font-size:16px; }
+  /* "Underret alle" onto its own line rather than competing with the input for width: at phone
+     width the three controls plus the label left the text box about nine characters wide. */
+  .thread-panel .reply-form .reply-notify { flex-basis:100%; margin:6px 0 0 28px; }
+  #js-feed:focus { outline:none; }
+  .thread-empty { font-size:13px; padding:10px 2px; }
+  .thread-messages { list-style:none; margin:8px 0 0; padding:0; font-size:13px; }
+  .thread-messages .error { color:var(--neg); }
+  .thread-messages .warning { color:var(--brass-ink); }
+  /* Slides in, then rests at translate:none. NO animation-fill-mode:forwards and NO will-change:
+     a resting transform or a will-change hint would pin a stacking context on this box permanently,
+     and the pickers inside it would break -- only inside a thread, which is a miserable bug to
+     find. A finished animation leaves nothing behind. */
+  @keyframes thread-in { from { translate: var(--thread-from, 24px) 0; opacity:0; } }
+  .thread-panel { animation:thread-in .16s ease-out; }
+  @media (prefers-reduced-motion: reduce) { .thread-panel { animation:none; } }
+  /* Widen the shell so two columns fit; .chat-shell is the components-layer replacement for the
+     max-w-3xl utility feed.html used to set (a utility would out-specify this rule). */
+  .chat-page .chat-shell { max-width:48rem; }
+  body.chat-page:has(.thread-panel) .chat-shell { max-width:70rem; }
+
+  /* The standalone thread page (den_hurtige/thread.html), which is NOT the chat shell. */
+  .thread-crumb { font-size:13px; margin:0 0 10px; }
+  .thread-page { padding:16px 18px; }
   .reply { margin:7px 0 0 2px; padding-left:10px; border-left:2px solid var(--border); }
   .reply-name { font-weight:650; font-size:13px; }
   .reply .msg-text { font-size:14px; }
@@ -425,14 +534,53 @@
       max-height:62dvh; border-radius:16px 16px 0 0; padding:14px 16px calc(16px + env(safe-area-inset-bottom)); }
     .emoji-grid { grid-template-columns:repeat(8, 1fr); gap:4px; }
     .emoji-choice { font-size:25px; padding:8px 4px; }
-    .thread > summary { font-size:12px; }
+    .msg-replies { font-size:12px; }
+
+    /* Full-screen thread on a phone -- by HIDING the feed, not by covering it.
+       An overlay would need position:fixed and a z-index, i.e. a stacking context, and no ancestor
+       of a `.pop` may create one (see the .pop block) or the emoji picker and the reader panels
+       opened from inside a thread get trapped in it. Swapping display keeps the panel an ordinary
+       in-flow box, and has the second payoff of taking the feed genuinely out of the accessibility
+       tree -- so the panel needs no aria-modal, no inert and no focus trap. */
+    .chat-cols:has(.thread-panel) #js-feed { display:none; }
+    /* The channel header and the channel composer both go too: otherwise a phone shows two headers
+       stacked and two message inputs at the bottom, and it is not obvious which one you are
+       writing into. The panel carries its own header and its own reply box. */
+    .chat:has(.thread-panel) > .chat-head,
+    .chat:has(.thread-panel) > .composer { display:none; }
+    .thread-panel { flex:1 1 100%; border-left:0; padding:0 18px;
+      margin:0 -18px; --thread-from:100%; }
+    /* Back arrow instead of the ×: this is a whole screen, so it reads as "back to the messages". */
+    .thread-back { display:block; }
+    .thread-x { display:none; }
+    /* Same floor as the composer -- the reply box is now the bottom-most control on the screen. */
+    .thread-panel .reply-form { padding-bottom:calc(10px + max(env(safe-area-inset-bottom, 0px), 10px)); }
     #js-feed { padding:2px 0 8px; }
-    /* Duration drops below the message box and sits left, so the text gets the full width. */
+    /* Duration keeps its own row so the message box gets the full width — but ABOVE the input,
+       not below it. Underneath, it was the bottom-most element of a shell that is height-locked at
+       100dvh with overflow:hidden, which put it directly behind the Android system navigation bar
+       on the phones that draw edge-to-edge, with nothing to scroll it into view. Residents
+       reported simply not being able to see the setting.
+
+       env(safe-area-inset-bottom) was the only guard and it is not enough on its own: it resolves
+       to 0 in plenty of Android configurations that still paint a navigation bar over the page,
+       and the floor below cannot be sized for a 48dp three-button bar without wasting that space
+       on every other device.
+
+       Moving the row up fixes it structurally instead. The bottom edge is now the textarea and the
+       send button — 38px targets that stay usable even if a bar clips their last few pixels —
+       while the duration picker, a native <select> that cannot be made smaller (it is focusable,
+       so .no-zoom pins it at 16px against iOS focus-zoom), sits safely clear of it. Putting it
+       above the box it describes also reads better: you set how long this message matters, then
+       write it. */
     .composer { margin:0 -18px; padding-left:18px; padding-right:18px;
       grid-template-columns:auto 1fr auto;
-      grid-template-areas:"attach main send"
-                          "duration duration duration"; }
+      grid-template-areas:"duration duration duration"
+                          "attach main send"; }
     .composer-duration { justify-self:start; }
+    /* Belt and braces on top of the reorder: a floor under the inset, so nothing lands flush
+       against a bar even where env() reports nothing. */
+    .composer { padding-bottom:calc(10px + max(env(safe-area-inset-bottom, 0px), 10px)); }
   }
 
   /* --- banners (preview / dev clock) --- */
@@ -489,7 +637,7 @@
      .reaction, .emoji-, .reply and .msg-text families in the Den Hurtige block below. Deliberately
      does NOT reuse the .chat, .msg and .composer families: those encode a one-viewport-tall chat
      shell with its own internal scroller, and a paginated document list wants the normal page
-     scroll.
+     scroll. */
   .board-filters { @apply flex flex-wrap gap-2 mb-4; }
   .board-filters .chip { @apply no-underline; }
   .board-filters .chip.is-active { background: var(--green); color: #fff; border-color: var(--green); }

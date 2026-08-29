@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% block title %}{{ channel.name }} - Den Hurtige - GAHK Intern{% endblock %}
-{% block content_width %}max-w-3xl{% endblock %}
+{% comment %}
+  A bespoke class rather than Tailwind's max-w-3xl, because the cap has to CHANGE when a thread is
+  open: 768px split into a feed and a panel leaves ~380px each, which is narrower than the phone
+  layout. .chat-shell widens to ~70rem while .thread-panel exists (see styles.css). It has to live
+  in the components layer to do that -- a Tailwind utility would out-specify a components rule.
+{% endcomment %}
+{% block content_width %}chat-shell{% endblock %}
 
 {% comment %}
   Den Hurtige is used one-handed on a phone and behaves like an app, so the browser's zoom gestures
@@ -106,12 +112,45 @@
       seconds, at ~60 rooms), and sending everything is what keeps deletions, expiry, reaction
       counts and new replies correct without a second reconciliation path.
     {% endcomment %}
-    <div id="js-feed"
-         hx-get="{% url 'den_hurtige:feed_items' %}?kanal={{ channel.slug }}"
-         hx-trigger="every 5s"
-         hx-ext="morph"
-         hx-swap="morph:innerHTML">
-      {% include "den_hurtige/_posts.html" %}
+    {% comment %}
+      Feed and thread panel side by side. On a phone only one is shown at a time -- the CSS hides
+      #js-feed while a panel exists, rather than covering it with an overlay. That is not a style
+      choice: an overlay needs position:fixed and a z-index, which makes a stacking context, and no
+      ancestor of a `.pop` may create one or the emoji picker and the reader panels get trapped
+      inside it (see the .pop block in styles.css). Swapping display keeps the panel an ordinary
+      in-flow box, so the pickers still work from inside a thread -- and it takes the feed out of
+      the accessibility tree properly, so the panel needs no aria-modal and no focus trap.
+    {% endcomment %}
+    <div class="chat-cols">
+      {% comment %}
+        tabindex="-1" so closing the thread can hand focus back here when the message that opened it
+        has expired out of the list in the meantime. Without it focus() is a no-op and focus falls
+        to <body>, leaving a keyboard user with nothing to arrow away from.
+      {% endcomment %}
+      <div id="js-feed" tabindex="-1"
+           hx-get="{% url 'den_hurtige:feed_items' %}?kanal={{ channel.slug }}"
+           hx-trigger="every 5s"
+           hx-ext="morph"
+           hx-swap="morph:innerHTML">
+        {% include "den_hurtige/_posts.html" %}
+      </div>
+
+      {% comment %}
+        Empty until somebody opens a thread. Outside #js-feed so the 5s morph cannot reach it; the
+        fragment that lands here brings its own poll. `?traad=` pre-opens it, which is how a reply
+        push notification deep-links into a thread on a page that is already loaded.
+      {% endcomment %}
+      {% comment %}
+        NO hx-target here, deliberately. hx-target is an INHERITED attribute in htmx: the panel that
+        lands inside this container declares its own hx-get/hx-trigger for its 5s self-poll but no
+        target of its own, so it would inherit `this` from here — and inherited `this` resolves to
+        the element that DECLARED it. The panel's poll then swapped morph:outerHTML onto this
+        container and deleted it, after which nothing could find #js-thread to close or reuse.
+        Omitting it leaves each element defaulting to itself, which is what both want.
+      {% endcomment %}
+      <div id="js-thread"
+           {% if open_thread_pk %}hx-get="{% url 'den_hurtige:thread' open_thread_pk %}"
+           hx-trigger="load" hx-swap="innerHTML"{% endif %}></div>
     </div>
 
     {% comment %}

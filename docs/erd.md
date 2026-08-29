@@ -35,6 +35,18 @@ erDiagram
         date simulated_date
     }
 
+    core_PushSubscription {
+        int id PK
+        int user_id FK
+        string endpoint
+        string auth
+        string p256dh
+        string user_agent
+        datetime created_at
+        bool wants_den_hurtige
+        bool wants_opslagstavle
+    }
+
     residents_Resident {
         int id PK
         string password
@@ -50,6 +62,10 @@ erDiagram
         string study
         int sponsor_id FK
         string fylgje_raw
+        string profile_picture
+        text bio
+        string facebook_link
+        string instagram_handle
         bool is_active
         bool is_staff
         datetime date_joined
@@ -342,16 +358,6 @@ erDiagram
         datetime created_at
     }
 
-    den_hurtige_PushSubscription {
-        int id PK
-        int user_id FK
-        string endpoint
-        string auth
-        string p256dh
-        string user_agent
-        datetime created_at
-    }
-
     den_hurtige_ChannelMute {
         int id PK
         int resident_id FK
@@ -359,6 +365,43 @@ erDiagram
         datetime created_at
     }
 
+    opslagstavle_Notice {
+        int id PK
+        int author_id FK
+        string category
+        text body
+        datetime created_at
+        datetime edited_at
+        datetime pinned_at
+        int pinned_by_id FK
+    }
+
+    opslagstavle_NoticeComment {
+        int id PK
+        int notice_id FK
+        int author_id FK
+        text body
+        datetime created_at
+    }
+
+    opslagstavle_NoticeReaction {
+        int id PK
+        int notice_id FK
+        int author_id FK
+        string emoji
+        datetime created_at
+    }
+
+    opslagstavle_NoticeImage {
+        int id PK
+        int notice_id FK
+        string file
+        string alt
+        int uploaded_by_id FK
+        datetime uploaded_at
+    }
+
+    core_PushSubscription }o--|| residents_Resident : "user"
     residents_Resident }o--|o residents_Resident : "sponsor"
     residents_Residency }o--|| residents_Resident : "resident"
     residents_Residency }o--|| core_Room : "room"
@@ -393,8 +436,15 @@ erDiagram
     den_hurtige_QuickComment }o--|| residents_Resident : "author"
     den_hurtige_QuickReaction }o--|| den_hurtige_QuickPost : "post"
     den_hurtige_QuickReaction }o--|| residents_Resident : "author"
-    den_hurtige_PushSubscription }o--|| residents_Resident : "user"
     den_hurtige_ChannelMute }o--|| residents_Resident : "resident"
+    opslagstavle_Notice }o--|| residents_Resident : "author"
+    opslagstavle_Notice }o--|o residents_Resident : "pinned_by"
+    opslagstavle_NoticeComment }o--|| opslagstavle_Notice : "notice"
+    opslagstavle_NoticeComment }o--|| residents_Resident : "author"
+    opslagstavle_NoticeReaction }o--|| opslagstavle_Notice : "notice"
+    opslagstavle_NoticeReaction }o--|| residents_Resident : "author"
+    opslagstavle_NoticeImage }o--|o opslagstavle_Notice : "notice"
+    opslagstavle_NoticeImage }o--|o residents_Resident : "uploaded_by"
 ```
 
 ## admissions
@@ -544,6 +594,22 @@ erDiagram
         int id PK
         date simulated_date
     }
+
+    core_PushSubscription {
+        int id PK
+        int user_id FK
+        string endpoint
+        string auth
+        string p256dh
+        string user_agent
+        datetime created_at
+        bool wants_den_hurtige
+        bool wants_opslagstavle
+    }
+
+    residents_Resident { }
+
+    core_PushSubscription }o--|| residents_Resident : "user"
 ```
 
 ## den_hurtige
@@ -578,16 +644,6 @@ erDiagram
         datetime created_at
     }
 
-    den_hurtige_PushSubscription {
-        int id PK
-        int user_id FK
-        string endpoint
-        string auth
-        string p256dh
-        string user_agent
-        datetime created_at
-    }
-
     den_hurtige_ChannelMute {
         int id PK
         int resident_id FK
@@ -602,7 +658,6 @@ erDiagram
     den_hurtige_QuickComment }o--|| residents_Resident : "author"
     den_hurtige_QuickReaction }o--|| den_hurtige_QuickPost : "post"
     den_hurtige_QuickReaction }o--|| residents_Resident : "author"
-    den_hurtige_PushSubscription }o--|| residents_Resident : "user"
     den_hurtige_ChannelMute }o--|| residents_Resident : "resident"
 ```
 
@@ -703,6 +758,58 @@ erDiagram
     oelkaelder_Adjustment }o--|| oelkaelder_Shopper : "shopper"
 ```
 
+## opslagstavle
+
+```mermaid
+erDiagram
+    opslagstavle_Notice {
+        int id PK
+        int author_id FK
+        string category
+        text body
+        datetime created_at
+        datetime edited_at
+        datetime pinned_at
+        int pinned_by_id FK
+    }
+
+    opslagstavle_NoticeComment {
+        int id PK
+        int notice_id FK
+        int author_id FK
+        text body
+        datetime created_at
+    }
+
+    opslagstavle_NoticeReaction {
+        int id PK
+        int notice_id FK
+        int author_id FK
+        string emoji
+        datetime created_at
+    }
+
+    opslagstavle_NoticeImage {
+        int id PK
+        int notice_id FK
+        string file
+        string alt
+        int uploaded_by_id FK
+        datetime uploaded_at
+    }
+
+    residents_Resident { }
+
+    opslagstavle_Notice }o--|| residents_Resident : "author"
+    opslagstavle_Notice }o--|o residents_Resident : "pinned_by"
+    opslagstavle_NoticeComment }o--|| opslagstavle_Notice : "notice"
+    opslagstavle_NoticeComment }o--|| residents_Resident : "author"
+    opslagstavle_NoticeReaction }o--|| opslagstavle_Notice : "notice"
+    opslagstavle_NoticeReaction }o--|| residents_Resident : "author"
+    opslagstavle_NoticeImage }o--|o opslagstavle_Notice : "notice"
+    opslagstavle_NoticeImage }o--|o residents_Resident : "uploaded_by"
+```
+
 ## residents
 
 ```mermaid
@@ -722,6 +829,10 @@ erDiagram
         string study
         int sponsor_id FK
         string fylgje_raw
+        string profile_picture
+        text bio
+        string facebook_link
+        string instagram_handle
         bool is_active
         bool is_staff
         datetime date_joined

@@ -141,8 +141,22 @@ class QuickPost(models.Model):
 
     @property
     def minutes_left(self) -> int:
-        """Whole minutes until expiry, floored at 0 — shown as 'udløber om N min' in the feed."""
+        """Whole minutes until expiry, floored at 0 — the primitive expires_label is built from."""
         return max(0, int((self.expires_at - timezone.now()).total_seconds() // 60))
+
+    @property
+    def expires_label(self) -> str:
+        """Time left, humanised: "1 døgn", "12 timer", "1 time", "45 min", "udløbet"."""
+        minutes = round((self.expires_at - timezone.now()).total_seconds() / 60)
+        if minutes <= 0:
+            return "udløbet"
+        if minutes < 60:
+            return f"{minutes} min"
+        hours = minutes // 60
+        if hours < 24:
+            return "1 time" if hours == 1 else f"{hours} timer"
+        days = hours // 24
+        return "1 døgn" if days == 1 else f"{days} døgn"
 
 
 class QuickComment(models.Model):

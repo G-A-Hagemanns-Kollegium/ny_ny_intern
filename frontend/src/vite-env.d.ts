@@ -20,6 +20,7 @@ declare module "idiomorph/htmx" {
           node: Element,
           mutationType: "update" | "remove",
         ) => boolean;
+        beforeNodeMorphed: (oldNode: Node, newNode: Node) => boolean;
       };
     };
   };
