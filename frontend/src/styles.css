@@ -637,7 +637,7 @@
      .reaction, .emoji-, .reply and .msg-text families in the Den Hurtige block below. Deliberately
      does NOT reuse the .chat, .msg and .composer families: those encode a one-viewport-tall chat
      shell with its own internal scroller, and a paginated document list wants the normal page
-     scroll.
+     scroll. */
   .board-filters { @apply flex flex-wrap gap-2 mb-4; }
   .board-filters .chip { @apply no-underline; }
   .board-filters .chip.is-active { background: var(--green); color: #fff; border-color: var(--green); }
