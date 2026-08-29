@@ -12,10 +12,12 @@ actually being tested first: whether posting, Markdown, image upload, reactions,
 work at all. Three people can answer that, and finding out with three is cheaper than with a
 hundred.
 
-The gate is deliberately a copy of den_hurtige/access.py's rather than a shared abstraction in
-core/. Both are meant to be deleted once their feature is live, and a temporary thing should be
-cheap to remove; a core/rollout.py both apps imported would outlive the reason it existed. If a
-third feature ever wants one, that is the point to extract it.
+The gate itself now lives in core.rollout — this module keeps only ACCESS_ROLES and the per-object
+policy below. It used to be a deliberate copy of den_hurtige/access.py's, on the grounds that both
+were meant to be deleted and a shared core/rollout.py would outlive the reason it existed; that
+comment set the condition for changing its mind ("if a third feature ever wants one, that is the
+point to extract it"), and begivenheder was the third. The two copies had also already drifted in
+wording, which is the first symptom of the thing the extraction prevents.
 
 Every check below reads *effective* roles, so an administrator using the preview tool to view the
 site as a beboer is locked out too — which is exactly the rollout being simulated. That real/
@@ -23,15 +25,13 @@ effective split is the security boundary in this codebase (see residents.permiss
 """
 
 from collections.abc import Collection
-from functools import wraps
 
-from django.contrib.auth.views import redirect_to_login
-from django.core.exceptions import PermissionDenied
-from django.db.models import Q, QuerySet
-from django.http import HttpRequest, HttpResponse
+from django.db.models import QuerySet
+from django.http import HttpRequest
 
-from residents.models import Role, RoleAssignment, active_period
-from residents.permissions import MODERATION_ROLES, View, effective_roles, request_has_role
+from core.rollout import Gate
+from residents.models import Role
+from residents.permissions import MODERATION_ROLES, View, request_has_role
 
 from .models import Notice, NoticeComment
 
@@ -42,66 +42,33 @@ from .models import Notice, NoticeComment
 # why it is a copy of Den Hurtige's gate rather than a shared one.
 ACCESS_ROLES: tuple[str, ...] | None = (Role.ADMINISTRATOR, Role.INSPEKTION)
 
+# Read through a lambda, never passed by value: this module global is what tests rebind and what a
+# future edit flips to None, and a Gate holding the value would freeze at import. See core.rollout.
+_GATE = Gate(lambda: ACCESS_ROLES)
 
-def is_limited() -> bool:
-    """Whether the gate is still on — drives the "under test" chip on the board.
-
-    A function, not a re-exported constant: `from .access import ACCESS_ROLES` binds the value at
-    import time, and Django imports view modules lazily on the first request, so such a binding
-    would silently freeze to whatever the constant happened to be then. Everything here reads the
-    module global when called instead.
-    """
-    return ACCESS_ROLES is not None
+# The gate's surface, re-exported under the names this app has always used so no caller changed when
+# the mechanism moved to core.
+is_limited = _GATE.is_limited
 
 
 def roles_allowed(roles: Collection[str]) -> bool:
-    """Whether a role set may use the board. Takes roles rather than a request so the sidebar, which
-    only has the effective role set to hand, can ask the same question as the views."""
-    return ACCESS_ROLES is None or not set(roles).isdisjoint(ACCESS_ROLES)
+    """Whether a role set may use the board."""
+    return _GATE.roles_allowed(roles)
 
 
 def request_allowed(request: HttpRequest) -> bool:
-    return request.user.is_authenticated and roles_allowed(effective_roles(request))
+    """Same question for a request."""
+    return _GATE.request_allowed(request)
 
 
 def access_required(view: View) -> View:
-    """@login_required plus the gate. Mirrors residents.permissions.role_required, except the roles
-    are read per request instead of bound at import — so flipping ACCESS_ROLES (or overriding it in
-    a test) takes effect without re-importing the view module.
-
-    Every view gets this, not just the page: a partial that answered 200 to someone the page 403s
-    would hand out the board's contents through the back door.
-    """
-
-    @wraps(view)
-    def wrapped(request: HttpRequest, *args: object, **kwargs: object) -> HttpResponse:
-        if not request.user.is_authenticated:
-            return redirect_to_login(request.get_full_path())
-        if not roles_allowed(effective_roles(request)):
-            raise PermissionDenied
-        return view(request, *args, **kwargs)
-
-    return wrapped
+    """@login_required plus the rollout gate. Every view gets this, not just the page."""
+    return _GATE.required(view)
 
 
 def allowed_subscribers(qs: QuerySet) -> QuerySet:
-    """Narrow a push audience to devices whose owner can actually open the board.
-
-    Without this, gating the page would still notify every resident who had opted in before the gate
-    went on — and tapping that notification lands on a 403. A notification you are not allowed to
-    read is worse than no feature at all, so the audience is narrowed rather than the page alone.
-
-    Filtered in SQL rather than by calling real_roles() per subscription: this runs on every post,
-    and the role set lives in one RoleAssignment row per resident per month. Superusers are matched
-    separately because they hold every role without holding any assignment.
-    """
-    if ACCESS_ROLES is None:
-        return qs
-    year, month = active_period()
-    allowed = RoleAssignment.objects.filter(role__in=ACCESS_ROLES, year=year, month=month).values(
-        "resident_id"
-    )
-    return qs.filter(Q(user_id__in=allowed) | Q(user__is_superuser=True))
+    """Narrow a push audience to devices whose owner can actually open the board."""
+    return _GATE.allowed_subscribers(qs)
 
 
 def can_moderate(request: HttpRequest) -> bool:
