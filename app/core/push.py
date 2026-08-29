@@ -156,17 +156,58 @@ def _run_in_background(fn: Callable[[], object]) -> None:
     transaction.on_commit(lambda: threading.Thread(target=runner, daemon=True).start())
 
 
-def send(subscriptions: QuerySet[PushSubscription], head: str, body: str, url: str) -> None:
-    """Queue a push to an already-chosen audience. The feature decides who; this delivers."""
+def send(
+    subscriptions: QuerySet[PushSubscription],
+    head: str,
+    body: str,
+    url: str,
+    *,
+    background: bool = True,
+) -> None:
+    """Queue a push to an already-chosen audience. The feature decides who; this delivers.
+
+    `background=False` delivers INLINE, and a management command must pass it.
+
+    The default path hands the fan-out to a daemon thread (see _run_in_background), which is right
+    in a request and silently wrong in a command: `handle()` returns, the interpreter shuts down,
+    and Python kills daemon threads where they stand. A dorm-wide fan-out is one HTTPS round-trip
+    per device, so a scheduled job would deliver to however many devices it happened to reach before
+    exiting — a different number every night, with no error anywhere to say so.
+
+    The cost of inline is the one the threading exists to avoid: the caller blocks for ~0.3-1 s per
+    device. That is unacceptable in a request under gunicorn's 60 s timeout and completely fine in a
+    cron job, which has nothing else to do.
+
+    core/management/commands/send_test_push.py predates this argument and reaches for the private
+    `_send` to sidestep the thread. This parameter is the same fix made available properly; that
+    command can move onto it whenever someone is next in there.
+    """
     if not is_configured():
         return
     payload = _payload(head, body, url)
-    _run_in_background(lambda: _dispatch(subscriptions, payload))
+    if background:
+        _run_in_background(lambda: _dispatch(subscriptions, payload))
+    else:
+        _dispatch(subscriptions, payload)
 
 
-def notify(topic: str, head: str, body: str, url: str, exclude_user_id: int | None = None) -> None:
+def notify(
+    topic: str,
+    head: str,
+    body: str,
+    url: str,
+    exclude_user_id: int | None = None,
+    *,
+    background: bool = True,
+) -> None:
     """Queue a push to everyone opted in to `topic`. The common case, on top of `send`."""
-    send(subscribers(topic, exclude_user_id=exclude_user_id), head, body, url)
+    send(
+        subscribers(topic, exclude_user_id=exclude_user_id),
+        head,
+        body,
+        url,
+        background=background,
+    )
 
 
 def handle_subscription_request(request: HttpRequest, topic: str) -> HttpResponse:
