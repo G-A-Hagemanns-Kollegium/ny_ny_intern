@@ -23,9 +23,18 @@ from django.utils import timezone
 
 from core.files import delete_attached_files
 
-# How long a post stays visible. The default matches the Messenger group's informal "relevant the
-# next 30-60 min" convention; the compose form lets the author pick from DURATION_CHOICES.
-DEFAULT_DURATION_MINUTES = 1440
+# How long a post stays visible unless the author picks otherwise. Two døgn, raised from one after
+# the feature had been live a while: a day sounds generous and is not, because the thing people
+# actually want to find again is a message from *yesterday* -- a plan for tonight, a borrowed drill,
+# a package in the porten. At 1440 those expired at exactly the moment they became relevant.
+#
+# It is still short enough to keep the promise the whole feature rests on: nothing here is a record,
+# and anything worth keeping belongs on opslagstavlen or in ankebogen.
+#
+# Whatever this is set to MUST appear in DURATION_CHOICES -- it is what the composer's <select>
+# preselects, and checks.E009 refuses to start if a channel defaults to a value the picker cannot
+# offer.
+DEFAULT_DURATION_MINUTES = 2880
 DURATION_CHOICES = [
     (30, "30 min"),
     (60, "1 time"),
@@ -33,6 +42,7 @@ DURATION_CHOICES = [
     (240, "4 timer"),
     (720, "12 timer"),
     (1440, "1 døgn"),
+    (2880, "2 døgn"),
 ]
 
 # The channel a post lands in when nothing says otherwise. A bare string, not an import from
@@ -155,7 +165,16 @@ class QuickPost(models.Model):
         hours = minutes // 60
         if hours < 24:
             return "1 time" if hours == 1 else f"{hours} timer"
-        days = hours // 24
+        # ROUNDED to days, where the hours above are floored, and the difference is deliberate: the
+        # coarser the unit, the more a floor hides. Flooring minutes into hours is wrong by at most
+        # 59 minutes, which nobody acts on. Flooring hours into days is wrong by up to 23h59, and it
+        # showed: 2878 minutes is 1.998 days, so a message posted with the 2-døgn default read
+        # "1 døgn" two minutes later and stayed wrong for a day. Computed from `minutes` rather than
+        # from the floored `hours` so the two roundings cannot compound.
+        #
+        # The cost is overstating by up to half a day in the middle of a bucket -- 36 hours reads
+        # "2 døgn". That is the nearer of the two answers, which is the most a single word can do.
+        days = round(minutes / (24 * 60))
         return "1 døgn" if days == 1 else f"{days} døgn"
 
 

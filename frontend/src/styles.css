@@ -253,8 +253,14 @@
 
   /* The one scrolling element on the page. overscroll-behavior stops a flick at either end from
      chaining out and bouncing the whole app, which on iOS looks like the page has come loose. */
+  /* NO -webkit-overflow-scrolling:touch here. It used to be, and it broke both .pop overlays on
+     iOS: the property creates a stacking context AND re-anchors position:fixed descendants to the
+     scroller instead of the viewport, so the emoji picker and the who-reacted panel were trapped
+     in this element's layer and the composer painted over them. It has been a no-op since iOS 13
+     (momentum scrolling is the default for overflow:auto) and is gone from the spec, so it bought
+     nothing. See the .pop block below. */
   #js-feed { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain;
-    -webkit-overflow-scrolling:touch; padding:6px 0 14px; }
+    padding:6px 0 14px; }
   .feed-empty { text-align:center; color:var(--muted); padding:40px 20px; }
 
   .msg { display:grid; grid-template-columns:34px 1fr; gap:10px; padding:6px 10px; border-radius:var(--radius);
@@ -291,8 +297,16 @@
      wrapping strip of pills. (It carried a duplicated copy of itself for a while; both are gone.) */
   .msg-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:5px; }
   .reactions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  /* The three selection properties are what make HOLDING a pill work on a phone. Without them iOS
+     treats a touch-and-hold as the start of a text selection and opens its copy/define callout,
+     which pre-empts the 450ms timer in frontend/src/feed.ts entirely -- the who-reacted panel
+     simply never opened, and the screen went blue instead. Reported from an installed PWA.
+     There is nothing selectable in here anyway: a pill is a <button> holding an emoji and a count.
+     Note this must NOT be solved with preventDefault() on pointerdown, which suppresses the
+     synthetic click in some browsers and would stop a tap toggling the reaction. */
   .reaction { display:inline-flex; align-items:center; gap:5px; font-size:13px; line-height:1;
     padding:4px 9px; border-radius:999px; cursor:pointer;
+    -webkit-touch-callout:none; -webkit-user-select:none; user-select:none;
     background:var(--surface); border:1px solid var(--border-strong); color:var(--ink); }
   .reaction:hover { border-color:var(--faint); }
   .reaction.is-mine { background:var(--green-050); border-color:var(--green); color:var(--green-700); font-weight:650; }
@@ -306,7 +320,14 @@
      it too. Fixed positioning escapes both, because no ancestor here has a transform (that would
      make one a containing block and quietly re-anchor the panel).
      The matching requirement is that NO ancestor of a .pop may create a stacking context — no
-     z-index on a positioned box, no transform, filter, will-change or contain. This widget is
+     z-index on a positioned box, no transform, filter, will-change or contain, and no
+     -webkit-overflow-scrolling:touch. That last one is the nasty member of the list: nothing in
+     its name suggests it affects PAINTING, it is silently ignored by every engine except WebKit,
+     and it therefore cannot be caught in Chrome at any viewport size. It sat on #js-feed and put
+     both of these overlays underneath the composer on iOS — reported from an installed PWA, after
+     a Chrome pass that walked this very ancestor chain looking for stacking contexts and found
+     none. test_templates.test_stylesheet_has_no_webkit_overflow_scrolling now guards it, because
+     no browser test we can run ever will. This widget is
      embedded in two different page layouts, and opslagstavlen's card broke it exactly that way
      (see .notice-foot below): the backdrop and panel are confined to the nearest stacking context,
      so anything outside it stays undimmed and can paint over the panel.
@@ -341,14 +362,14 @@
      no reactions yet — where it is the only thing in the row — looked like an empty slot waiting
      for something else rather than the button that puts something there. Solid fill, real border
      and ink-coloured glyph give it the same weight as a reaction pill, which is what it is. */
-  .reaction-add { color:var(--ink); user-select:none; font-size:14px; padding:4px 10px; }
+  .reaction-add { color:var(--ink); font-size:14px; padding:4px 10px; }
   .reaction-add:hover { background:var(--green-050); border-color:var(--green); }
   /* Only on a message with nothing on it yet: there the row has room to spell out the invitation,
      and it is exactly the case where "what do I tap?" needs answering. Hidden once a single pill
      exists, so a busy message pays nothing for it. See _reactions.html. */
   .reaction-add .add-label { display:none; }
   .reactions.is-empty .reaction-add .add-label { display:inline; }
-  .reaction-who { border-style:dashed; color:var(--muted); user-select:none; }
+  .reaction-who { border-style:dashed; color:var(--muted); }
 
   .emoji-grid { display:grid; grid-template-columns:repeat(6, 1fr); gap:2px; }
   .emoji-choice { font-size:22px; line-height:1; padding:7px 6px; border:0; border-radius:8px;
