@@ -32,14 +32,37 @@ export async function downscaleImage(file: File): Promise<File> {
   return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" });
 }
 
-function hook(form: HTMLFormElement) {
-  form.addEventListener("submit", async (e) => {
-    if (form.dataset.imgReady === "1") return; // second pass — allow normal submit
+// ONE delegated listener on the document, in the CAPTURE phase. Both halves of that matter.
+//
+// Capture, because htmx also listens for `submit` — on the form itself — as soon as a form carries
+// hx-post, which Den Hurtige's reply form now does. Two at-target listeners fire in registration
+// order, and htmx processes the node when it enters the DOM while this module runs at import: htmx
+// would win, and send the full-size phone photo before the downscale ever ran. A capture listener
+// on an ancestor always precedes at-target listeners, whoever registered first.
+//
+// Delegated, because the forms are rebuilt constantly — the feed morphs every five seconds and the
+// thread panel swaps in and out. Per-form hooking needed a re-arm after every swap plus a
+// data-img-hooked marker to stop listeners stacking up, and the marker then had to be protected
+// from the morph. A document-level listener sees forms that did not exist when it was registered,
+// so all of that machinery is gone.
+document.addEventListener(
+  "submit",
+  async (event: SubmitEvent) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    if (form.dataset.imgReady === "1") {
+      // Second pass, after the downscale. Clear the flag rather than leaving it set: a form that
+      // survives its own submit — the thread panel's, which htmx posts and then resets — would
+      // otherwise skip downscaling for every photo after the first.
+      delete form.dataset.imgReady;
+      return;
+    }
     const inputs = Array.from(
       form.querySelectorAll<HTMLInputElement>('input[type="file"][accept^="image"]'),
     );
     if (!inputs.some((i) => i.files && i.files.length)) return; // nothing picked
-    e.preventDefault();
+    event.preventDefault();
+    event.stopPropagation(); // keep htmx from posting this pass
     for (const input of inputs) {
       if (!input.files || !input.files.length) continue;
       const dt = new DataTransfer();
@@ -48,20 +71,14 @@ function hook(form: HTMLFormElement) {
     }
     form.dataset.imgReady = "1";
     form.requestSubmit();
-  });
-}
+  },
+  true,
+);
 
-/** Hook every not-yet-hooked image form under `root`.
+/** Kept as a no-op for callers that used to re-arm forms after a swap.
  *
- * Exported because Den Hurtige rebuilds its reply forms on every 20s poll; without a rescan those
- * new forms would upload full-size phone photos. Idempotent, so calling it again is free. */
-export function hookImageForms(root: ParentNode = document): void {
-  for (const form of Array.from(root.querySelectorAll<HTMLFormElement>("form"))) {
-    if (form.dataset.imgHooked === "1") continue;
-    if (!form.querySelector('input[type="file"][accept^="image"]')) continue;
-    form.dataset.imgHooked = "1";
-    hook(form);
-  }
+ * The delegated listener above needs no rescan, so there is nothing to do — but the export stays
+ * so an out-of-tree caller does not break, and so this note is findable from the call site. */
+export function hookImageForms(_root: ParentNode = document): void {
+  /* nothing to do: submit is handled by the delegated capture listener above */
 }
-
-hookImageForms();

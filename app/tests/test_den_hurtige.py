@@ -137,7 +137,17 @@ def test_manifest_points_at_the_feed_and_ships_every_icon_it_references() -> Non
 
 @pytest.mark.parametrize(
     "path",
-    ["", "opret", "1/kommentar", "1/slet", "1/reaktion", "abonner", "lyd/generelt", "tv-rezz/"],
+    [
+        "",
+        "opret",
+        "1/kommentar",
+        "1/traad",
+        "1/slet",
+        "1/reaktion",
+        "abonner",
+        "lyd/generelt",
+        "tv-rezz/",
+    ],
 )
 def test_every_endpoint_is_closed_to_non_administrators(
     client: Client, make_resident: Callable[..., Resident], rollout_limited: None, path: str
@@ -147,8 +157,8 @@ def test_every_endpoint_is_closed_to_non_administrators(
     client.force_login(make_resident(email="beboer@gahk.dk"))
 
     url = FEED_URL + path
-    # The two page routes are GETs (the bare feed and a named channel); the rest are POSTs.
-    response = client.get(url) if path in ("", "tv-rezz/") else client.post(url)
+    # The page routes are GETs (the bare feed, a named channel, a thread); the rest are POSTs.
+    response = client.get(url) if path in ("", "tv-rezz/", "1/traad") else client.post(url)
 
     assert response.status_code == 403
 
@@ -257,6 +267,62 @@ def test_purge_expired_reports_post_count_not_cascaded_rows(
     QuickComment.objects.create(post=post, author=user, content="en kommentar")
 
     assert QuickPost.objects.purge_expired() == 1  # not 2 (the comment cascades with it)
+
+
+@pytest.mark.parametrize(
+    ("minutes", "expected"),
+    [
+        (1440, "1 døgn"),  # the default duration, and the string that started all this
+        (1441, "1 døgn"),
+        (2880, "2 døgn"),
+        (1439, "23 timer"),  # genuinely 23h59m left, and says so
+        (1435, "23 timer"),
+        (720, "12 timer"),
+        (120, "2 timer"),
+        (119, "1 time"),
+        (60, "1 time"),
+        (59, "59 min"),
+        (45, "45 min"),
+        (1, "1 min"),
+        (0, "udløbet"),
+        (-30, "udløbet"),
+    ],
+)
+def test_the_expiry_label_reads_as_a_duration_not_a_pile_of_minutes(minutes: int, expected: str) -> None:
+    """The feed used to render "udløber om 1439 min" on every message posted with the default
+    duration.
+
+    Rounded to the nearest minute rather than floored: expires_at - now for a post created a moment
+    ago is 1439.99 minutes, and flooring the way minutes_left does would label a brand new 1-døgn
+    message "23 timer" — a whole bucket down, in front of the person who just posted it. That case
+    is pinned by test_the_feed_shows_the_short_expiry_label, which goes through a real post; here
+    1439 means genuinely 23h59m left, which "23 timer" states correctly.
+
+    A pure unit test: this is arithmetic on a timedelta, so it needs no database. The boundaries
+    are the point — 59/60 and 119/120 are where an off-by-one would live.
+    """
+    post = QuickPost(expires_at=timezone.now() + timedelta(minutes=minutes))
+
+    assert post.expires_label == expected
+
+
+def test_the_feed_shows_the_short_expiry_label(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """And shows it as a glyph plus a duration, with the sentence kept in the title. The words
+    "udløber om" were most of the header at 11.5px, and the pair of them with a long name is what
+    wrapped the delete cross onto its own row."""
+    author = make_resident(email="a@gahk.dk")
+    QuickPost.objects.create(author=author, content="Kaffe")
+    client.force_login(author)
+
+    body = client.get(FEED_URL).content.decode()
+
+    assert "1 døgn" in body
+    assert "min</span>" not in body  # no bare minute count in the header any more
+    assert 'title="Udløber om 1 døgn"' in body  # the full sentence survives for anyone who hovers
+    assert 'class="msg-meta msg-time"' in body  # time and expiry are separate spans now,
+    assert 'class="msg-meta msg-expiry"' in body  # so each can be sized independently
 
 
 def test_create_post_honours_the_chosen_duration(
@@ -404,11 +470,17 @@ def test_den_hurtige_pages_leak_no_template_syntax(
     QuickComment.objects.create(post=post, author=author, content="Jeg kommer")
     client.force_login(author)
 
-    for path in (FEED_URL, FEED_URL + "opslag"):
+    for path in (FEED_URL, FEED_URL + "opslag", f"{FEED_URL}{post.pk}/traad"):
         body = client.get(path).content.decode()
         assert "Kaffe i køkkenet" in body, f"{path} rendered no posts — the check would be vacuous"
         for leaked in ("{#", "#}", "{%", "%}", "{{", "}}"):
             assert leaked not in body, f"{path} leaked {leaked!r}"
+
+    # And the panel fragment, which is a different template from the page above.
+    fragment = client.get(f"{FEED_URL}{post.pk}/traad", HTTP_HX_REQUEST="true").content.decode()
+    assert "Jeg kommer" in fragment, "the thread fragment rendered no replies"
+    for leaked in ("{#", "#}", "{%", "%}", "{{", "}}"):
+        assert leaked not in fragment, f"the thread fragment leaked {leaked!r}"
 
 
 def test_the_poll_resolves_roles_once_per_request(
@@ -1010,12 +1082,15 @@ def test_a_bad_reply_image_is_dropped_but_the_reply_survives(
 
 def test_the_reply_form_accepts_files(client: Client, make_resident: Callable[..., Resident]) -> None:
     """Without the multipart encoding the browser posts the filename as text and the image is
-    silently lost — the kind of thing no server-side test would otherwise notice."""
+    silently lost — the kind of thing no server-side test would otherwise notice.
+
+    Reads the THREAD now, not the feed: replies moved into the side panel, so the feed carries a
+    "N svar" link and no reply form at all."""
     user = make_resident(email="a@gahk.dk")
-    QuickPost.objects.create(author=user, content="Kaffe")
+    post = QuickPost.objects.create(author=user, content="Kaffe")
     client.force_login(user)
 
-    html = client.get(FEED_URL).content.decode()
+    html = client.get(f"{FEED_URL}{post.pk}/traad").content.decode()
 
     form = html.split('class="reply-form"')[1].split("</form>")[0]
     assert 'enctype="multipart/form-data"' in html.split('class="reply-form"')[0][-120:] or (
@@ -1186,13 +1261,17 @@ def test_the_composer_offers_the_channels_own_default_duration(
 def test_replying_and_deleting_return_to_the_posts_own_channel(
     client: Client, make_resident: Callable[..., Resident]
 ) -> None:
-    """Actions on a post take the channel from the post, never from the request."""
+    """Actions on a post take the channel from the post, never from the request.
+
+    A reply now lands back on the THREAD rather than the channel: without JS it was written on the
+    standalone thread page, and returning to the bottom of the feed loses the conversation you were
+    having. Deleting still returns to the channel — the post it belonged to is gone."""
     author = make_resident(email="a@gahk.dk")
     post = QuickPost.objects.create(author=author, content="Vi tager i byen", channel=OTHER)
     client.force_login(author)
 
     reply = client.post(f"{FEED_URL}{post.pk}/kommentar", {"content": "Jeg er med"})
-    assert reply["Location"] == f"{FEED_URL}{OTHER}/"
+    assert reply["Location"] == f"{FEED_URL}{post.pk}/traad"
 
     assert client.post(f"{FEED_URL}{post.pk}/slet")["Location"] == f"{FEED_URL}{OTHER}/"
 
@@ -1265,7 +1344,11 @@ def test_the_channel_picker_counts_live_posts_per_channel(
 
 
 def test_the_channel_picker_costs_one_query(client: Client, make_resident: Callable[..., Resident]) -> None:
-    """One aggregate for every channel, not one count per entry — this page polls itself."""
+    """One aggregate for every channel, not one count per entry — this page polls itself.
+
+    The reply-count annotate on the posts query is also a COUNT, and is excluded here by the table
+    it necessarily joins: this test is about the PICKER's counts, and
+    test_the_reply_count_costs_no_extra_query_per_message covers the other one."""
     author = make_resident(email="a@gahk.dk")
     for slug in ("generelt", OTHER):
         QuickPost.objects.create(author=author, content=f"Besked i {slug}", channel=slug)
@@ -1275,7 +1358,11 @@ def test_the_channel_picker_costs_one_query(client: Client, make_resident: Calla
     with CaptureQueriesContext(connection) as captured:
         client.get(FEED_URL)
 
-    counting = [q for q in captured.captured_queries if "COUNT" in q["sql"].upper()]
+    counting = [
+        q
+        for q in captured.captured_queries
+        if "COUNT" in q["sql"].upper() and "den_hurtige_quickcomment" not in q["sql"]
+    ]
     assert len(counting) == 1, counting
 
 
@@ -1610,8 +1697,12 @@ def test_the_reader_panel_lists_one_row_per_person(
     client: Client, make_resident: Callable[..., Resident]
 ) -> None:
     """Comma-joining a whole group onto one line stopped being readable as soon as a post got
-    popular. A row each, with the emoji repeated beside every name, so the list scrolls and you can
-    still tell which emoji you are looking at halfway down it."""
+    popular. A row each, so the list scrolls and can be scanned.
+
+    There is now one panel PER EMOJI rather than one listing everybody, so the emoji no longer has
+    to repeat beside every name — it is in the panel's own title. What still has to hold is that a
+    person gets a row, that the rows land in the panel belonging to the emoji they used, and that
+    the panels come in the same order as the pills above them."""
     author = make_resident(email="a@gahk.dk", first_name="Anton", last_name="Storgaard")
     mette = make_resident(email="b@gahk.dk", first_name="Mette", last_name="Hansen")
     anders = make_resident(email="c@gahk.dk", first_name="Anders", last_name="Bo")
@@ -1622,12 +1713,328 @@ def test_the_reader_panel_lists_one_row_per_person(
     client.force_login(author)
 
     body = client.get(FEED_URL).content.decode()
-    panel = body[body.index("who-list") : body.index("</ul>")]
 
     assert body.count('class="who-row"') == 3  # one per reaction, not one per emoji
-    assert panel.count(THUMB) == 2  # the emoji repeats beside each of its two names
-    # The pills' order carries into the panel: THUMB has two reactions, so its rows come first.
-    assert panel.index("Mette Hansen") < panel.index("Anders Bo")
+    assert body.count('class="pop who-picker"') == 2  # one panel per emoji, not one for the post
+
+    # Slice on the panel ids, not the bare keys -- the pills reference the same keys in data-who.
+    thumb_panel = body[body.index(f'id="who-{post.pk}-1"') : body.index(f'id="who-{post.pk}-2"')]
+    assert "Anton Storgaard" in thumb_panel
+    assert "Mette Hansen" in thumb_panel
+    assert "Anders Bo" not in thumb_panel  # he used the other emoji
+
+    # The pills' order carries into the panels: THUMB has two reactions, so its panel comes first.
+    assert body.index("Mette Hansen") < body.index("Anders Bo")
+
+
+def test_holding_a_reaction_pill_is_what_opens_the_reader_panel(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """The 👥 pill that used to sit after the reactions is gone, so the pills themselves have to
+    carry the way in.
+
+    Each pill points at its own panel by id, which is what frontend/src/feed.ts binds the hold,
+    hover, right-click and Shift+Enter gestures to."""
+    author = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=author, content="Kaffe?")
+    QuickReaction.objects.create(post=post, author=author, emoji=THUMB)
+    client.force_login(author)
+
+    body = client.get(FEED_URL).content.decode()
+
+    assert f'data-who="who-{post.pk}-1"' in body
+    assert f'id="who-{post.pk}-1"' in body
+    assert 'aria-haspopup="dialog"' in body
+    # No title attribute: a browser only shows one on hover, and hovering already shows the names,
+    # so it drew a native tooltip explaining the gesture on top of the tooltip that had just
+    # answered the question. See the comment on the pill in _reactions.html.
+    assert "title=" not in body.split('class="reaction')[1].split(">")[0]
+    # Tapping a pill must still be the toggle, never the panel.
+    assert "den_hurtige:toggle_reaction" not in body  # url tag rendered, not left literal
+    assert f'hx-post="{FEED_URL}{post.pk}/reaktion"' in body
+
+
+def test_the_add_reaction_button_spells_itself_out_on_an_untouched_message(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """On a message with no reactions the picker is the only thing in the row, and a bare glyph read
+    as an empty slot rather than the control that fills it. The label is CSS-gated on .is-empty so a
+    busy message pays nothing for it."""
+    author = make_resident(email="a@gahk.dk")
+    QuickPost.objects.create(author=author, content="Kaffe?")
+    client.force_login(author)
+
+    body = client.get(FEED_URL).content.decode()
+
+    assert 'class="reactions is-empty"' in body
+    assert "add-label" in body
+
+
+# --- thread panel --------------------------------------------------------------------------------
+
+
+def test_the_feed_no_longer_loads_replies(client: Client, make_resident: Callable[..., Resident]) -> None:
+    """The feed prefetched comments__author for every post on every poll — loading every reply of
+    every message, five seconds apart, in order to render the number "3".
+
+    This is the guard that stops it creeping back: it asserts the poll touches the comment table
+    ZERO times, and that no reply text reaches the feed at all."""
+    author = make_resident(email="a@gahk.dk")
+    for n in range(3):
+        post = QuickPost.objects.create(author=author, content=f"Besked {n}")
+        QuickComment.objects.create(post=post, author=author, content=f"Hemmeligt svar {n}")
+    client.force_login(author)
+    client.get(FEED_URL + "opslag")  # warm
+
+    with CaptureQueriesContext(connection) as captured:
+        body = client.get(FEED_URL + "opslag").content.decode()
+
+    # FROM, not a bare table-name match: the reply-count annotate LEFT JOINs the comment table into
+    # the posts query, which is the whole point. What must not exist is a query that SELECTS the
+    # replies themselves.
+    loaded = [q for q in captured.captured_queries if 'FROM "den_hurtige_quickcomment"' in q["sql"]]
+    assert loaded == [], "the feed is loading replies again"
+    assert "Hemmeligt svar 0" not in body
+    assert "1 svar" in body  # the count, not the replies
+
+
+def test_the_reply_count_costs_no_extra_query_per_message(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """The count is an annotate on the posts query, so N messages stay one query. A per-post
+    `post.comments.count()` in the template would be the N+1 this replaced."""
+    author = make_resident(email="a@gahk.dk")
+    for n in range(4):
+        post = QuickPost.objects.create(author=author, content=f"Besked {n}")
+        QuickComment.objects.create(post=post, author=author, content="Svar")
+    client.force_login(author)
+    client.get(FEED_URL + "opslag")  # warm
+
+    with CaptureQueriesContext(connection) as captured:
+        client.get(FEED_URL + "opslag")
+
+    counted = [
+        q
+        for q in captured.captured_queries
+        if "den_hurtige_quickpost" in q["sql"] and "COUNT" in q["sql"].upper()
+    ]
+    assert len(counted) == 1, counted
+
+
+def test_the_feed_shows_a_reply_count_and_no_reply_form(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """Replies live in the panel now. The feed carries a link and nothing else — the reply form
+    used to be rendered inline on every single message, open or not."""
+    author = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=author, content="Boremaskine?")
+    for text in ("Ja", "Kom forbi"):
+        QuickComment.objects.create(post=post, author=author, content=text)
+    client.force_login(author)
+
+    body = client.get(FEED_URL).content.decode()
+
+    assert "2 svar" in body
+    assert f'href="{FEED_URL}{post.pk}/traad"' in body
+    assert "reply-form" not in body
+    assert "Kom forbi" not in body
+
+
+def test_the_thread_panel_lives_outside_the_polled_region(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """#js-thread is a sibling of #js-feed, never inside it.
+
+    Inside, the 5s morph would rebuild the panel under the reader and destroy it outright when the
+    parent message expired — and #js-feed is overflow-y:auto, so a full-screen phone panel would be
+    clipped by it. This asserts the polled fragment cannot contain the panel."""
+    author = make_resident(email="a@gahk.dk")
+    QuickPost.objects.create(author=author, content="Kaffe")
+    client.force_login(author)
+
+    polled = client.get(FEED_URL + "opslag").content.decode()
+    page = client.get(FEED_URL).content.decode()
+
+    # The CONTAINER, not the string: every "N svar" link in the feed legitimately carries
+    # hx-target="#js-thread", which is how it reaches a container outside its own swap.
+    assert 'id="js-thread"' not in polled, "the panel is inside the region that gets morphed"
+    assert 'id="js-thread"' in page
+    assert page.index('id="js-feed"') < page.index('id="js-thread"')
+
+
+def test_the_thread_panel_polls_itself(client: Client, make_resident: Callable[..., Resident]) -> None:
+    """Being outside #js-feed means it gets no refresh from the feed's poll, so the fragment brings
+    its own — on its ROOT, morphed by outerHTML, so the trigger survives its own swap."""
+    author = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=author, content="Kaffe")
+    client.force_login(author)
+
+    fragment = client.get(f"{FEED_URL}{post.pk}/traad", HTTP_HX_REQUEST="true").content.decode()
+
+    assert f'hx-get="{FEED_URL}{post.pk}/traad"' in fragment
+    assert 'hx-trigger="every 5s"' in fragment
+    assert 'hx-swap="morph:outerHTML"' in fragment
+
+
+def test_the_reply_composer_is_shielded_from_the_morph(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """idiomorph's ignoreActiveValue only spares the field being typed INTO. Type half a reply, tap
+    a reaction, and the panel's own poll would overwrite it with the server's empty value.
+    data-morph-skip is what feed.ts keys off to leave the whole form alone."""
+    author = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=author, content="Kaffe")
+    client.force_login(author)
+
+    fragment = client.get(f"{FEED_URL}{post.pk}/traad", HTTP_HX_REQUEST="true").content.decode()
+
+    form = fragment.split('class="reply-form"')[1].split(">")[0]
+    assert "data-morph-skip" in form
+
+
+def test_a_reply_through_htmx_returns_only_the_reply_list(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """The list, not the whole panel — the form carries data-morph-skip, so a response that
+    replaced the panel would skip the form and leave the sent text sitting in the box."""
+    author = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=author, content="Boremaskine?")
+    client.force_login(author)
+
+    response = client.post(
+        f"{FEED_URL}{post.pk}/kommentar", {"content": "Ja, kom forbi"}, HTTP_HX_REQUEST="true"
+    )
+
+    assert response.status_code == 200
+    body = response.content.decode()
+    assert "Ja, kom forbi" in body
+    assert "reply-form" not in body, "the form is inside the swap target, so it can never reset"
+
+
+def test_a_reply_error_reaches_the_panel_instead_of_the_session(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """Without JS these surfaced on the redirect. A reply posted through htmx never reloads the
+    page, so an empty-comment warning would sit unread in the session until something else
+    navigated."""
+    author = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=author, content="Boremaskine?")
+    client.force_login(author)
+
+    response = client.post(f"{FEED_URL}{post.pk}/kommentar", {"content": "  "}, HTTP_HX_REQUEST="true")
+
+    assert response.status_code == 200
+    assert "Skriv en kommentar" in response.content.decode()
+
+
+def test_an_expired_post_gives_a_notice_to_the_panel_and_404_to_the_page(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """Expiring while somebody has the thread open is the interesting case: the fragment must stop
+    polling, or it asks for a deleted message every five seconds forever. The page 404s, because a
+    deep link to a message that no longer exists leads nowhere."""
+    author = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(
+        author=author, content="Kaffe", expires_at=timezone.now() - timedelta(minutes=1)
+    )
+    client.force_login(author)
+
+    fragment = client.get(f"{FEED_URL}{post.pk}/traad", HTTP_HX_REQUEST="true")
+    assert fragment.status_code == 200
+    body = fragment.content.decode()
+    assert "udløbet" in body
+    assert "hx-trigger" not in body, "the dead panel would keep polling for a deleted message"
+
+    assert client.get(f"{FEED_URL}{post.pk}/traad").status_code == 404
+
+
+def test_a_thread_in_a_restricted_channel_is_404(
+    client: Client, make_resident: Callable[..., Resident], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The per-post endpoints resolve a post by pk alone, which says nothing about whether the
+    caller may read the CHANNEL it lives in. That mattered less while they were all writes; a
+    thread is a READ, so guessing a pk would otherwise hand over a restricted channel's
+    contents."""
+    secret = Channel("internt", "Internt", "flash", "", 60, roles=(Role.INSPEKTION,))
+    monkeypatch.setattr(channels, "CHANNELS", (*channels.CHANNELS, secret))
+    monkeypatch.setattr(channels, "BY_SLUG", {c.slug: c for c in channels.CHANNELS})
+    author = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=author, content="Fortroligt", channel="internt")
+    client.force_login(make_resident(email="b@gahk.dk"))
+
+    assert client.get(f"{FEED_URL}{post.pk}/traad").status_code == 404
+    # The writes go through the same helper, so they answer the same way.
+    assert client.post(f"{FEED_URL}{post.pk}/kommentar", {"content": "hej"}).status_code == 404
+    assert client.post(f"{FEED_URL}{post.pk}/reaktion", {"emoji": THUMB}).status_code == 404
+
+
+def test_the_thread_page_stands_alone_without_htmx(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """The "N svar" anchor has a real href, so the thread works with no JavaScript at all — that is
+    what keeps the no-JS path the old <details> had."""
+    author = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=author, content="Boremaskine?")
+    QuickComment.objects.create(post=post, author=author, content="Ja, kom forbi")
+    client.force_login(author)
+
+    body = client.get(f"{FEED_URL}{post.pk}/traad").content.decode()
+
+    assert "<html" in body  # a whole page, not a fragment
+    assert "Boremaskine?" in body
+    assert "Ja, kom forbi" in body
+    assert "reply-form" in body
+
+
+def test_reactions_still_work_from_inside_a_thread(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """The panel is deliberately an in-flow box with no z-index and no resting transform, because a
+    stacking context would trap every `.pop` inside it. The pickers being present here is the half
+    of that contract a server test can hold."""
+    author = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=author, content="Kaffe")
+    QuickReaction.objects.create(post=post, author=author, emoji=THUMB)
+    client.force_login(author)
+
+    fragment = client.get(f"{FEED_URL}{post.pk}/traad", HTTP_HX_REQUEST="true").content.decode()
+
+    assert f'hx-post="{FEED_URL}{post.pk}/reaktion"' in fragment
+    assert "pop-backdrop" in fragment
+    assert "emoji-picker" in fragment
+
+
+def test_a_reply_notification_deep_links_to_the_thread(
+    client: Client, make_resident: Callable[..., Resident], pushes: list
+) -> None:
+    """Tapping "Anders svarede" used to land at the bottom of the channel, leaving you to find the
+    message it was about — which, in a feed where everything expires, may already be gone."""
+    author = make_resident(email="a@gahk.dk")
+    commenter = make_resident(email="b@gahk.dk")
+    subscribe(author, "https://push.example/author")
+    post = QuickPost.objects.create(author=author, content="Boremaskine?")
+
+    client.force_login(commenter)
+    client.post(f"{FEED_URL}{post.pk}/kommentar", {"content": "Ja"})
+
+    (_recipients, payload) = pushes[0]
+    assert payload["url"] == f"{FEED_URL}?traad={post.pk}"
+
+
+def test_the_channel_page_pre_opens_a_requested_thread(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """What makes that deep link work: ?traad= wires the empty panel container to fetch on load."""
+    author = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=author, content="Kaffe")
+    client.force_login(author)
+
+    body = client.get(f"{FEED_URL}?traad={post.pk}").content.decode()
+
+    assert f'hx-get="{FEED_URL}{post.pk}/traad"' in body
+    assert 'hx-trigger="load"' in body
+    # Junk must not blow the page up — the panel's own request does the validating.
+    assert client.get(f"{FEED_URL}?traad=nonsense").status_code == 200
 
 
 def test_the_feed_morphs_its_poll_instead_of_replacing_the_list(

@@ -1,0 +1,89 @@
+{% comment %}
+  ONE message: avatar, header, text, image, and (unless `bare`) its reaction row.
+
+  Extracted from _posts.html so the thread panel can render the parent message it is a thread OF
+  without a second copy of this markup. Two copies would have drifted the first time either the
+  header or the expiry label changed — which is exactly what happened to the reaction row in
+  opslagstavlen, and why that one still has a 👥 pill this one no longer has.
+
+  Callers set:
+    post     the QuickPost, carrying .reaction_rows (see views.posts_for / views.thread)
+    bare     truthy for the message a thread hangs off: skips grouping (a parent is never a
+             continuation of anything), the delete button, and the "N svar" link — you are already
+             in the thread, and deleting from here would orphan the panel you are standing in.
+
+  The REACTION row survives `bare` on purpose. Reacting to the message from inside its own thread is
+  the obvious thing to want, and on a phone the feed behind the panel is display:none, so this is
+  the only place to do it. That the pickers work in there is precisely why .thread-panel must not
+  be position:fixed or z-indexed — see the .pop rules in frontend/src/styles.css.
+{% endcomment %}
+<article class="msg{% if post.grouped and not bare %} msg-grouped{% endif %}{% if post.author_id == user.id %} msg-own{% endif %}{% if bare %} msg-parent{% endif %}"
+         id="{% if bare %}thread-parent-{{ post.pk }}{% else %}msg-{{ post.pk }}{% endif %}">
+  <div class="msg-avatar" aria-hidden="true">
+    {% if bare or not post.grouped %}
+      {% if post.author.profile_picture %}
+        <img src="{{ post.author.profile_picture.url }}" alt="" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:50%;display:block">
+      {% else %}
+        {{ post.author.first_name|slice:":1" }}{{ post.author.last_name|slice:":1" }}
+      {% endif %}
+    {% endif %}
+  </div>
+  <div class="msg-body">
+    <div class="msg-head">
+      {% if bare or not post.grouped %}<span class="msg-name">{{ post.author.full_name }}</span>{% endif %}
+      {% comment %}
+        Two spans, not one. The expiry used to be glued to the timestamp in a single span, which
+        meant it could not be shrunk, truncated or hidden independently of the clock time — and
+        the pair is exactly what overflows a narrow header. Split, each can carry its own
+        flex:none and the expiry can drop out on the narrowest screens without taking the time
+        with it. The separator is a ::before on .msg-expiry so it disappears along with it.
+
+        The glyph replaces the words "udløber om": at 11.5px the sentence was most of the header
+        on every message, and ⏱ already means exactly this on the composer's duration options
+        two elements away. The full sentence survives in the title for anyone who hovers.
+      {% endcomment %}
+      <span class="msg-meta msg-time">{{ post.created_at|date:"H:i" }}</span>
+      <span class="msg-meta msg-expiry" title="Udløber om {{ post.expires_label }}"
+            aria-label="Udløber om {{ post.expires_label }}"><span aria-hidden="true">⏱</span> {{ post.expires_label }}</span>
+      {% if not bare and post.author_id == user.id or not bare and can_moderate %}
+        <form method="post" action="{% url 'den_hurtige:delete_post' post.pk %}" class="msg-del"
+              onsubmit="return confirm('Slet «{{ post.content|truncatechars:60|escapejs }}» permanent?')">
+          {% csrf_token %}
+          <button type="submit" title="Slet besked" aria-label="Slet besked">&times;</button>
+        </form>
+      {% endif %}
+    </div>
+
+    <div class="msg-text">{{ post.content }}</div>
+    {% if post.image %}
+      <a href="{{ post.image.url }}" target="_blank" rel="noopener" class="msg-image">
+        <img src="{{ post.image.url }}" alt="" loading="lazy">
+      </a>
+    {% endif %}
+
+    {% comment %}
+      Reactions and the reply link share one row. Both are always rendered — the picker and a
+      "Svar" link exist even with nothing on the message — so as two stacked rows they cost about
+      54px of every message before a word of content. Side by side that halves.
+    {% endcomment %}
+    <div class="msg-actions">
+      {% include "den_hurtige/_reactions.html" with reactions=post.reaction_rows %}
+
+      {% if not bare %}
+        {% comment %}
+          An <a href>, not a button: it is a real URL (den_hurtige:thread), so it works with no JS
+          at all — the browser navigates to the standalone thread page — and htmx upgrades it into
+          the side panel when JS is there. That is what keeps the no-JS path the old <details> had.
+
+          hx-target is #js-thread, which lives OUTSIDE #js-feed on purpose. See feed.html.
+        {% endcomment %}
+        <a class="msg-replies" href="{% url 'den_hurtige:thread' post.pk %}"
+           hx-get="{% url 'den_hurtige:thread' post.pk %}"
+           hx-target="#js-thread" hx-swap="innerHTML"
+           aria-label="{% if post.reply_count %}Åbn tråd med {{ post.reply_count }} svar{% else %}Svar på beskeden{% endif %}">
+          {% if post.reply_count %}{{ post.reply_count }} svar{% else %}Svar{% endif %}
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</article>
