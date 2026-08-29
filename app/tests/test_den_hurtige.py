@@ -272,9 +272,15 @@ def test_purge_expired_reports_post_count_not_cascaded_rows(
 @pytest.mark.parametrize(
     ("minutes", "expected"),
     [
-        (1440, "1 døgn"),  # the default duration, and the string that started all this
+        (1440, "1 døgn"),  # was the default, and the string that started all this
         (1441, "1 døgn"),
-        (2880, "2 døgn"),
+        (2880, "2 døgn"),  # the default since the move off 1 døgn
+        # Two minutes after posting with that default. Floored to days this read "1 døgn" -- 2878
+        # minutes is 1.998 days -- so a message announced its own duration wrongly for a whole day.
+        (2878, "2 døgn"),
+        (2160, "2 døgn"),  # 36h: rounds to the nearer of the two buckets
+        (2159, "1 døgn"),  # just under 1.5 døgn, so the other way
+        (4320, "3 døgn"),
         (1439, "23 timer"),  # genuinely 23h59m left, and says so
         (1435, "23 timer"),
         (720, "12 timer"),
@@ -318,9 +324,9 @@ def test_the_feed_shows_the_short_expiry_label(
 
     body = client.get(FEED_URL).content.decode()
 
-    assert "1 døgn" in body
+    assert "2 døgn" in body  # the model default, DEFAULT_DURATION_MINUTES
     assert "min</span>" not in body  # no bare minute count in the header any more
-    assert 'title="Udløber om 1 døgn"' in body  # the full sentence survives for anyone who hovers
+    assert 'title="Udløber om 2 døgn"' in body  # the full sentence survives for anyone who hovers
     assert 'class="msg-meta msg-time"' in body  # time and expiry are separate spans now,
     assert 'class="msg-meta msg-expiry"' in body  # so each can be sized independently
 
@@ -1246,16 +1252,25 @@ def test_a_post_with_an_unknown_channel_lands_in_the_default_one(
 
 
 def test_the_composer_offers_the_channels_own_default_duration(
-    client: Client, make_resident: Callable[..., Resident]
+    client: Client, make_resident: Callable[..., Resident], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A plan for tonight and a lost bike key go stale on different schedules."""
+    """A plan for tonight and a lost bike key go stale on different schedules.
+
+    Patches in a channel with a duration nothing else uses, because every real channel now defaults
+    to the same 2 døgn. Comparing two channels that agree would assert 2880 == 2880 and pass just as
+    happily against a view that ignored the channel and always handed back channels.DEFAULT --
+    which is the regression this test exists to catch."""
+    slow = Channel("langsom", "Langsom", "flash", "", 30)
+    monkeypatch.setattr(channels, "CHANNELS", (*channels.CHANNELS, slow))
+    monkeypatch.setattr(channels, "BY_SLUG", {c.slug: c for c in channels.CHANNELS})
     client.force_login(make_resident(email="a@gahk.dk"))
 
     default_page = client.get(FEED_URL)
-    other_page = client.get(f"{FEED_URL}{OTHER}/")
+    slow_page = client.get(f"{FEED_URL}{slow.slug}/")
 
     assert default_page.context["default_duration"] == channels.DEFAULT.default_duration
-    assert other_page.context["default_duration"] == channels.BY_SLUG[OTHER].default_duration
+    assert slow_page.context["default_duration"] == 30
+    assert default_page.context["default_duration"] != 30  # the two really are distinguishable
 
 
 def test_replying_and_deleting_return_to_the_posts_own_channel(
