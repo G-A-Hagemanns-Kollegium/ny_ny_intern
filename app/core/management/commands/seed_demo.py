@@ -32,8 +32,14 @@ from django.utils import timezone
 from admissions.models import Application
 from ak.models import AkEntry, AkMonthlyCharge
 from ak.services import apply_monthly_charge
-from cms.models import Event, NewsItem, Page, PylonEvent
+
+# CmsEvent, never Event: the internal events app has one of the same name, and both are seeded
+# here. See events.models on the three-way collision.
+from cms.models import Event as CmsEvent
+from cms.models import NewsItem, Page, PylonEvent
 from core.models import Cleaning, Room, Workgroup
+from events.demo import seed as seed_events
+from events.models import CalendarFeedToken, Event, EventInvite, Rsvp
 from oelkaelder.models import (
     Deposit,
     Product,
@@ -91,6 +97,10 @@ ROOM_CRITERIA = [
 
 # Deletion order: children before parents so PROTECT FKs don't block the wipe.
 WIPE_ORDER: list[type[models.Model]] = [
+    Rsvp,
+    EventInvite,
+    CalendarFeedToken,
+    Event,
     NoticeReaction,
     NoticeComment,
     Notice,
@@ -112,7 +122,7 @@ WIPE_ORDER: list[type[models.Model]] = [
     Residency,
     Page,
     NewsItem,
-    Event,
+    CmsEvent,
     PylonEvent,
     DailyVisitCount,
     VisitTally,
@@ -171,6 +181,7 @@ class Command(BaseCommand):
             self._seed_kvotient(residents, rooms)
             self._seed_stats()
             seed_opslagstavle(residents, self.now, self.rng)
+            seed_events(residents, self.now, self.rng)
 
         self._report(residents)
 
@@ -456,7 +467,7 @@ class Command(BaseCommand):
             )
         today = timezone.localdate()
         for _ in range(8):
-            Event.objects.create(
+            CmsEvent.objects.create(
                 title=self.rng.choice(
                     ["Fællesspisning", "Havedag", "Julefrokost", "Rusarrangement", "Generalforsamling"]
                 ),
@@ -536,6 +547,7 @@ class Command(BaseCommand):
             self.style.SUCCESS(
                 f"\nSeeded demo data: {len(residents)} residents, "
                 f"{Residency.objects.count()} residencies, {AkEntry.objects.count()} AK entries, "
+                f"{Event.objects.count()} begivenheder, "
                 f"{Transaction.objects.count()} ølkælder purchases, {Application.objects.count()} applications."
             )
         )

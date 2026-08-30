@@ -6,6 +6,7 @@ from django.conf import settings
 from django.http import HttpRequest
 
 from den_hurtige.access import roles_allowed as den_hurtige_allowed
+from events.access import roles_allowed as events_allowed
 from opslagstavle.access import roles_allowed as opslagstavle_allowed
 from residents.permissions import CMS_EDITOR_ROLES, can_preview, effective_roles
 
@@ -56,6 +57,8 @@ def _nav_intern(roles: Collection[str], user_pk: int) -> list[NavSection]:
     # the rollout needs no change in this file.
     if opslagstavle_allowed(roles):
         oversigt.append(("/intern/opslagstavle/", "Opslagstavle", "board"))
+    if events_allowed(roles):
+        oversigt.append(("/intern/begivenheder/", "Begivenheder", "calendar"))
     oversigt += [
         ("/intern/alumneliste/", "Alumneliste", "list"),
         ("/intern/stamtree/", "Stamtræ", "tree"),

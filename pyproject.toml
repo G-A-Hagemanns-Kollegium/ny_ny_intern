@@ -29,6 +29,10 @@ dev = [
     "bandit>=1.7",
     "pip-audit>=2.7",
     "faker>=30.0", # fake data for the seed_demo dev fixture command
+    # DEV ONLY, and deliberately so: events/icalendar.py hand-rolls RFC 5545 output, and one test
+    # parses it back with an independent implementation. pip-audit runs against the production
+    # lockfile (--no-dev), so a parser used purely as a test oracle costs nothing in that job.
+    "icalendar>=6.0", # independent parser, used only to check our own .ics output
     "mypy>=2.1.0",
     "django-stubs[compatible-mypy]>=6.0.9",
     "prek>=0.4.9",

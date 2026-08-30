@@ -276,6 +276,63 @@ def test_a_payload_without_a_topic_is_treated_as_den_hurtige(
     assert PushSubscription.objects.get().wants_den_hurtige is True
 
 
+# --- inline vs background delivery ----------------------------------------------------------------
+#
+# `send` hands the fan-out to a daemon thread by default, which is right in a request and silently
+# wrong anywhere the interpreter is about to exit. These two tests are what keep the escape hatch
+# honest, because the failure they guard against produces no error at all -- just fewer
+# notifications than there were devices, a different number every run.
+
+
+def test_send_delivers_inline_when_background_is_off(
+    monkeypatch: pytest.MonkeyPatch, make_resident: Callable[..., Resident], settings: object
+) -> None:
+    """A management command must have delivered before `handle()` returns.
+
+    The default path defers to a daemon thread via transaction.on_commit. In a command that thread
+    is killed at interpreter shutdown, mid-fan-out, so a scheduled job would push to however many
+    devices it happened to reach. `background=False` is the fix; this asserts it actually dispatches
+    before returning rather than queueing.
+    """
+    settings.VAPID_PUBLIC_KEY = "test-public-key"  # type: ignore[attr-defined]
+    settings.VAPID_PRIVATE_KEY = "test-private-key"  # type: ignore[attr-defined]
+    settings.VAPID_ADMIN_EMAIL = "drift@gahk.dk"  # type: ignore[attr-defined]
+    subscribe(make_resident(email="a@gahk.dk"), "https://push.example/a")
+    seen: list[str] = []
+    monkeypatch.setattr(push, "_send", lambda sub, body: seen.append(sub.endpoint))
+
+    def fail(fn: object) -> None:
+        raise AssertionError("background=False must not touch the thread path")
+
+    monkeypatch.setattr(push, "_run_in_background", fail)
+
+    push.send(push.subscribers("den_hurtige"), "Titel", "Tekst", "/intern/", background=False)
+
+    assert seen == ["https://push.example/a"]
+
+
+def test_send_defers_to_the_thread_by_default(
+    monkeypatch: pytest.MonkeyPatch, make_resident: Callable[..., Resident], settings: object
+) -> None:
+    """The request path must stay off the request thread -- one HTTPS round-trip per device against
+    gunicorn's 60s timeout is what the thread exists to avoid."""
+    settings.VAPID_PUBLIC_KEY = "test-public-key"  # type: ignore[attr-defined]
+    settings.VAPID_PRIVATE_KEY = "test-private-key"  # type: ignore[attr-defined]
+    settings.VAPID_ADMIN_EMAIL = "drift@gahk.dk"  # type: ignore[attr-defined]
+    subscribe(make_resident(email="a@gahk.dk"), "https://push.example/a")
+    queued: list[object] = []
+
+    def record(fn: object) -> None:
+        queued.append(fn)
+
+    monkeypatch.setattr(push, "_run_in_background", record)
+    monkeypatch.setattr(push, "_send", lambda sub, body: pytest.fail("should not send inline"))
+
+    push.send(push.subscribers("den_hurtige"), "Titel", "Tekst", "/intern/")
+
+    assert len(queued) == 1
+
+
 # --- per-topic consent --------------------------------------------------------------------------
 
 

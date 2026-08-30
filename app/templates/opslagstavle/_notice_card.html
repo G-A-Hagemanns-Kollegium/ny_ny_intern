@@ -24,6 +24,30 @@
           <span class="chip chip-brass" title="Fastgjort af {{ notice.pinned_by.full_name|default:'Inspektionen' }}">📌 Fastgjort</span>
         {% endif %}
         <span class="chip">{{ notice.get_category_display }}</span>
+        {% comment %}
+          The link to the begivenhed this post is about. Announce here, sign up there.
+
+          Three conditions, and each rules out a different way this could show a reader something
+          they should not follow:
+
+            * `events_allowed` — begivenheder has its own rollout gate, and while it is on, a chip
+              linking into it would 403 whoever tapped it. The mirror of the event page's own check
+              before it links back here (views.events_allowed).
+            * `visibility` — checked here as well as in the form's queryset, because an event that
+              was open when somebody linked it can be switched to "kun inviterede" afterwards, and
+              this chip is on a board the whole house reads.
+            * `notice.event` at all — it is deleted a week after it is held while this post lives
+              for two years, so None is an ordinary state, not an error.
+
+          A real link, and in the feed it sits under the card's stretched permalink, so it needs
+          raising above it (see .notice-event in the stylesheet).
+        {% endcomment %}
+        {% if events_allowed and notice.event and notice.event.visibility == "aabent" %}
+          <a class="chip chip-event notice-event" href="{% url 'events:detail' notice.event.pk %}">
+            <svg class="ni" aria-hidden="true"><use href="#i-calendar"></use></svg>
+            {{ notice.event.title }} · {{ notice.event.starts_at|date:"j. M" }}
+          </a>
+        {% endif %}
       </div>
       <div class="notice-author">
         <div class="notice-avatar" aria-hidden="true">
