@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "stats",
     "den_hurtige",
     "opslagstavle",
+    "events",
 ]
 
 MIDDLEWARE = [
@@ -231,3 +232,8 @@ CMS_IMAGE_MAX_MB = int(os.environ.get("CMS_IMAGE_MAX_MB", "5"))
 # setting rather than sharing the CMS one: every feature here caps its own uploads, and an ops
 # change for the CMS must not silently change what residents may post.
 NOTICE_IMAGE_MAX_MB = int(os.environ.get("NOTICE_IMAGE_MAX_MB", "5"))
+
+# One hero image per event. Its own setting for the same reason the two above are separate: each
+# feature caps its own uploads, so an ops change for one cannot silently change what residents may
+# post to another.
+EVENT_IMAGE_MAX_MB = int(os.environ.get("EVENT_IMAGE_MAX_MB", "5"))

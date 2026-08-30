@@ -18,6 +18,7 @@ from django.urls import reverse
 from django.utils.encoding import force_bytes
 from django.utils.http import url_has_allowed_host_and_scheme, urlsafe_base64_encode
 
+from core.danish import MONTHS
 from core.models import Cleaning, Room, Workgroup
 
 from .forms import ProfileEditForm, ResidentEditForm
@@ -90,21 +91,9 @@ def _calendar_embed_url() -> str:
 
 
 # ---- Alumneliste: the resident directory (F-010) ----
-DA_MONTHS = [
-    "",
-    "januar",
-    "februar",
-    "marts",
-    "april",
-    "maj",
-    "juni",
-    "juli",
-    "august",
-    "september",
-    "oktober",
-    "november",
-    "december",
-]
+# Re-exported under its old name because ak.views imports it from here. The list itself moved to
+# core.danish when the events calendar became the third copy.
+DA_MONTHS = MONTHS
 
 
 # Sortable columns → the ORM fields to order by. Whitelisted, so ?sort= can't inject arbitrary paths.

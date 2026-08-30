@@ -118,6 +118,7 @@ def board(request: HttpRequest) -> HttpResponse:
             "categories": Category.choices,
             "selected_category": selected,
             "can_moderate": can_moderate(request),
+            "events_allowed": events_allowed(request),
             "quick_emoji": EMOJI_SHORTLIST,
             "push_configured": push.is_configured(),
             "vapid_public_key": push.vapid_public_key(),
@@ -127,6 +128,22 @@ def board(request: HttpRequest) -> HttpResponse:
             "limited_rollout": is_limited(),
         },
     )
+
+
+def events_allowed(request: HttpRequest) -> bool:
+    """Whether this reader can open begivenheder, which decides if a post shows its event chip.
+
+    The mirror of what the event page does with its "Omtalt på opslagstavlen" section: two features
+    with independent rollout gates must each check the OTHER before linking into it, or one of them
+    ends up handing residents a link that 403s them. The two gates happen to hold the same roles
+    today; they are separate globals and the whole point of them is that they move apart.
+
+    Imported inside the function so the two apps stay acyclic at import time — opslagstavle.forms
+    reaches into events the same way.
+    """
+    from events.access import request_allowed
+
+    return request_allowed(request)
 
 
 @access_required
@@ -146,6 +163,7 @@ def detail(request: HttpRequest, pk: int) -> HttpResponse:
             "comments": comments,
             "comment_form": NoticeCommentForm(),
             "can_moderate": can_moderate(request),
+            "events_allowed": events_allowed(request),
             "quick_emoji": EMOJI_SHORTLIST,
         },
     )
@@ -155,7 +173,7 @@ def detail(request: HttpRequest, pk: int) -> HttpResponse:
 def create(request: HttpRequest) -> HttpResponse:
     """Compose on its own page, not inline: title + category + Markdown + toolbar + preview is a
     form, and an inline composer on a paginated list would lose a long draft on any navigation."""
-    form = NoticeForm(request.POST or None)
+    form = NoticeForm(request.POST or None, events_allowed=events_allowed(request))
     if request.method == "POST" and form.is_valid():
         with transaction.atomic():
             notice = form.save(commit=False)
@@ -174,7 +192,7 @@ def edit(request: HttpRequest, pk: int) -> HttpResponse:
     notice = get_object_or_404(Notice, pk=pk)
     if not can_edit(request, notice):
         raise PermissionDenied
-    form = NoticeForm(request.POST or None, instance=notice)
+    form = NoticeForm(request.POST or None, instance=notice, events_allowed=events_allowed(request))
     if request.method == "POST" and form.is_valid():
         with transaction.atomic():
             notice = form.save(commit=False)

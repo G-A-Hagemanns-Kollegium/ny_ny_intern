@@ -112,6 +112,33 @@ class Notice(models.Model):
         related_name="pinned_notices",
     )
 
+    # "This post is about that begivenhed." Announce here, sign up there — which is what the two
+    # features' docstrings have said all along, with no way to actually get from one to the other
+    # until now.
+    #
+    # A STRING REFERENCE, not an import. `events` is the newer app and its own docstring points back
+    # here; importing the model would make the dependency mutual at module level, and a
+    # ForeignKey("events.Event") costs nothing to avoid it.
+    #
+    # SET_NULL, and that is the whole retention story in one keyword: an event is deleted a week
+    # after it is held (events.models), a notice lives about two years. CASCADE would mean Tuesday's
+    # fællesspisning quietly deleting the post that announced it — along with its comments and
+    # reactions — the following Wednesday. The link simply disappears and the post stays, which is
+    # also why the card has to cope with `event` being None on a post that once had one.
+    #
+    # ONLY OPEN EVENTS may be linked (see forms.NoticeForm), because opslagstavlen is visible to
+    # every resident and a chip naming a private party would leak exactly what "kun inviterede" is
+    # there to hide. The template checks visibility again on the way out, for the event that was
+    # open when it was linked and was made private afterwards.
+    event = models.ForeignKey(
+        "events.Event",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="notices",
+        verbose_name="Begivenhed",
+    )
+
     objects = NoticeQuerySet.as_manager()
 
     class Meta:

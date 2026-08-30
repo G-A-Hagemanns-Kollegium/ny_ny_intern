@@ -1,0 +1,155 @@
+"""Who may reach begivenheder, who may see which ones, and who may do what to them.
+
+    TO OPEN IT TO EVERY RESIDENT: set ACCESS_ROLES = None.
+
+The gate MECHANISM is core.rollout — extracted when this became the third feature to want one, on
+the schedule opslagstavle/access.py set for it. What is here is this feature's own policy, and the
+policy has one part the sibling features do not: an event can be invisible to a resident who is
+otherwise allowed into the whole feature.
+
+`visible_to` IS THE CHOKEPOINT. Every view, the calendar, both .ics endpoints and anything added
+later must start from it. A private event has to be *absent*, not forbidden — the detail view 404s
+for a non-invitee, because a 403 confirms that an event with that id exists, which is precisely the
+fact a private event is hiding.
+
+That gives this module two different refusals, and the split is the rule rather than an
+inconsistency:
+
+    404  you may not know it exists          (a private event you were not invited to)
+    403  you know it exists, but not this    (someone else's event you cannot edit)
+
+MODERATORS DO NOT GET TO SEE PRIVATE EVENTS. Inspektionen moderate opslagstavlen and Den Hurtige,
+and deliberately not this: a private event's whole promise is that a non-invitee cannot see it, and
+"except Inspektionen" makes that promise false in exactly the case anyone would care about. A
+reported private event is a superuser job in the Django admin, which has always seen every table.
+"""
+
+from collections.abc import Collection
+
+from django.db.models import Q, QuerySet
+from django.http import HttpRequest
+
+from core.rollout import Gate
+from residents.models import Resident, Role
+from residents.permissions import View, current_resident
+
+from .models import Event, EventInvite, EventQuerySet, Visibility
+
+# None = every logged-in resident. A tuple = only those roles (administrator implies every role, so
+# administrators and superusers are always in).
+#
+# Gated to Inspektionen and Netværksgruppen for a first pass, matching opslagstavlen's trial group.
+# "Netværk" is spelled ADMINISTRATOR here: the network group is not an embedsgruppe with a
+# Workgroup row, so it has never had a role of its own — see residents.models.WORKGROUP_ROLE, where
+# `administrator` is deliberately absent for exactly that reason.
+#
+# This module argued the other way when the feature shipped, and the argument is worth keeping
+# rather than deleting, because it is the thing the trial has to work around: the piece most likely
+# to be wrong here is the CALENDAR FEED, and a feed only becomes testable once several people have
+# real answers in it. Half a dozen testers can exercise creating, answering, the venteliste, the
+# deadline, invites and both .ics paths — but "does a month of real events look right in Google
+# Calendar six weeks from now" is a question this trial cannot ask. Plan to open it before trusting
+# that half.
+#
+# TO OPEN IT TO EVERY RESIDENT: set ACCESS_ROLES = None. That one edit widens every view, the
+# sidebar entry, the "Under test" chip on the list and the push audience together.
+ACCESS_ROLES: tuple[str, ...] | None = (Role.ADMINISTRATOR, Role.INSPEKTION)
+
+# Read through a lambda, never passed by value: this global is what tests rebind and what the edit
+# above would flip, and a Gate holding the value would freeze at import. See core.rollout.
+_GATE = Gate(lambda: ACCESS_ROLES)
+
+is_limited = _GATE.is_limited
+
+
+def roles_allowed(roles: Collection[str]) -> bool:
+    """Whether a role set may use begivenheder. Takes roles rather than a request so the sidebar,
+    which only has the effective role set to hand, can ask the same question as the views."""
+    return _GATE.roles_allowed(roles)
+
+
+def request_allowed(request: HttpRequest) -> bool:
+    """Same question for a request."""
+    return _GATE.request_allowed(request)
+
+
+def access_required(view: View) -> View:
+    """@login_required plus the rollout gate. Every view gets this, including the htmx partials: a
+    partial that answers 200 to someone the page 403s hands the feature out through the back."""
+    return _GATE.required(view)
+
+
+def allowed_subscribers(qs: QuerySet) -> QuerySet:
+    """Narrow a push audience to devices whose owner can actually open the feature."""
+    return _GATE.allowed_subscribers(qs)
+
+
+def visible_to(resident: Resident) -> EventQuerySet:
+    """The ONLY queryset any view, partial, calendar or feed may start from.
+
+    SUBQUERIES RATHER THAN JOINS, and that is correctness, not taste. `Q(invites__resident=r)` is a
+    multi-valued join, so an event you are BOTH a co-organiser of and invited to comes back twice —
+    a duplicate card in the list and, worse, two VEVENTs sharing one UID in a calendar file, which
+    some clients resolve by dropping both. `.distinct()` patches that, and then silently stops being
+    enough the moment anyone adds `annotate(Count("rsvps"))`, because the join multiplies the rows
+    before the aggregate reaches them. `pk__in=<subquery>` has neither problem and needs no
+    incantation a later reader has to know to keep.
+    """
+    return Event.objects.filter(
+        Q(visibility=Visibility.AABENT)
+        | Q(organiser=resident)
+        | Q(pk__in=Event.co_organisers.through.objects.filter(resident_id=resident.pk).values("event_id"))
+        | Q(pk__in=EventInvite.objects.filter(resident=resident).values("event_id"))
+    )
+
+
+def is_host(event: Event, resident: Resident) -> bool:
+    """Whether this resident runs the event — the organiser or a co-organiser.
+
+    Hosts may edit, cancel, invite, uninvite and promote. Everything except handing over the
+    event itself, which stays with the organiser (see can_manage_hosts).
+    """
+    if event.organiser_id == resident.pk:
+        return True
+    return event.co_organisers.filter(pk=resident.pk).exists()
+
+
+def can_edit(event: Event, resident: Resident) -> bool:
+    """Hosts edit; nobody else does, moderators included.
+
+    A cancelled event is frozen: there is nothing useful to change about something that is not
+    happening, and an edit would bump SEQUENCE and re-notify sixty phones about it.
+    """
+    return not event.is_cancelled and is_host(event, resident)
+
+
+def can_manage_hosts(event: Event, resident: Resident) -> bool:
+    """Only the ORIGINAL organiser adds or removes co-organisers.
+
+    If co-organisers could, one of them could remove the organiser and the event would have no
+    owner — and no way back to having one short of the admin.
+    """
+    return event.organiser_id == resident.pk
+
+
+def can_delete(event: Event, resident: Resident) -> bool:
+    """Delete is for events nobody has committed to yet.
+
+    Once anyone has said ja the control becomes Aflys instead (see services.cancel). A hard delete
+    vanishes from every subscribed calendar with no explanation, and the per-event .ics already
+    imported into other people's calendars stays there forever, because once the row is gone there
+    is nothing left to emit STATUS:CANCELLED from.
+    """
+    if not is_host(event, resident):
+        return False
+    return not event.rsvps.filter(answer="ja").exists()
+
+
+def can_cancel(event: Event, resident: Resident) -> bool:
+    """The other half of can_delete: hosts may aflys anything not already cancelled."""
+    return not event.is_cancelled and is_host(event, resident)
+
+
+def request_host(request: HttpRequest, event: Event) -> bool:
+    """`is_host` for a request, using the *effective* resident."""
+    return is_host(event, current_resident(request))

@@ -93,11 +93,16 @@ or an overlapping run is harmless.
 | `python manage.py ak_monthly_assessment` | `10 4 1 * *` | Books the month's AK deduction on the 1st instead of whenever someone happens to open an internal page. |
 | `python manage.py purge_quick_posts` | `*/30 * * * *` | Drains expired Den Hurtige posts (and their images) even in a quiet week when nobody loads the feed. |
 | `python manage.py purge_notices` | `40 3 * * *` | Enforces opslagstavlen's ~2-year retention and sweeps compose-toolbar images that were uploaded to a post nobody ever saved. **Pinned opslag are exempt** — a pin is Inspektionen deciding the kollegium keeps that one. Offset from `purge_applications` (03:20) so two deletes never overlap on the same small box. |
+| `python manage.py purge_events` | `0 4 * * *` | Enforces Begivenheder's retention: an event goes a week after it ends, a cancelled one thirty days after it was cancelled (two clocks, see `events/models.py`). Offset to 04:00 so it does not overlap `purge_applications` (03:20) or `purge_notices` (03:40) on the same small box. |
+| `python manage.py remind_rsvp_deadlines` | `0 17 * * *` | Nudges the people who have not answered when a svarfrist falls inside the next 24 hours. **Once per event** — the claim is a compare-and-swap on `reminder_sent_at`, taken *before* the send, so a crash between the two loses one reminder rather than pushing the whole house twice. Runs at 17:00 rather than overnight because it is a notification people are meant to act on. |
 
 **Run `purge_applications --dry-run` by hand first.** It deletes permanently and there is no undo;
 confirm the count is what you expect before putting it on a schedule.
 The same goes for `purge_notices` — though its retention branch will delete nothing for years, so
 the number worth eyeballing on the first real run is the *unused image* count.
+
+`purge_events` and `remind_rsvp_deadlines` both have lazy backstops in the events list view, for
+the reason given below; `purge_notices` does not.
 
 **`purge_notices` is the deliberate exception to the lazy-guard rule below, and should stay that
 way.** Den Hurtige purges on every feed load because its promise is "gone in 30 minutes": a message

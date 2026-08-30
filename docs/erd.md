@@ -45,6 +45,7 @@ erDiagram
         datetime created_at
         bool wants_den_hurtige
         bool wants_opslagstavle
+        bool wants_begivenheder
     }
 
     residents_Resident {
@@ -374,6 +375,7 @@ erDiagram
         datetime edited_at
         datetime pinned_at
         int pinned_by_id FK
+        int event_id FK
     }
 
     opslagstavle_NoticeComment {
@@ -399,6 +401,52 @@ erDiagram
         string alt
         int uploaded_by_id FK
         datetime uploaded_at
+    }
+
+    events_Event {
+        int id PK
+        int organiser_id FK
+        string title
+        text description
+        string image
+        string location
+        datetime starts_at
+        datetime ends_at
+        string visibility
+        int capacity
+        datetime rsvp_deadline_at
+        int sequence
+        datetime created_at
+        datetime edited_at
+        datetime cancelled_at
+        datetime reminder_sent_at
+    }
+
+    events_EventInvite {
+        int id PK
+        int event_id FK
+        int resident_id FK
+        int invited_by_id FK
+        datetime invited_at
+    }
+
+    events_Rsvp {
+        int id PK
+        int event_id FK
+        int resident_id FK
+        string answer
+        datetime answered_at
+        datetime promoted_at
+        datetime created_at
+    }
+
+    events_CalendarFeedToken {
+        int id PK
+        int resident_id FK
+        string token
+        datetime created_at
+        datetime rotated_at
+        datetime last_used_at
     }
 
     core_PushSubscription }o--|| residents_Resident : "user"
@@ -439,12 +487,21 @@ erDiagram
     den_hurtige_ChannelMute }o--|| residents_Resident : "resident"
     opslagstavle_Notice }o--|| residents_Resident : "author"
     opslagstavle_Notice }o--|o residents_Resident : "pinned_by"
+    opslagstavle_Notice }o--|o events_Event : "event"
     opslagstavle_NoticeComment }o--|| opslagstavle_Notice : "notice"
     opslagstavle_NoticeComment }o--|| residents_Resident : "author"
     opslagstavle_NoticeReaction }o--|| opslagstavle_Notice : "notice"
     opslagstavle_NoticeReaction }o--|| residents_Resident : "author"
     opslagstavle_NoticeImage }o--|o opslagstavle_Notice : "notice"
     opslagstavle_NoticeImage }o--|o residents_Resident : "uploaded_by"
+    events_Event }o--|| residents_Resident : "organiser"
+    events_Event }o--o{ residents_Resident : "co_organisers"
+    events_EventInvite }o--|| events_Event : "event"
+    events_EventInvite }o--|| residents_Resident : "resident"
+    events_EventInvite }o--|o residents_Resident : "invited_by"
+    events_Rsvp }o--|| events_Event : "event"
+    events_Rsvp }o--|| residents_Resident : "resident"
+    events_CalendarFeedToken ||--|| residents_Resident : "resident"
 ```
 
 ## admissions
@@ -605,6 +662,7 @@ erDiagram
         datetime created_at
         bool wants_den_hurtige
         bool wants_opslagstavle
+        bool wants_begivenheder
     }
 
     residents_Resident { }
@@ -659,6 +717,68 @@ erDiagram
     den_hurtige_QuickReaction }o--|| den_hurtige_QuickPost : "post"
     den_hurtige_QuickReaction }o--|| residents_Resident : "author"
     den_hurtige_ChannelMute }o--|| residents_Resident : "resident"
+```
+
+## events
+
+```mermaid
+erDiagram
+    events_Event {
+        int id PK
+        int organiser_id FK
+        string title
+        text description
+        string image
+        string location
+        datetime starts_at
+        datetime ends_at
+        string visibility
+        int capacity
+        datetime rsvp_deadline_at
+        int sequence
+        datetime created_at
+        datetime edited_at
+        datetime cancelled_at
+        datetime reminder_sent_at
+    }
+
+    events_EventInvite {
+        int id PK
+        int event_id FK
+        int resident_id FK
+        int invited_by_id FK
+        datetime invited_at
+    }
+
+    events_Rsvp {
+        int id PK
+        int event_id FK
+        int resident_id FK
+        string answer
+        datetime answered_at
+        datetime promoted_at
+        datetime created_at
+    }
+
+    events_CalendarFeedToken {
+        int id PK
+        int resident_id FK
+        string token
+        datetime created_at
+        datetime rotated_at
+        datetime last_used_at
+    }
+
+    residents_Resident { }
+
+    events_Event }o--|| residents_Resident : "organiser"
+    events_Event }o--o{ residents_Resident : "co_organisers"
+    events_EventInvite }o--|| events_Event : "event"
+    events_EventInvite }o--|| residents_Resident : "resident"
+    events_EventInvite }o--|o residents_Resident : "invited_by"
+    events_Rsvp }o--|| events_Event : "event"
+    events_Rsvp }o--|| residents_Resident : "resident"
+    events_CalendarFeedToken ||--|| residents_Resident : "resident"
 ```
 
 ## oelkaelder
@@ -771,6 +891,7 @@ erDiagram
         datetime edited_at
         datetime pinned_at
         int pinned_by_id FK
+        int event_id FK
     }
 
     opslagstavle_NoticeComment {
@@ -798,10 +919,13 @@ erDiagram
         datetime uploaded_at
     }
 
+    events_Event { }
+
     residents_Resident { }
 
     opslagstavle_Notice }o--|| residents_Resident : "author"
     opslagstavle_Notice }o--|o residents_Resident : "pinned_by"
+    opslagstavle_Notice }o--|o events_Event : "event"
     opslagstavle_NoticeComment }o--|| opslagstavle_Notice : "notice"
     opslagstavle_NoticeComment }o--|| residents_Resident : "author"
     opslagstavle_NoticeReaction }o--|| opslagstavle_Notice : "notice"
