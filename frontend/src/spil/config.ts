@@ -23,7 +23,7 @@ export const FLOOR_COUNT = 6;
 
 // --------------------------------------------------------------------------------------- a run
 /** A run is fifteen minutes. When it ends the score goes on the board and that is that. */
-export const RUN_SECONDS = 10 * 60;
+export const RUN_SECONDS = 7 * 60;
 /** The same number, for the copy that quotes it. Derived so the two cannot drift apart. */
 export const RUN_MINUTES = Math.round(RUN_SECONDS / 60);
 
@@ -81,10 +81,12 @@ export const SPEED_BONUS_MAX = 0.5;
 // ----------------------------------------------------------------------------- experience
 /** Experience is almost entirely about *speed*: the flat part is small and the part that scales
  *  with the deadline you had left is large. Long climbs and big orders top it up. */
-export const XP_BASE = 12;
-export const XP_SPEED = 46;
-export const XP_PER_FLOOR = 5;
-export const XP_PER_ITEM = 3;
+// Roughly a third more than the ten-minute shift paid, because the seven-minute one has a third
+// less time to earn it in. Net levels-per-run come out a touch above where they were.
+export const XP_BASE = 16;
+export const XP_SPEED = 60;
+export const XP_PER_FLOOR = 7;
+export const XP_PER_ITEM = 4;
 
 /** Experience needed to reach level L+1 from level L. */
 export const xpToLevel = (level: number): number => 90 + 55 * (level - 1);

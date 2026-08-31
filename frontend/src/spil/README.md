@@ -43,13 +43,18 @@ The game is a guest in somebody else's application. It was accepted on those ter
 
 ### A run
 
-Ten minutes (`RUN_SECONDS`). Kroner are the **score** and cannot be spent. When the clock runs out
+Seven minutes (`RUN_SECONDS`). Kroner are the **score** and cannot be spent. When the clock runs out
 the score goes on a local top-ten leaderboard and the run is over.
 
 Copy that quotes the shift length uses `RUN_MINUTES`, derived from `RUN_SECONDS`, so the two cannot
-drift. **Changing the shift length means bumping `SAVE_KEY`**: a 15-minute score and a 10-minute
-score are not the same achievement, and mixing them on one board is worse than losing the old one.
-`STALE_KEYS` clears the previous key on load so the bump does not leave litter behind.
+drift. **Changing the shift length means bumping `SAVE_KEY`** — every time. Scores from shifts of
+different lengths are not the same achievement, and mixing them on one board is worse than losing
+the old one. `STALE_KEYS` clears the superseded keys on load so the bumps do not leave litter
+behind. It has gone v4 → v5 (15 → 10 min) → v6 (10 → 7 min).
+
+Shortening the shift also shortens progression, so the XP awards in `config.ts` went up by about a
+third at the same time — the two knobs have to move together or a shorter run just means fewer
+levels.
 
 ### Orders
 

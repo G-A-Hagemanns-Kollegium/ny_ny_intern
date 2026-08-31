@@ -13,9 +13,9 @@
 
 import { COMBO_MAX, COMBO_STEP, xpToLevel } from "./config";
 
-// Bumped to v5 with the shift length: a 15-minute score and a 10-minute score are not the same
-// achievement, so the old board is discarded rather than silently mixed with the new one.
-const SAVE_KEY = "gahk.oelbud.v5";
+// Bumped with the shift length, every time: scores from shifts of different lengths are not the
+// same achievement, and mixing them on one board is worse than losing the old one.
+const SAVE_KEY = "gahk.oelbud.v6";
 
 // ------------------------------------------------------------------------------------- skills
 export type SkillId = "sko" | "rulleskoejter" | "dash" | "kasse" | "hop" | "minikort";
@@ -156,7 +156,7 @@ export interface ScoreEntry {
 }
 
 export interface Save {
-  version: 5;
+  version: 6;
   character: string;
   board: ScoreEntry[];
 }
@@ -239,10 +239,10 @@ export const artOf = (id: string): string =>
 export const perkOf = (id: string): Perk =>
   CHARACTERS.find((c) => c.id === id)?.perk ?? CHARACTERS[0].perk;
 
-export const defaultSave = (): Save => ({ version: 5, character: "albergon", board: [] });
+export const defaultSave = (): Save => ({ version: 6, character: "albergon", board: [] });
 
 /** Keys from earlier versions, cleared on load so a bumped save does not leave litter behind. */
-const STALE_KEYS = ["gahk.oelbud.v4"];
+const STALE_KEYS = ["gahk.oelbud.v4", "gahk.oelbud.v5"];
 
 export function loadSave(): Save {
   try {
@@ -250,7 +250,7 @@ export function loadSave(): Save {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return defaultSave();
     const parsed = JSON.parse(raw) as Partial<Save>;
-    if (parsed.version !== 5) return defaultSave();
+    if (parsed.version !== 6) return defaultSave();
     return { ...defaultSave(), ...parsed, board: parsed.board ?? [] };
   } catch {
     return defaultSave();
