@@ -15,17 +15,37 @@ the download** — without it you get a complete, if plainer, game.
 
 ## The LimeZu pack
 
-Not committed: it is 1.3 MB of somebody else's art under a licence that permits non-commercial use
-but says nothing about redistribution, so `.gitignore` keeps it out. To get it back:
+Not committed, and **must not be** — see the licence below. `.gitignore` keeps it out. To get it
+back:
 
-1. Download the free "Modern Interiors" pack from <https://limezu.itch.io/moderninteriors>.
-2. Unzip so that this path exists:
-   `frontend/src/spil/ASSETS/Modern tiles_Free/`
+1. Buy/download "Modern Interiors" from <https://limezu.itch.io/moderninteriors>.
+2. Unzip so that these paths exist:
+   `frontend/src/spil/ASSETS/moderninteriors/` (full pack) and, optionally,
+   `frontend/src/spil/ASSETS/Modern tiles_Free/` (free tier).
 3. `npm run atlas`
 
-**Licence:** the free tier is *non-commercial only* — fine for an internal kollegium game, not for
-anything sold. The full pack (about $1.20) has a commercial licence and roughly a hundred times the
-content; if the game ever leaves gahk.dk, buy it first.
+## Licence
+
+The **full pack is licensed** (bought 2026-08-31). Its terms, verbatim from `LICENSE.txt`:
+
+> YOU CAN: Edit and use the asset in any commercial or non commercial project
+> YOU CAN'T: Resell or distribute the asset to others. Edit and resell the asset to others.
+> Credits required (limezu.itch.io)
+
+Three consequences, none of them optional:
+
+1. **Commercial use is fine now.** The old "if the game ever leaves gahk.dk, buy it first" caveat is
+   settled — that is what the purchase bought.
+2. **The pack still cannot be committed.** "Distribute the asset to others" is exactly what pushing
+   53 000 files to a *public* repo does, and buying a licence to *use* art is not a licence to
+   *redistribute* it. This is the same conclusion as before the purchase, for a stronger reason: the
+   free tier merely said nothing about redistribution, the paid one forbids it outright. What ships
+   is the **generated atlas** (`app/static/spil/atlas.png`) — the asset edited and used in a
+   project, which the licence expressly allows.
+3. **Credit is required.** It is on the title screen (`.spil-credit`). Do not remove it.
+
+The 320 MB / 53 000 files would also be a bad thing to put in git on its own merits: git keeps blobs
+forever, so it would weigh on every clone of this repo from now on.
 
 ### The character sheets
 

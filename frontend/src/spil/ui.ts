@@ -216,7 +216,8 @@ export class Ui {
         <button class="spil-btn spil-btn-big" data-nav data-act="play">Spil</button>
       </div>
       ${this.boardHtml(save, -1)}
-      <div class="spil-actions"><button class="spil-btn is-ghost" data-act="reset">Slet rangliste</button></div>`);
+      <div class="spil-actions"><button class="spil-btn is-ghost" data-act="reset">Slet rangliste</button></div>
+      <p class="spil-credit">Grafik: LimeZu — <span>limezu.itch.io</span></p>`);
   }
 
   /** Shown once between picking a bud and the clock starting. Four lines, because anything longer

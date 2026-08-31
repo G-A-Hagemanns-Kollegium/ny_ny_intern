@@ -326,6 +326,16 @@ button.spil-floor.is-sel { border-color: var(--brass); background: #2a2011; box-
 .spil-title-actions { justify-content: center; margin-bottom: 1.4em; }
 .spil-btn-big { font-size: 1.25em; padding: .7em 2.6em; letter-spacing: .22em; }
 
+/* Attribution for the sprite pack. Required by its licence, so it is part of the title screen and
+   not a thing anyone can quietly delete to tidy the layout. */
+.spil-credit {
+  margin: 1.2em 0 0;
+  font-size: .72em;
+  letter-spacing: .06em;
+  opacity: .45;
+}
+.spil-credit span { color: var(--brass); }
+
 /* --------------------------------------------------------------------------------- tutorial */
 /* Four illustrated steps, then the keys. The art is atlas frames, so the board shows the actual
    doors, crates and bottles the player is about to see. */
