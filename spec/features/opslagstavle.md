@@ -49,14 +49,29 @@ disputes Inspektionen exists to settle.
 ## Data model
 
 `Notice` (author, title, category, Markdown body, `created_at`, `edited_at`, `pinned_at`,
-`pinned_by`), `NoticeComment`, `NoticeReaction`, `NoticeImage`. Category is a fixed `TextChoices` set
-with ASCII values (they appear in `?kategori=`) and Danish labels.
+`pinned_by`, `event`), `NoticeComment`, `NoticeReaction`, `NoticeImage`. Category is a fixed
+`TextChoices` set with ASCII values (they appear in `?kategori=`) and Danish labels.
 
 **Pinning is a nullable timestamp, not a boolean.** One column answers three questions: is it
 pinned, how do pins order among themselves (newest pin first — a boolean cannot express that, so
 pinning a six-month-old post would drop it below a newer pin), and is it exempt from retention
 (`pinned_at__isnull=True` *is* the purge filter). `pinned_by` is the audit trail, because "who
 pinned this, and when" is the first thing Inspektionen will be asked.
+
+**`event` links a post to a begivenhed** (`events.Event`, nullable) — "announce here, sign up
+there", which both features' docstrings have said all along with no way to actually get from one to
+the other. The card shows a chip; the event page lists the posts about it. Three things about it are
+load-bearing:
+
+- **A string reference, not an import.** `events` is the newer app and points back here in prose;
+  `ForeignKey("events.Event")` keeps the dependency one-directional at import time for free.
+- **`SET_NULL`, which is the whole retention story.** An event is deleted a week after it is held; a
+  post lives about two years. `CASCADE` would mean Tuesday's fællesspisning quietly deleting the post
+  that announced it — comments, reactions and all — on Wednesday. The chip simply disappears.
+- **Only *åbne* events may be linked.** Opslagstavlen is read by the whole house, so a chip naming a
+  private party would announce it to everyone who was not invited. The form's queryset is what
+  validates the submitted id, and the template checks `visibility` again on the way out for an event
+  that was open when it was linked and was made private afterwards.
 
 **`edited_at` is set explicitly by the edit view, never `auto_now`.** `auto_now` fires on every
 `save()`, so pinning would stamp a post "Redigeret" with the moderator's action — and readers see

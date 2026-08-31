@@ -76,7 +76,8 @@ def _active_posts(channel: Channel) -> QuerySet[QuickPost]:
         QuickPost.objects.filter(channel=channel.slug)
         .active()
         .select_related("author")
-        .prefetch_related("comments__author", REACTIONS)
+        .prefetch_related(REACTIONS)
+        .annotate(reply_count=Count("comments"))
         # Chat order: oldest first, newest at the bottom by the composer. QuickPost.Meta.ordering
         # stays newest-first for the admin and everything else that lists posts as records.
         .order_by("created_at")
@@ -126,6 +127,32 @@ def _channel_or_404(request: HttpRequest, slug: str | None) -> Channel:
     return channel
 
 
+def _post_or_404(request: HttpRequest, pk: int, *, active_only: bool = True) -> QuickPost:
+    """One post this resident is actually allowed to see, or 404.
+
+    The channel check is the point. Every per-post endpoint here resolves a post by primary key
+    alone, which says nothing about whether the caller may read the CHANNEL it lives in -- and
+    channels can be role-restricted (channels.Channel.roles). Without this, guessing a pk reaches a
+    post in a channel the sidebar will not even advertise.
+
+    It mattered less while the per-post endpoints were all writes: you could react to or comment on
+    a post you could not find. den_hurtige:thread makes it a READ, which is the version that leaks.
+    Routed through one helper so the four cannot drift apart on the answer.
+
+    404 rather than 403 for the same reason as _channel_or_404: a 403 confirms the post exists.
+
+    `active_only=False` is for delete_post alone, which has always accepted a post that has expired
+    but not yet been swept (purge_expired runs on feed loads, so there is a window). Refusing there
+    would answer 404 to a moderator pressing a delete button that is still on their screen.
+    """
+    manager = QuickPost.objects.active() if active_only else QuickPost.objects.all()
+    post = get_object_or_404(manager, pk=pk)
+    channel = channels.lookup(post.channel)
+    if channel is None or not channels.allowed(channel, effective_roles(request)):
+        raise Http404("Ingen besked med det id.")
+    return post
+
+
 def channel_counts() -> dict[str, int]:
     """{slug: live post count} for the tab strip, in one query.
 
@@ -165,6 +192,14 @@ def _channel_context(request: HttpRequest, channel: Channel) -> dict[str, object
     }
 
 
+def _requested_thread_pk(request: HttpRequest) -> int | None:
+    """The ?traad= pk to pre-open, or None. Junk is None, never an error."""
+    raw = request.GET.get("traad")
+    if not raw or not raw.isdigit():
+        return None
+    return int(raw)
+
+
 @access_required
 def feed(request: HttpRequest, channel: str | None = None) -> HttpResponse:
     resolved = _channel_or_404(request, channel)
@@ -187,6 +222,15 @@ def feed(request: HttpRequest, channel: str | None = None) -> HttpResponse:
             # Tells the testers the page is not live yet, so they do not assume silence means
             # nobody cares. Disappears on its own when ACCESS_ROLES is set to None.
             "limited_rollout": is_limited(),
+            # ?traad=<pk> opens that thread's panel on load. This is the URL a reply notification
+            # deep-links to (services.notify_new_comment): the standalone thread page would also
+            # work, but landing in the CHANNEL with the thread open is what somebody tapping
+            # "Anders svarede" actually wants -- they get the conversation and the feed behind it.
+            #
+            # Not validated here on purpose: the panel's own request goes through views.thread,
+            # which does the channel check and answers a "gone" notice for anything else. Rejecting
+            # a stale pk here would mean 404ing a whole channel over a message that just expired.
+            "open_thread_pk": _requested_thread_pk(request),
             **_channel_context(request, resolved),
         },
     )
@@ -219,6 +263,74 @@ def feed_items(request: HttpRequest) -> HttpResponse:
             "can_moderate": can_moderate(request),
         },
     )
+
+
+def thread(request: HttpRequest, pk: int) -> HttpResponse:
+    """One message and its replies: the side panel, or a standalone page without htmx.
+
+    TWO exits, on purpose, and they differ in how they FAIL as much as in what they render:
+
+      * htmx (HX-Request) gets the _thread.html fragment, swapped into #js-thread -- and, when the
+        gate says no, a 204. Same reason as feed_items: @access_required redirects an expired
+        session to the login page, htmx follows the redirect, and the login form lands inside the
+        panel. A 204 makes htmx do nothing, and hands an unauthorised caller no data either way.
+      * anything else goes through @access_required like every other page, so a plain resident gets
+        the 403 the rollout gate promises. That is the no-JS path behind the "N svar" anchor's
+        href, and what a reply push notification deep-links to.
+    """
+    if request.headers.get("HX-Request"):
+        if not request_allowed(request):
+            return HttpResponse(status=204)
+        return _render_thread(request, pk, fragment=True)
+    return _thread_page(request, pk)
+
+
+@access_required
+def _thread_page(request: HttpRequest, pk: int) -> HttpResponse:
+    """The page half of `thread`, split out only so the decorator applies to it alone."""
+    return _render_thread(request, pk, fragment=False)
+
+
+def _render_thread(request: HttpRequest, pk: int, *, fragment: bool) -> HttpResponse:
+    """Shared body of both halves.
+
+    An EXPIRED (or forbidden) post splits them again. The fragment renders a short "this is gone"
+    notice with NO hx-trigger on it, so the panel's own poll stops rather than asking for a deleted
+    message every five seconds at a reader who is still looking at it. The page raises 404, because
+    a deep link to a message that no longer exists genuinely leads nowhere.
+
+    Replies are prefetched HERE rather than in _active_posts: one post's worth instead of every
+    post's, on a request that only happens when somebody opens a thread.
+    """
+    post = (
+        QuickPost.objects.active()
+        .filter(pk=pk)
+        .select_related("author")
+        .prefetch_related("comments__author", REACTIONS)
+        .first()
+    )
+    if post is not None:
+        channel = channels.lookup(post.channel)
+        # Same answer as "gone" for a channel this resident may not read: never confirm that a
+        # restricted channel has a message with this id. Mirrors _post_or_404.
+        if channel is None or not channels.allowed(channel, effective_roles(request)):
+            post = None
+
+    if post is None:
+        if fragment:
+            return render(request, "den_hurtige/_thread.html", {"post": None})
+        raise Http404("Ingen besked med det id.")
+
+    post.reaction_rows = reactions_for(post, current_resident(request).pk)  # type: ignore[attr-defined]
+    context = {
+        "post": post,
+        "channel": channels.lookup(post.channel),
+        "max_content_chars": MAX_CONTENT_CHARS,
+        "quick_emoji": QUICK_EMOJI,
+        "can_moderate": can_moderate(request),
+    }
+    template = "den_hurtige/_thread.html" if fragment else "den_hurtige/thread.html"
+    return render(request, template, context)
 
 
 def _validated_image(request: HttpRequest) -> UploadedFile | None:
@@ -298,21 +410,48 @@ def create_post(request: HttpRequest) -> HttpResponseRedirect:
     return redirect(channel.url)
 
 
+def _comment_response(request: HttpRequest, post: QuickPost, back: str) -> HttpResponse:
+    """What a reply POST answers with: the reply LIST for htmx, a redirect otherwise.
+
+    The list, not the whole panel. The reply form carries data-morph-skip so the panel's own 5s
+    poll cannot wipe half-typed text (see frontend/src/feed.ts) -- and a response that replaced the
+    whole panel would therefore skip the form too, leaving the text sitting in the box after it had
+    been sent. Targeting the list keeps the form outside the swap entirely, so hx-on::after-request
+    can reset it.
+
+    The redirect goes to the thread, not the channel: without JS the reply was written on the
+    standalone thread page, and landing back at the bottom of the feed loses the conversation.
+    `back` (the channel URL) is still the fallback for a post that vanished under us.
+
+    Messages are rendered inside the fragment, so "Skriv en kommentar" and a rejected image warning
+    land in the panel instead of being stranded in the session until the next full page load.
+    """
+    if request.headers.get("HX-Request"):
+        return render(
+            request,
+            "den_hurtige/_replies.html",
+            {"post": post, "max_content_chars": MAX_CONTENT_CHARS},
+        )
+    if post.pk is None:  # pragma: no cover - defensive; a deleted post has no thread to return to
+        return redirect(back)
+    return redirect("den_hurtige:thread", pk=post.pk)
+
+
 @require_POST
 @access_required
-def create_comment(request: HttpRequest, pk: int) -> HttpResponseRedirect:
+def create_comment(request: HttpRequest, pk: int) -> HttpResponse:
     author = current_resident(request)
-    post = get_object_or_404(QuickPost.objects.active(), pk=pk)
+    post = _post_or_404(request, pk)
     # Replies, deletions and reactions take the channel from the post, never from the request: the
     # post already knows where it lives, so there is no hidden field to disagree with.
     back = _channel_of(post)
     content = (request.POST.get("content") or "").strip()
     if not content:
         messages.error(request, "Skriv en kommentar.")
-        return redirect(back)
+        return _comment_response(request, post, back)
     if len(content) > MAX_CONTENT_CHARS:
         messages.error(request, f"Kommentaren må højst fylde {MAX_CONTENT_CHARS} tegn.")
-        return redirect(back)
+        return _comment_response(request, post, back)
 
     comment = QuickComment.objects.create(
         post=post,
@@ -322,7 +461,7 @@ def create_comment(request: HttpRequest, pk: int) -> HttpResponseRedirect:
         notify_everyone=request.POST.get("notify") == "alle",
     )
     services.notify_new_comment(comment)
-    return redirect(back)
+    return _comment_response(request, post, back)
 
 
 @require_POST
@@ -336,7 +475,7 @@ def toggle_reaction(request: HttpRequest, pk: int) -> HttpResponse:
     Renders only the partial so a tap never re-renders the feed, which would collapse open threads
     and fight the 20-second poll.
     """
-    post = get_object_or_404(QuickPost.objects.active(), pk=pk)
+    post = _post_or_404(request, pk)
     resident = current_resident(request)
     form = ReactionForm(request.POST)
     if form.is_valid():
@@ -365,7 +504,7 @@ def toggle_reaction(request: HttpRequest, pk: int) -> HttpResponse:
 def delete_post(request: HttpRequest, pk: int) -> HttpResponseRedirect:
     """Authors clean up after themselves; administrators and Inspektionen moderate. Everyone else
     gets a 403."""
-    post = get_object_or_404(QuickPost, pk=pk)
+    post = _post_or_404(request, pk, active_only=False)
     if post.author_id != current_resident(request).pk and not can_moderate(request):
         raise PermissionDenied
     back = _channel_of(post)

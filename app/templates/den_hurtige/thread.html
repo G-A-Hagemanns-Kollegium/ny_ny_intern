@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Tråd - {{ channel.name }} - GAHK Intern{% endblock %}
+{% block content_width %}max-w-3xl{% endblock %}
+
+{% comment %}
+  The standalone thread page. Two callers, both of which must work without any JavaScript:
+
+    * the "N svar" link's plain href, when htmx has not upgraded it (no JS, or a middle-click).
+    * a reply push notification, which deep-links here so tapping "Anders svarede" lands on the
+      conversation it is telling you about rather than the bottom of the channel.
+
+  Deliberately NOT the chat shell: no .chat-page body class, no 100dvh lock, no viewport lock. This
+  is a document you arrived at by following a link, and it scrolls like one. The panel version of
+  the same content is _thread.html.
+{% endcomment %}
+{% block content %}
+  <p class="thread-crumb">
+    <a href="{{ channel.url }}">&larr; Tilbage til {{ channel.name }}</a>
+  </p>
+
+  <div class="thread-page card-flat">
+    {% include "den_hurtige/_message.html" with post=post bare=1 %}
+    {% include "den_hurtige/_replies.html" with post=post %}
+
+    <form class="reply-form" method="post" enctype="multipart/form-data"
+          action="{% url 'den_hurtige:create_comment' post.pk %}">
+      {% csrf_token %}
+      <label class="reply-attach" for="id_reply_image_{{ post.pk }}" title="Vedhæft billede">
+        <span aria-hidden="true">📎</span>
+        <span class="sr-only">Vedhæft billede til svar</span>
+        <input type="file" id="id_reply_image_{{ post.pk }}" name="image" accept="image/*">
+      </label>
+      <label class="sr-only" for="id_comment_{{ post.pk }}">Svar</label>
+      <input type="text" id="id_comment_{{ post.pk }}" name="content" required
+             maxlength="{{ max_content_chars }}" placeholder="Svar…" enterkeyhint="send">
+      <button type="submit" class="btn btn-secondary">Send</button>
+      <label class="reply-notify">
+        <input type="checkbox" name="notify" value="alle"> Underret alle
+      </label>
+    </form>
+  </div>
+{% endblock %}

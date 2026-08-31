@@ -57,6 +57,12 @@
     border-radius:999px; padding:2px 10px; background:var(--green-050); color:var(--green-700); border:1px solid var(--green-100); white-space:nowrap; }
   .chip-brass { background:var(--warn-bg); color:var(--brass-ink); border-color:#e7d8b0; }
   .chip-neg { background:var(--neg-bg); color:var(--neg); border-color:#e7c7c3; }
+  /* An icon inside a chip. There is no base `.ni` rule anywhere in this stylesheet — every use is
+     sized by whatever encloses it — so a chip that carried one had an <svg> with no width, no
+     height and no viewport-derived size, which is 300x150 by CSS default. The lock on "Kun
+     inviterede" was rendering at that, stretched by the flex row into a slab beside the text.
+     13px next to 12px text; `flex:none` so it never gets squeezed by a long label. */
+  .chip .ni { width:13px; height:13px; flex:none; stroke:currentColor; fill:none; }
 
   /* Zebra-striped, hover-highlighted table (alumneliste et al.) — theme tokens, works after htmx swaps. */
   .zebra th, .zebra td { padding:8px 14px; }  /* a little horizontal breathing room between columns */
@@ -189,12 +195,20 @@
   .channel-picker { position:relative; min-width:0; }
   .channel-name, .channel-single { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .channel-picker > summary { list-style:none; display:inline-flex; align-items:center; gap:8px;
-    cursor:pointer; font-size:22px; font-weight:750; line-height:1.2; padding:2px 6px 2px 0;
+    cursor:pointer; font-size:18px; font-weight:750; line-height:1.2;
+    padding:4px 12px 4px 13px; border-radius:999px;
+    background:var(--green); border:1px solid var(--green); color:#fff;
     min-width:0; -webkit-tap-highlight-color:transparent; }
+  .channel-picker > summary:hover { background:var(--green-700); border-color:var(--green-700); }
+  .channel-picker[open] > summary { background:var(--green-700); border-color:var(--green-700); }
+  /* The default focus ring is green on green. Offset it against the paper instead. */
+  .channel-picker > summary:focus-visible { outline:2px solid var(--ink); outline-offset:2px; }
   /* Safari draws its own disclosure triangle unless both of these are cleared. */
   .channel-picker > summary::-webkit-details-marker { display:none; }
   .channel-picker > summary::marker { content:""; }
-  .channel-picker > summary .caret { font-size:13px; color:var(--muted); font-weight:600; flex:none; }
+  /* White on the green, and big enough to register at a glance. */
+  .channel-picker > summary .caret { font-size:15px; color:#fff; font-weight:700; flex:none;
+    transition:transform .12s ease-out; }
   .channel-picker[open] > summary .caret { transform:rotate(180deg); }
   /* max-height matters more than it looks: the document is locked against scrolling (see the shell
      rules above), so a menu taller than the viewport would simply be unreachable below the fold. */
@@ -206,7 +220,8 @@
     color:var(--ink); text-decoration:none; font-size:15px; font-weight:600; }
   .channel-option:hover { background:var(--surface-2); }
   .channel-option.active { background:var(--green-050); color:var(--green-700); }
-  .channel-single { font-size:22px; font-weight:750; }
+  /* Matches the picker's size: the two occupy the same slot, and only one renders per page. */
+  .channel-single { font-size:18px; font-weight:750; }
   /* stroke/fill are NOT inherited from the <g> wrapping the sprite in base.html: <use> clones the
      symbol into a shadow tree whose inherited styles come from this <svg>, not from the symbol's
      original ancestors. Without these the icons render as filled black blobs. */
@@ -244,8 +259,14 @@
 
   /* The one scrolling element on the page. overscroll-behavior stops a flick at either end from
      chaining out and bouncing the whole app, which on iOS looks like the page has come loose. */
+  /* NO -webkit-overflow-scrolling:touch here. It used to be, and it broke both .pop overlays on
+     iOS: the property creates a stacking context AND re-anchors position:fixed descendants to the
+     scroller instead of the viewport, so the emoji picker and the who-reacted panel were trapped
+     in this element's layer and the composer painted over them. It has been a no-op since iOS 13
+     (momentum scrolling is the default for overflow:auto) and is gone from the spec, so it bought
+     nothing. See the .pop block below. */
   #js-feed { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain;
-    -webkit-overflow-scrolling:touch; padding:6px 0 14px; }
+    padding:6px 0 14px; }
   .feed-empty { text-align:center; color:var(--muted); padding:40px 20px; }
 
   .msg { display:grid; grid-template-columns:34px 1fr; gap:10px; padding:6px 10px; border-radius:var(--radius);
@@ -258,31 +279,40 @@
   /* The empty slot on a grouped message keeps the text aligned without drawing a second circle. */
   .msg-grouped .msg-avatar { background:none; }
   .msg-body { min-width:0; }
-  .msg-head { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
-  .msg-name { font-weight:650; font-size:14px; }
+  .msg-head { display:flex; align-items:baseline; gap:8px; flex-wrap:nowrap; }
+  /* min-width:0 because a flex item defaults to min-width:auto and refuses to shrink below its
+     own content — without it the name pushes the row wide instead of ellipsising. */
+  .msg-name { font-weight:650; font-size:14px; min-width:0;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .msg-meta { color:var(--faint); font-size:11.5px; }
+  .msg-time, .msg-expiry { flex:none; }
+  /* Separator lives on the expiry, so hiding the expiry takes its dot with it. */
+  .msg-expiry::before { content:"· "; }
   .msg-text { white-space:pre-wrap; overflow-wrap:anywhere; font-size:15px; line-height:1.45; margin-top:1px; }
   .msg-image img { max-width:min(100%, 320px); height:auto; border-radius:10px; margin-top:8px; display:block; }
   /* Delete stays out of the way until the row is touched/hovered; always visible on coarse pointers. */
-  .msg-del { margin-left:auto; }
+  .msg-del { margin-left:auto; flex:none; }
   .msg-del button { background:none; border:0; color:var(--faint); font-size:17px; line-height:1;
     padding:0 4px; cursor:pointer; opacity:0; }
   .msg:hover .msg-del button, .msg-del button:focus-visible { opacity:1; }
   .msg-del button:hover { color:var(--neg); }
   @media (hover:none) { .msg-del button { opacity:.55; } }
 
-  /* Reactions + reply toggle on one line. `.thread` only claims the full width once it is open,
-     so the collapsed state stays beside the pills and the expanded one gets room for replies. */
+  /* Reactions and the "N svar" link share one line. Nothing here expands any more -- the thread
+     opens in the side panel rather than unfolding into the message -- so this row is now just a
+     wrapping strip of pills. (It carried a duplicated copy of itself for a while; both are gone.) */
   .msg-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:5px; }
-  .msg-actions .thread[open] { flex-basis:100%; }
   .reactions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-  /* Reactions + reply toggle on one line. `.thread` only claims the full width once it is open,
-     so the collapsed state stays beside the pills and the expanded one gets room for replies. */
-  .msg-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:5px; }
-  .msg-actions .thread[open] { flex-basis:100%; }
-  .reactions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  /* The three selection properties are what make HOLDING a pill work on a phone. Without them iOS
+     treats a touch-and-hold as the start of a text selection and opens its copy/define callout,
+     which pre-empts the 450ms timer in frontend/src/feed.ts entirely -- the who-reacted panel
+     simply never opened, and the screen went blue instead. Reported from an installed PWA.
+     There is nothing selectable in here anyway: a pill is a <button> holding an emoji and a count.
+     Note this must NOT be solved with preventDefault() on pointerdown, which suppresses the
+     synthetic click in some browsers and would stop a tap toggling the reaction. */
   .reaction { display:inline-flex; align-items:center; gap:5px; font-size:13px; line-height:1;
     padding:4px 9px; border-radius:999px; cursor:pointer;
+    -webkit-touch-callout:none; -webkit-user-select:none; user-select:none;
     background:var(--surface); border:1px solid var(--border-strong); color:var(--ink); }
   .reaction:hover { border-color:var(--faint); }
   .reaction.is-mine { background:var(--green-050); border-color:var(--green); color:var(--green-700); font-weight:650; }
@@ -296,7 +326,14 @@
      it too. Fixed positioning escapes both, because no ancestor here has a transform (that would
      make one a containing block and quietly re-anchor the panel).
      The matching requirement is that NO ancestor of a .pop may create a stacking context — no
-     z-index on a positioned box, no transform, filter, will-change or contain. This widget is
+     z-index on a positioned box, no transform, filter, will-change or contain, and no
+     -webkit-overflow-scrolling:touch. That last one is the nasty member of the list: nothing in
+     its name suggests it affects PAINTING, it is silently ignored by every engine except WebKit,
+     and it therefore cannot be caught in Chrome at any viewport size. It sat on #js-feed and put
+     both of these overlays underneath the composer on iOS — reported from an installed PWA, after
+     a Chrome pass that walked this very ancestor chain looking for stacking contexts and found
+     none. test_templates.test_stylesheet_has_no_webkit_overflow_scrolling now guards it, because
+     no browser test we can run ever will. This widget is
      embedded in two different page layouts, and opslagstavlen's card broke it exactly that way
      (see .notice-foot below): the backdrop and panel are confined to the nearest stacking context,
      so anything outside it stays undimmed and can paint over the panel.
@@ -307,7 +344,8 @@
   .pop > summary { list-style:none; }
   .pop > summary::-webkit-details-marker { display:none; }
   .pop[open] > summary { border-style:solid; border-color:var(--green); color:var(--green-700); }
-  .pop-backdrop { position:fixed; inset:0; z-index:60; background:rgba(15, 30, 22, .38); }
+  .pop-backdrop { position:fixed; inset:0; z-index:60; background:rgba(15, 30, 22, .38);
+    touch-action:none; }
   .pop-panel { position:fixed; z-index:61; left:50%; top:50%; transform:translate(-50%, -50%);
     width:max-content; max-width:min(340px, calc(100vw - 32px)); max-height:70dvh; overflow-y:auto;
     overscroll-behavior:contain; padding:12px;
@@ -326,8 +364,18 @@
   .pop-item-danger { color:var(--neg); }
   .pop-item-danger:hover { background:var(--neg-bg); color:var(--neg); }
 
-  .reaction-add { border-style:dashed; color:var(--muted); user-select:none; }
-  .reaction-who { border-style:dashed; color:var(--muted); user-select:none; }
+  /* Reads as a control, not a placeholder. It was a dashed muted outline, which on a message with
+     no reactions yet — where it is the only thing in the row — looked like an empty slot waiting
+     for something else rather than the button that puts something there. Solid fill, real border
+     and ink-coloured glyph give it the same weight as a reaction pill, which is what it is. */
+  .reaction-add { color:var(--ink); font-size:14px; padding:4px 10px; }
+  .reaction-add:hover { background:var(--green-050); border-color:var(--green); }
+  /* Only on a message with nothing on it yet: there the row has room to spell out the invitation,
+     and it is exactly the case where "what do I tap?" needs answering. Hidden once a single pill
+     exists, so a busy message pays nothing for it. See _reactions.html. */
+  .reaction-add .add-label { display:none; }
+  .reactions.is-empty .reaction-add .add-label { display:inline; }
+  .reaction-who { border-style:dashed; color:var(--muted); }
 
   .emoji-grid { display:grid; grid-template-columns:repeat(6, 1fr); gap:2px; }
   .emoji-choice { font-size:22px; line-height:1; padding:7px 6px; border:0; border-radius:8px;
@@ -341,23 +389,120 @@
      no matter how wide the emoji renders -- a flag or a ZWJ family is much wider than 👍, and ragged
      names are hard to scan in a list you scroll. */
   .who-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; }
-  .who-row { display:grid; grid-template-columns:26px 1fr; align-items:baseline; gap:8px;
+  /* Flex with a fixed-width .who-emoji rather than a grid column, so ONE rule serves both callers:
+     opslagstavlen still prefixes every row with its emoji and needs the names to line up in a
+     column, while Den Hurtige's panels are per emoji (it is in the title instead) and would
+     otherwise indent every name past an empty 26px gutter. Absent emoji, absent gutter. */
+  .who-row { display:flex; align-items:baseline; gap:8px;
     padding:5px 2px; font-size:14px; line-height:1.35; }
   .who-row + .who-row { border-top:1px solid var(--border); }
-  .who-emoji { font-size:17px; line-height:1.2; }
+  .who-emoji { font-size:17px; line-height:1.2; flex:none; width:26px; }
   .who-names { color:var(--ink); overflow-wrap:anywhere; }
+
+  /* Hover companion to the who panels, for mice only (frontend/src/feed.ts decides). A plain
+     tooltip rather than the .pop sheet: a .pop draws a full-screen backdrop, which under a cursor
+     means open/close/open flicker, and a centred modal is the wrong answer to a hover anyway.
+     Fixed and parented to <body>, so #js-feed's overflow cannot clip it and it needs no anchor.
+     pointer-events:none so it can never itself become what the cursor is over. */
+  .who-tip { position:fixed; z-index:60; pointer-events:none;
+    max-width:min(280px, calc(100vw - 12px));
+    background:var(--ink); color:var(--paper); font-size:12.5px; line-height:1.4;
+    padding:6px 9px; border-radius:8px; box-shadow:var(--shadow); }
+  .who-tip[hidden] { display:none; }
   .emoji-other input { width:100%; padding:5px 8px; text-align:center; }
 
-  .thread { min-width:0; }
-  .thread { min-width:0; }
-  .thread > summary { cursor:pointer; font-size:12.5px; font-weight:600; color:var(--green-700);
-    list-style:none; padding:2px 0; }
-  .thread > summary::-webkit-details-marker { display:none; }
-  .thread > summary::after { content:" ▾"; color:var(--faint); }
-  .thread[open] > summary::after { content:" ▴"; }
+  /* The way into a thread. Was a <details> summary that unfolded the replies in place; it is now a
+     link to den_hurtige:thread, which htmx turns into the side panel. Same weight and colour as the
+     old summary, minus the caret -- nothing folds open here any more. */
+  .msg-replies { min-width:0; font-size:12.5px; font-weight:600; color:var(--green-700);
+    text-decoration:none; padding:2px 0; white-space:nowrap; }
+  .msg-replies:hover { text-decoration:underline; }
+
+  /* --- thread side panel (den_hurtige/_thread.html) -------------------------------------------
+     Feed and panel side by side. #js-feed keeps every declaration it already had -- its
+     `flex:1; min-height:0; overflow-y:auto` now means "take the remaining WIDTH and scroll", and
+     the definite height it scrolls against comes from this row. The chat shell above is documented
+     as fragile (see the min-height:0 chain at the top of this block); this adds one box to it and
+     changes nothing else. */
+  .chat-cols { flex:1; min-height:0; display:flex; align-items:stretch; }
+  /* The swap target is a plain <div> that htmx owns; display:contents takes it out of the box tree
+     so .thread-panel is itself the flex item of .chat-cols. Without this the DIV is the flex item
+     and stretches, while the panel inside it keeps height:auto and collapses to its content —
+     a short thread rendered as a floating card two-thirds of the way up the column.
+     Empty (no thread open) it contributes nothing, so it costs no width either. */
+  #js-thread { display:contents; }
+
+  /* NOT position:fixed, NOT z-indexed, NOT left with a resting transform -- and that is
+     load-bearing, not a preference. The emoji picker and the reader panels rendered inside a
+     thread are `.pop`s, and a `.pop` breaks the moment ANY ancestor creates a stacking context
+     (see the .pop block above, and the opslagstavlen card that broke it exactly that way). An
+     in-flow flex item creates none, so the pickers still escape to the viewport from in here. */
+  .thread-panel { flex:0 0 clamp(300px, 38%, 420px); display:flex; flex-direction:column;
+    min-height:0; min-width:0; border-left:1px solid var(--border); background:var(--paper);
+    margin-right:-30px; padding:0 30px 0 20px; }
+  /* Focused programmatically when the panel opens, so a screen reader lands inside it rather than
+     back at the top of the document. That is not a keyboard focus, and drawing a ring around the
+     whole panel for it just looks like a rendering fault — :focus-visible still rings it when
+     somebody actually tabs there. */
+  .thread-panel:focus { outline:none; }
+  .thread-panel:focus-visible { outline:2px solid var(--ink); outline-offset:-2px; }
+  .thread-head { flex:none; display:flex; align-items:center; gap:8px; padding:10px 0;
+    border-bottom:1px solid var(--border); }
+  .thread-title { font-size:14px; font-weight:700; line-height:1.2; }
+  .thread-sub { font-size:11.5px; color:var(--muted); line-height:1.3;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .thread-back, .thread-x { background:none; border:0; color:var(--muted); line-height:1;
+    cursor:pointer; padding:2px 6px; font-size:19px; flex:none; }
+  .thread-back:hover, .thread-x:hover { color:var(--ink); }
+  /* One close control per breakpoint: an × on a docked desktop panel, a back arrow on a
+     full-screen phone view. Both are rendered; the wrong one is hidden. */
+  .thread-back { display:none; }
+  .thread-body { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:8px 0; }
+  /* The message the thread hangs off. Rendered by the same partial as the feed's messages, with
+     `bare` set, so it never drifts from them. */
+  .msg-parent { padding:0 0 8px; margin:0; border-radius:0;
+    border-bottom:1px solid var(--border); background:none; }
+  .thread-replies { display:flex; flex-direction:column; }
+  /* Pinned under the scroller rather than trailing the last reply. The base .reply-form rules
+     below are shared with opslagstavlen's inline comment forms, which still want the indent, so
+     the panel overrides rather than changes them. */
+  .thread-panel .reply-form { flex:none; margin:0; padding:10px 0;
+    border-top:1px solid var(--border); }
+  .thread-panel .reply-form .composer-send { width:34px; height:34px; font-size:16px; }
+  /* "Underret alle" onto its own line rather than competing with the input for width: at phone
+     width the three controls plus the label left the text box about nine characters wide. */
+  .thread-panel .reply-form .reply-notify { flex-basis:100%; margin:6px 0 0 28px; }
+  #js-feed:focus { outline:none; }
+  .thread-empty { font-size:13px; padding:10px 2px; }
+  .thread-messages { list-style:none; margin:8px 0 0; padding:0; font-size:13px; }
+  .thread-messages .error { color:var(--neg); }
+  .thread-messages .warning { color:var(--brass-ink); }
+  /* Slides in, then rests at translate:none. NO animation-fill-mode:forwards and NO will-change:
+     a resting transform or a will-change hint would pin a stacking context on this box permanently,
+     and the pickers inside it would break -- only inside a thread, which is a miserable bug to
+     find. A finished animation leaves nothing behind. */
+  @keyframes thread-in { from { translate: var(--thread-from, 24px) 0; opacity:0; } }
+  .thread-panel { animation:thread-in .16s ease-out; }
+  @media (prefers-reduced-motion: reduce) { .thread-panel { animation:none; } }
+  /* Widen the shell so two columns fit; .chat-shell is the components-layer replacement for the
+     max-w-3xl utility feed.html used to set (a utility would out-specify this rule). */
+  .chat-page .chat-shell { max-width:48rem; }
+  body.chat-page:has(.thread-panel) .chat-shell { max-width:70rem; }
+
+  /* The standalone thread page (den_hurtige/thread.html), which is NOT the chat shell. */
+  .thread-crumb { font-size:13px; margin:0 0 10px; }
+  .thread-page { padding:16px 18px; }
   .reply { margin:7px 0 0 2px; padding-left:10px; border-left:2px solid var(--border); }
   .reply-name { font-weight:650; font-size:13px; }
   .reply .msg-text { font-size:14px; }
+  /* Same row shape as .msg-head, and for the same reason: .msg-del is a <form> pushed right with
+     `margin-left:auto`, which needs a flex parent. Opslagstavlen's comments have a delete control
+     and Den Hurtige's replies do not, which is why only the former wraps its byline in one. */
+  .reply-head { display:flex; align-items:baseline; gap:8px; flex-wrap:nowrap; }
+  /* The ✕ is revealed by hovering the comment. `.msg:hover` (the Den Hurtige rule) never matches
+     here — a notice comment has no .msg ancestor — so without this the control is unreachable with
+     a mouse. */
+  .reply:hover .msg-del button { opacity:1; }
   .reply-form { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:9px 0 0 12px; }
   .reply-form input[type=text] { flex:1; min-width:9rem; }
   .reply-attach { margin:0; cursor:pointer; font-size:15px; line-height:1; padding:0 2px; }
@@ -413,18 +558,64 @@
     .reaction, .reaction-add, .reaction-who { padding:3px 8px; font-size:12.5px; }
     /* Bottom sheet on a phone: easier to reach one-handed than a centred box, and anchoring to the
        bottom keeps it out of the way of the emoji keyboard the free-text field opens. */
+    /* Freeze the page while a sheet is open. The sheet is position:fixed against the LAYOUT
+       viewport, so on a phone the URL bar animating during a scroll lifts it visibly off the bottom
+       edge — it looked "disconnected". Den Hurtige never showed this because its shell already locks
+       the document (html:has(body.chat-page) above); opslagstavlen scrolls like a normal page.
+       Not locked at desktop widths on purpose: there the panel is centred rather than a sheet, so it
+       cannot detach, and removing the scrollbar mid-interaction would jump the layout sideways. */
+    html:has(.pop[open]) { overflow:hidden; }
     .pop-panel { left:0; right:0; bottom:0; top:auto; transform:none; width:auto; max-width:none;
       max-height:62dvh; border-radius:16px 16px 0 0; padding:14px 16px calc(16px + env(safe-area-inset-bottom)); }
     .emoji-grid { grid-template-columns:repeat(8, 1fr); gap:4px; }
     .emoji-choice { font-size:25px; padding:8px 4px; }
-    .thread > summary { font-size:12px; }
+    .msg-replies { font-size:12px; }
+
+    /* Full-screen thread on a phone -- by HIDING the feed, not by covering it.
+       An overlay would need position:fixed and a z-index, i.e. a stacking context, and no ancestor
+       of a `.pop` may create one (see the .pop block) or the emoji picker and the reader panels
+       opened from inside a thread get trapped in it. Swapping display keeps the panel an ordinary
+       in-flow box, and has the second payoff of taking the feed genuinely out of the accessibility
+       tree -- so the panel needs no aria-modal, no inert and no focus trap. */
+    .chat-cols:has(.thread-panel) #js-feed { display:none; }
+    /* The channel header and the channel composer both go too: otherwise a phone shows two headers
+       stacked and two message inputs at the bottom, and it is not obvious which one you are
+       writing into. The panel carries its own header and its own reply box. */
+    .chat:has(.thread-panel) > .chat-head,
+    .chat:has(.thread-panel) > .composer { display:none; }
+    .thread-panel { flex:1 1 100%; border-left:0; padding:0 18px;
+      margin:0 -18px; --thread-from:100%; }
+    /* Back arrow instead of the ×: this is a whole screen, so it reads as "back to the messages". */
+    .thread-back { display:block; }
+    .thread-x { display:none; }
+    /* Same floor as the composer -- the reply box is now the bottom-most control on the screen. */
+    .thread-panel .reply-form { padding-bottom:calc(10px + max(env(safe-area-inset-bottom, 0px), 10px)); }
     #js-feed { padding:2px 0 8px; }
-    /* Duration drops below the message box and sits left, so the text gets the full width. */
+    /* Duration keeps its own row so the message box gets the full width — but ABOVE the input,
+       not below it. Underneath, it was the bottom-most element of a shell that is height-locked at
+       100dvh with overflow:hidden, which put it directly behind the Android system navigation bar
+       on the phones that draw edge-to-edge, with nothing to scroll it into view. Residents
+       reported simply not being able to see the setting.
+
+       env(safe-area-inset-bottom) was the only guard and it is not enough on its own: it resolves
+       to 0 in plenty of Android configurations that still paint a navigation bar over the page,
+       and the floor below cannot be sized for a 48dp three-button bar without wasting that space
+       on every other device.
+
+       Moving the row up fixes it structurally instead. The bottom edge is now the textarea and the
+       send button — 38px targets that stay usable even if a bar clips their last few pixels —
+       while the duration picker, a native <select> that cannot be made smaller (it is focusable,
+       so .no-zoom pins it at 16px against iOS focus-zoom), sits safely clear of it. Putting it
+       above the box it describes also reads better: you set how long this message matters, then
+       write it. */
     .composer { margin:0 -18px; padding-left:18px; padding-right:18px;
       grid-template-columns:auto 1fr auto;
-      grid-template-areas:"attach main send"
-                          "duration duration duration"; }
+      grid-template-areas:"duration duration duration"
+                          "attach main send"; }
     .composer-duration { justify-self:start; }
+    /* Belt and braces on top of the reorder: a floor under the inset, so nothing lands flush
+       against a bar even where env() reports nothing. */
+    .composer { padding-bottom:calc(10px + max(env(safe-area-inset-bottom, 0px), 10px)); }
   }
 
   /* --- banners (preview / dev clock) --- */
@@ -476,11 +667,248 @@
   .prose-gahk th, .prose-gahk td { @apply px-3 py-2 text-left align-top; border: 1px solid var(--border); }
   .prose-gahk th { @apply font-semibold; background: var(--green-050); }
 
+  /* ---- Begivenheder (events and RSVP) ---------------------------------------------------------
+     Reuses .card-flat/.card-pad/.chip/.btn/.page-head/.push-bar/.prose-gahk, and the .ni icon
+     sizing. Deliberately does NOT reuse .msg, .chat or .notice-* : an event list is a short column
+     of dated cards, not a chat shell and not a paginated document feed, and borrowing either
+     family would drag its layout assumptions along. */
+  .event-list { @apply flex flex-col gap-2; }
+  .event-card { overflow: hidden; }
+  .event-card:hover { border-color: var(--green-100); }
+  /* The whole card is the tap target, so the link IS the layout rather than something inside it —
+     one anchor, keyboard reachable, no nested interactive elements to trip over. */
+  .event-link { display: flex; gap: 12px; padding: 12px 14px; text-decoration: none; color: var(--ink); }
+  .event-date { flex: none; width: 46px; border-radius: 9px; background: var(--green-050);
+    border: 1px solid var(--green-100); display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 6px 0; }
+  .event-day { font-size: 19px; font-weight: 700; line-height: 1; color: var(--green-700); }
+  .event-month { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--green-700); margin-top: 2px; }
+  .event-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 5px; }
+  .event-title { font-size: 15.5px; font-weight: 700; line-height: 1.3; display: flex;
+    align-items: center; gap: 7px; flex-wrap: wrap; }
+  .event-meta { font-size: 13px; color: var(--muted); }
+  .event-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+  .event-count { font-size: 12.5px; }
+  /* A quiet chip for "you have not answered" — it is the absence of a state, so it must not read as
+     loudly as the three real answers beside it. */
+  .chip-quiet { background: var(--surface-2); color: var(--muted); border-color: var(--border-strong); }
+  .is-cancelled .event-link { opacity: .65; }
+  .is-cancelled .event-title { text-decoration: line-through; text-decoration-color: var(--faint); }
+  .event-empty { text-align: center; padding: 34px 24px; }
+  .event-crumb { font-size: 13px; margin: 0 0 10px; }
+  .event-hero img { width: 100%; max-height: 260px; object-fit: cover; border-radius: var(--radius);
+    display: block; margin-bottom: 14px; }
+  .event-facts { display: flex; flex-direction: column; gap: 7px; margin: 0 0 16px; }
+  .event-facts > div { display: flex; align-items: center; gap: 10px; }
+  .event-facts dt { margin: 0; display: grid; place-items: center; }
+  .event-facts dd { margin: 0; font-size: 14.5px; }
+  .event-facts .ni { width: 17px; height: 17px; color: var(--green); stroke: currentColor; fill: none; }
+  .event-description { margin-bottom: 18px; }
+  /* Quiet by design: useful, but never the thing you came to the page to do. */
+  /* The posts announcing this event — the other end of Notice.event. */
+  .event-notices { margin-top: 20px; }
+  .event-notices h2 { font-size: 12px; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .event-notice { display: flex; flex-direction: column; gap: 3px; padding: 10px 13px;
+    border: 1px solid var(--border); border-radius: 9px; background: var(--surface);
+    text-decoration: none; color: var(--ink); margin-bottom: 6px; }
+  .event-notice:hover { background: var(--surface-2); border-color: var(--faint); }
+  .event-notice-body { font-size: 14px; font-weight: 600; }
+  .event-notice-who { font-size: 12.5px; font-weight: 500; }
+
+  .event-ics { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin: 0 0 18px;
+    font-size: 13.5px; }
+  .event-ics a { display: inline-flex; align-items: center; gap: 6px; color: var(--green);
+    text-decoration: none; font-weight: 600; }
+  .event-ics a:hover { text-decoration: underline; }
+  .event-ics .ni { width: 15px; height: 15px; stroke: currentColor; fill: none; }
+
+  /* The answer panel. Its own id is the htmx swap target, so everything that changes when you press
+     Ja is inside this box and nothing outside it re-renders. */
+  .rsvp-panel { display: flex; flex-direction: column; gap: 11px; }
+  .rsvp-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .rsvp-head h2 { font-size: 15px; font-weight: 700; margin: 0; }
+  /* Full width and 44px tall: this is the action the page exists for, and it is pressed one-handed. */
+  .rsvp-actions { display: flex; gap: 9px; margin: 0; }
+  .rsvp-actions .btn { flex: 1; justify-content: center; padding: 13px 15px; font-size: 15px; }
+  .rsvp-nej { flex: 0 0 auto; }
+  .rsvp-ja.is-chosen { box-shadow: inset 0 0 0 2px var(--green-700); }
+  .rsvp-nej.is-chosen { background: var(--neg-bg); border-color: #e7c7c3; color: var(--neg); }
+  .rsvp-deadline, .rsvp-waiting, .rsvp-promoted { display: flex; align-items: center; gap: 7px;
+    font-size: 12.5px; margin: 0; border-radius: 9px; padding: 8px 11px; }
+  .rsvp-deadline { color: var(--brass-ink); background: var(--warn-bg); border: 1px solid #e7d8b0; }
+  .rsvp-deadline .ni { width: 15px; height: 15px; stroke: currentColor; fill: none; flex: none; }
+  .rsvp-waiting { color: var(--brass-ink); background: var(--warn-bg); border: 1px solid #e7d8b0; }
+  .rsvp-promoted { color: var(--green-700); background: var(--green-050); border: 1px solid var(--green-100); }
+  .rsvp-locked { display: flex; align-items: flex-start; gap: 10px; color: var(--muted);
+    background: var(--sunken); border: 1px solid var(--border); border-radius: 9px; padding: 11px 12px; }
+  .rsvp-locked .ni { width: 17px; height: 17px; stroke: currentColor; fill: none; flex: none; margin-top: 1px; }
+  .rsvp-locked p { margin: 2px 0 0; font-size: 12.5px; }
+  .rsvp-counts { font-size: 14px; }
+  .rsvp-people { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .rsvp-people li { display: flex; align-items: center; gap: 10px; }
+  .rsvp-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--brass); color: #fff;
+    display: grid; place-items: center; font-weight: 700; font-size: 11.5px; flex: none;
+    text-transform: uppercase; }
+  .rsvp-name { font-size: 14px; font-weight: 600; }
+  .rsvp-role { margin-left: auto; font-size: 11.5px; }
+  /* The venteliste, below the seated list and visibly secondary to it: numbers rather than
+     initials, because the position is the useful fact about a person in a queue. */
+  .rsvp-sub { margin: 4px 0 0; font-size: 12px; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--muted); }
+  .rsvp-queue .rsvp-name { font-weight: 500; }
+  .rsvp-avatar-quiet { background: transparent; color: var(--muted); border: 1px solid var(--line);
+    font-size: 12px; }
+
+  /* The guest list. A <details> so the closed state costs one line rather than sixty, and so it
+     works before the JS in events.ts has run — the server renders it open for an event that is
+     already invite-only. */
+  .invite-picker { border: 1px solid var(--border-strong); border-radius: 9px;
+    background: var(--surface); margin-bottom: 6px; }
+  .invite-picker > summary { list-style: none; cursor: pointer; display: flex; align-items: center;
+    justify-content: space-between; gap: 10px; padding: 11px 13px; font-weight: 600; font-size: 13.5px; }
+  .invite-picker > summary::-webkit-details-marker { display: none; }
+  .invite-count { font-size: 12px; font-weight: 650; border-radius: 999px; padding: 2px 10px;
+    background: var(--green-050); color: var(--green-700); border: 1px solid var(--green-100); }
+  .invite-body { padding: 0 13px 13px; display: flex; flex-direction: column; gap: 9px; }
+  .invite-search { width: 100%; box-sizing: border-box; border: 1px solid var(--border-strong);
+    border-radius: 8px; background: var(--surface-2); padding: 9px 11px; font: inherit; font-size: 16px; }
+  /* Scrolls rather than growing the page: sixty names would otherwise push the save button so far
+     down that nobody finds it on a phone. */
+  .invite-list { max-height: 300px; overflow-y: auto; overscroll-behavior: contain;
+    border: 1px solid var(--border); border-radius: 8px; padding: 4px; }
+  .invite-list ul { list-style: none; margin: 0; padding: 0; }
+  .invite-list label { display: flex; align-items: center; gap: 10px; padding: 9px 8px;
+    margin: 0; font-weight: 500; font-size: 14.5px; cursor: pointer; border-radius: 7px; }
+  .invite-list label:hover { background: var(--surface-2); }
+  .invite-list input[type="checkbox"] { width: auto; margin: 0; accent-color: var(--green);
+    width: 20px; height: 20px; flex: none; }
+  /* The visibility radios read as two cards, so the choice is legible at a glance rather than as
+     two dots in a row of form fields. */
+  .event-field ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .event-field ul label { display: flex; align-items: center; gap: 10px; margin: 0;
+    border: 1px solid var(--border-strong); border-radius: 9px; padding: 12px 13px;
+    background: var(--surface); font-weight: 600; font-size: 14.5px; cursor: pointer; }
+  .event-field ul input[type="radio"] { width: auto; margin: 0; accent-color: var(--green);
+    width: 18px; height: 18px; flex: none; }
+  .event-field ul label:has(input:checked) { border-color: var(--green); background: var(--green-050);
+    color: var(--green-700); }
+
+  /* The month grid. A plain CSS grid of seven columns; the whole thing is server-rendered, so
+     there is no JS calendar library and no client-side date maths to get wrong. */
+  .cal-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .cal-nav { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px;
+    border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink); }
+  .cal-nav:hover { background: var(--surface-2); border-color: var(--faint); }
+  .cal-nav .ni { width: 17px; height: 17px; stroke: currentColor; fill: none; }
+  .cal-month { font-size: 18px; font-weight: 700; min-width: 170px; }
+  .cal-legend { margin-left: auto; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    font-size: 12.5px; color: var(--muted); }
+  .cal-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .cal-key { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+  .cal-key-going { background: var(--green); }
+  .cal-key-waiting { background: var(--warn-bg); border: 1px solid #e7d8b0; }
+  .cal-key-open { background: var(--surface); border: 1px solid var(--border-strong); }
+
+  .cal-grid { display: flex; flex-direction: column; gap: 8px; }
+  .cal-head, .cal-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+  .cal-head { font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--faint); padding-left: 2px; }
+  .cal-cell { background: var(--surface); border: 1px solid var(--border); border-radius: 9px;
+    min-height: 96px; padding: 7px 8px; display: flex; flex-direction: column; gap: 5px; }
+  /* Padded days from the neighbouring months are dimmed rather than blank: a grid that starts
+     mid-row reads as broken, and an event on the 1st is worth seeing from the 30th. */
+  .cal-cell.is-outside { background: var(--surface-2); }
+  .cal-cell.is-outside .cal-daynum { color: var(--faint); }
+  .cal-cell.is-today { border-color: var(--green); box-shadow: inset 0 0 0 1px var(--green); }
+  /* The day the panel below is showing. Marked at every width, because the panel is shown at
+     every width and a panel with no visible source reads as having appeared from nowhere. */
+  .cal-cell.is-chosen { border-color: var(--green); background: var(--green-050); }
+  .cal-daynum { font-size: 12.5px; font-weight: 700; color: var(--muted); }
+  .cal-event { font-size: 11.5px; font-weight: 650; line-height: 1.3; border-radius: 6px;
+    padding: 4px 6px; display: block; text-decoration: none; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
+  /* The same three colours as the list's chips, so the two views teach each other. */
+  .cal-kommer { background: var(--green); color: #fff; }
+  .cal-venteliste { background: var(--warn-bg); color: var(--brass-ink); border: 1px solid #e7d8b0; }
+  .cal-nej { background: var(--neg-bg); color: var(--neg); border: 1px solid #e7c7c3; }
+  .cal-open { background: var(--surface); color: var(--ink); border: 1px solid var(--border-strong); }
+  .cal-event.is-cancelled { text-decoration: line-through; opacity: .7; }
+
+  /* The dots and the whole-cell tap link: the phone rendering, hidden at desktop widths. Both live
+     in every cell (see calendar.html) and the media query below decides which half is on screen. */
+  .cal-dots { display: none; flex-wrap: wrap; gap: 3px; }
+  .cal-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .cal-dot.cal-kommer { background: var(--green); }
+  .cal-dot.cal-venteliste { background: var(--brass); }
+  .cal-dot.cal-nej { background: var(--neg); }
+  .cal-dot.cal-open { background: var(--faint); }
+  .cal-dot.is-cancelled { background: transparent; box-shadow: inset 0 0 0 1.5px var(--faint); }
+  .cal-daytap { display: none; position: absolute; inset: 0; border-radius: 9px; }
+
+  /* The day panel. Shown at every width, but it only exists because of the phone: it is where a
+     tapped day's events get their titles back. */
+  .cal-day { margin-top: 18px; border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--surface); overflow: hidden; scroll-margin-top: 16px; }
+  .cal-day-head { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 12px 14px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+  /* ::first-letter, not `text-transform: capitalize` — Django's Danish weekday and month names are
+     both lowercase, and capitalize would give "Onsdag 2. September". Danish capitalises neither. */
+  .cal-day-head h2 { margin: 0; font-size: 15px; font-weight: 700; }
+  .cal-day-head h2::first-letter { text-transform: uppercase; }
+  .cal-day-close { font-size: 13px; font-weight: 600; color: var(--muted); text-decoration: none; }
+  .cal-day-close:hover { color: var(--ink); text-decoration: underline; }
+  .cal-day-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+    text-decoration: none; color: var(--ink); border-top: 1px solid var(--border); }
+  .cal-day-row:first-of-type { border-top: 0; }
+  .cal-day-row:hover { background: var(--surface-2); }
+  .cal-day-time { font-size: 13px; font-weight: 700; color: var(--green-700); flex: none;
+    font-variant-numeric: tabular-nums; }
+  .cal-day-title { font-size: 14.5px; font-weight: 600; flex: 1; min-width: 0; }
+  .cal-day-title.is-cancelled { text-decoration: line-through; opacity: .7; }
+  .cal-day-empty { margin: 0; padding: 14px; font-size: 14px; }
+
+  /* PHONE. The month stops being a wall of text and becomes what a phone calendar actually is: a
+     grid of dates you can read, dots saying which days have something on them, and a tap that opens
+     the day underneath. It used to scroll sideways at 660px wide, which meant three days visible at
+     a time and no way to see a month at all — the one thing a month view is for. */
+  @media (max-width: 720px) {
+    .cal-legend { margin-left: 0; width: 100%; }
+    .cal-head, .cal-week { gap: 4px; }
+    .cal-grid { gap: 4px; }
+    .cal-cell { position: relative; min-height: 0; aspect-ratio: 1; padding: 5px 2px 4px;
+      align-items: center; justify-content: flex-start; gap: 4px; border-radius: 8px; }
+    .cal-daynum { font-size: 13px; color: var(--ink); }
+    .cal-cell.is-outside .cal-daynum { color: var(--faint); }
+    /* The chips carry the titles, which is exactly what does not fit. Dots replace them. */
+    .cal-event { display: none; }
+    .cal-dots { display: flex; justify-content: center; max-width: 100%; }
+    .cal-daytap { display: block; }
+  }
+
+  .feed-box { display: flex; flex-direction: column; gap: 14px; }
+  .feed-url { margin: 0; padding: 11px 13px; border-radius: 9px; background: var(--sunken);
+    border: 1px solid var(--border); font-size: 13px; overflow-wrap: anywhere; }
+  .feed-warn { display: flex; align-items: flex-start; gap: 10px; padding: 11px 13px;
+    border-radius: 9px; background: var(--warn-bg); border: 1px solid #e7d8b0; color: var(--brass-ink); }
+  .feed-warn .ni { width: 17px; height: 17px; stroke: currentColor; fill: none; flex: none; margin-top: 2px; }
+  .feed-warn p { margin: 3px 0 0; font-size: 12.5px; }
+
+  .event-form { display: flex; flex-direction: column; gap: 2px; }
+  .event-field { margin-bottom: 6px; }
+  /* The field's own label, not the ones inside a radio/checkbox list — hence the child selector. */
+  .event-field > label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 5px; }
+  .event-help { font-size: 12px; margin: 5px 0 0; }
+  .event-form-actions { display: flex; gap: 10px; align-items: center; margin-top: 14px; }
+  .pager { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
+
   /* ---- Opslagstavlen (the noticeboard) --------------------------------------------------------
      Reuses .card-flat/.chip/.btn/.push-bar and, for the reaction row and comment replies, the
-     .reaction*/.emoji-*/.reply*/.msg-text rules in the Den Hurtige block below. Deliberately does
-     NOT reuse .chat*/.msg*/.composer*: those encode a one-viewport-tall chat shell with its own
-     internal scroller, and a paginated document list wants the normal page scroll. */
+     .reaction, .emoji-, .reply and .msg-text families in the Den Hurtige block below. Deliberately
+     does NOT reuse the .chat, .msg and .composer families: those encode a one-viewport-tall chat
+     shell with its own internal scroller, and a paginated document list wants the normal page
+     scroll. */
   .board-filters { @apply flex flex-wrap gap-2 mb-4; }
   .board-filters .chip { @apply no-underline; }
   .board-filters .chip.is-active { background: var(--green); color: #fff; border-color: var(--green); }
@@ -530,8 +958,20 @@
     border: 1px solid var(--border);
   }
   .notice-gallery-count { @apply text-sm; }
-  .notice-head { @apply flex items-start justify-between gap-3 flex-wrap; }
+  .notice-head { @apply flex items-start justify-between gap-3; flex-wrap: nowrap; }
+  .notice-headline { flex: 1; min-width: 0; }
   .notice-tags { @apply flex flex-wrap items-center gap-2 mb-1; }
+  /* "Handler om <begivenhed>". A brass chip so it does not read as a second category. */
+  .chip-event { background: var(--warn-bg); color: var(--brass-ink); border-color: #e7d8b0;
+    display: inline-flex; align-items: center; gap: 5px; text-decoration: none; max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; }
+  .chip-event:hover { border-color: var(--brass); }
+  /* Raised above the card's stretched permalink, which this one has to beat on z-index rather than
+     on tree order: .notice-tags comes BEFORE .notice-link in the markup, so `position` alone would
+     leave it painted (and hit-tested) underneath. The stacking context that creates is harmless
+     here in a way it would not be on .notice-foot — this is a leaf chip with no .pop inside it, so
+     there is no overlay for it to trap. Read the .notice-actions comment above before copying it. */
+  .notice-card.is-clickable .notice-event { position: relative; z-index: 1; }
   /* The author heads the card now that posts have no title. The avatar is deliberately the same
      shape and colour as Den Hurtige's .msg-avatar so the two feeds read as one product; it is a
      separate class rather than a shared one because .msg-avatar lives inside the chat shell's own
@@ -564,7 +1004,7 @@
     bottom: auto; transform: none; min-width: 190px; max-width: min(260px, calc(100vw - 32px)); }
   .notice-menu .pop-backdrop { background: transparent; }
 
-  .notice-author { @apply flex items-center gap-2.5; }
+  .notice-author { @apply flex items-center gap-2.5; min-width: 0; }
   .notice-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--brass);
     color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none;
     text-transform: uppercase; }

@@ -14,15 +14,17 @@ a role. This gate is about the feature; that one is about one feed within it.
 The module stays rather than being deleted with the trial, as the original plan had it, because two
 things here are still load-bearing: MODERATOR_ROLES, and `roles_allowed` — the function
 den_hurtige.channels.allowed mirrors.
+
+The gate MECHANISM moved to core.rollout when begivenheder became the third feature to want it; see
+that module's docstring for why the copy-it-again argument expired at three. What is left below is
+this feature's own policy plus the thin re-exports that keep every caller unchanged.
 """
 
 from collections.abc import Collection
-from functools import wraps
 
-from django.contrib.auth.views import redirect_to_login
-from django.core.exceptions import PermissionDenied
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest
 
+from core.rollout import Gate
 from residents.permissions import MODERATION_ROLES, View, effective_roles
 
 # None = every logged-in resident. A tuple = only those roles (administrator implies every role, so
@@ -33,6 +35,10 @@ from residents.permissions import MODERATION_ROLES, View, effective_roles
 # picker's live-post counts stop reading zero — five feeds only look alive with a whole house in
 # them, which is the question the trial could not answer.
 ACCESS_ROLES: tuple[str, ...] | None = None
+
+# Read through a lambda, never passed by value: this global is what tests rebind and what the edit
+# above flips, and a Gate holding the value would freeze at import. See core.rollout.
+_GATE = Gate(lambda: ACCESS_ROLES)
 
 # Who may delete somebody else's message. Aliased rather than redefined: the list is shared with
 # opslagstavlen and lives in residents.permissions, which owns every other role grouping.
@@ -45,40 +51,25 @@ def can_moderate(request: HttpRequest) -> bool:
     return request.user.is_authenticated and not effective_roles(request).isdisjoint(MODERATOR_ROLES)
 
 
-def is_limited() -> bool:
-    """Whether the rollout gate is still on — drives the "under test" banner on the feed.
-
-    A function, not a re-exported constant: `from .access import ACCESS_ROLES` binds the value at
-    import time, and Django imports view modules lazily on the first request, so such a binding
-    silently freezes to whatever the constant happened to be then. Everything here reads the module
-    global when called instead.
-    """
-    return ACCESS_ROLES is not None
+is_limited = _GATE.is_limited
 
 
 def roles_allowed(roles: Collection[str]) -> bool:
     """Whether a role set may use Den Hurtige. Takes roles rather than a request so the sidebar,
-    which only has the effective role set to hand, can ask the same question as the views."""
-    return ACCESS_ROLES is None or not set(roles).isdisjoint(ACCESS_ROLES)
+    which only has the effective role set to hand, can ask the same question as the views.
+
+    Kept as a module-level function rather than an alias because den_hurtige.channels.allowed
+    mirrors this signature deliberately, and the two are read side by side.
+    """
+    return _GATE.roles_allowed(roles)
 
 
 def request_allowed(request: HttpRequest) -> bool:
     """Same question for a request. Uses *effective* roles, so an administrator previewing as a
     plain beboer is locked out too — which is exactly the rollout being simulated."""
-    return request.user.is_authenticated and roles_allowed(effective_roles(request))
+    return _GATE.request_allowed(request)
 
 
 def access_required(view: View) -> View:
-    """@login_required plus the rollout gate. Mirrors residents.permissions.role_required, except
-    the roles are read per request instead of bound at import — so flipping ACCESS_ROLES (or
-    overriding it in a test) takes effect without re-importing the view module."""
-
-    @wraps(view)
-    def wrapped(request: HttpRequest, *args: object, **kwargs: object) -> HttpResponse:
-        if not request.user.is_authenticated:
-            return redirect_to_login(request.get_full_path())
-        if not roles_allowed(effective_roles(request)):
-            raise PermissionDenied
-        return view(request, *args, **kwargs)
-
-    return wrapped
+    """@login_required plus the rollout gate."""
+    return _GATE.required(view)

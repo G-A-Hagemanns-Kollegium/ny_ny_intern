@@ -547,7 +547,7 @@ def test_an_out_of_range_page_falls_back(client: Client, beboer: Resident) -> No
 
 
 def test_the_board_does_not_poll_itself(client: Client, beboer: Resident) -> None:
-    """Den Hurtige polls every 20s because its messages die in 30 minutes. A paginated multi-year
+    """Den Hurtige polls every 5s because its messages die in 30 minutes. A paginated multi-year
     archive must not: polling fights the pager, throws away the reader's place, and re-renders every
     post's Markdown server-side every 20 seconds per open tab."""
     make_notice(beboer)
@@ -1485,3 +1485,163 @@ def test_the_trial_group_is_still_notified(
     client.post(BOARD + "opret", {"category": Category.NYT, "body": "Indhold"})
 
     assert pushes[-1][0] == [tester.pk]
+
+
+# --- linking a post to a begivenhed ------------------------------------------------------------------
+#
+# "Announce on opslagstavlen; sign up on begivenheder" is what both features' docstrings have always
+# said, with no way to get from one to the other until this field existed. The interesting part is
+# not the FK, it is the two places the two features disagree about lifetime and about who may see
+# what: an event lives a week past its date and a post lives two years, and an event may be private
+# while the board is not.
+
+
+@pytest.fixture
+def events_open(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Lift begivenheder's own rollout gate.
+
+    It is behind one too, and both the chip and the form field are gated on the reader being able to
+    open the feature. These tests are about the link, not about either gate — the two that ARE about
+    the gate are at the end of this section and deliberately do not use this.
+    """
+    from events import access as events_access
+
+    monkeypatch.setattr(events_access, "ACCESS_ROLES", None)
+
+
+def _event(organiser: Resident, **extra: object) -> object:
+    from events.models import Event
+
+    defaults: dict = {
+        "title": "Fællesspisning",
+        "starts_at": timezone.now() + timedelta(days=3),
+    }
+    defaults.update(extra)
+    return Event.objects.create(organiser=organiser, **defaults)
+
+
+def test_a_post_can_name_the_event_it_is_about(client: Client, beboer: Resident, events_open: None) -> None:
+    event = _event(beboer)
+    client.force_login(beboer)
+
+    client.post(
+        BOARD + "opret",
+        {"category": Category.BEGIVENHED, "body": "Vi spiser sammen på torsdag.", "event": event.pk},
+    )
+
+    assert Notice.objects.get().event_id == event.pk
+
+
+def test_the_card_links_to_the_event(client: Client, beboer: Resident, events_open: None) -> None:
+    event = _event(beboer, title="Fællesspisning i gården")
+    make_notice(beboer, event=event)
+    client.force_login(beboer)
+
+    body = client.get(BOARD).content.decode()
+
+    assert "Fællesspisning i gården" in body
+    assert f"/intern/begivenheder/{event.pk}" in body
+
+
+def test_a_private_event_cannot_be_linked(client: Client, beboer: Resident, events_open: None) -> None:
+    """The choices are the only ids a POST can name, and that is the security boundary rather than a
+    convenience: opslagstavlen is read by the whole house, so a chip naming a private party would
+    announce it to everyone who was not invited."""
+    from events.models import Visibility
+
+    hidden = _event(beboer, title="Hemmelig fest", visibility=Visibility.KUN_INVITEREDE)
+    client.force_login(beboer)
+
+    client.post(
+        BOARD + "opret",
+        {"category": Category.NYT, "body": "Indhold", "event": hidden.pk},
+    )
+
+    assert not Notice.objects.exists()
+
+
+def test_an_event_made_private_after_the_fact_stops_being_shown(
+    client: Client, beboer: Resident, events_open: None
+) -> None:
+    """The form cannot help here — the link was legal when it was made. The template checks
+    visibility again on the way out, which is the check that actually protects the party."""
+    from events.models import Event, Visibility
+
+    event = _event(beboer, title="Hemmelig fest")
+    make_notice(beboer, event=event)
+    Event.objects.filter(pk=event.pk).update(visibility=Visibility.KUN_INVITEREDE)
+    client.force_login(beboer)
+
+    body = client.get(BOARD).content.decode()
+
+    assert "Hemmelig fest" not in body
+
+
+def test_deleting_the_event_keeps_the_post(client: Client, beboer: Resident, events_open: None) -> None:
+    """SET_NULL, and this is the whole reason for it. An event is deleted a week after it is held; a
+    post lives about two years. CASCADE would mean Tuesday's dinner quietly deleting the post that
+    announced it — with its comments and reactions — on Wednesday."""
+    event = _event(beboer)
+    notice = make_notice(beboer, event=event, body="Vi spiste sammen.")
+
+    event.delete()
+
+    notice.refresh_from_db()
+    assert notice.event_id is None
+    assert Notice.objects.filter(pk=notice.pk).exists()
+
+
+def test_a_post_whose_event_is_gone_still_renders(
+    client: Client, beboer: Resident, events_open: None
+) -> None:
+    """The state a purge leaves behind is an ordinary one, not an error — every day-old event puts
+    some post into it."""
+    event = _event(beboer)
+    make_notice(beboer, event=event, body="Vi spiste sammen.")
+    event.delete()
+    client.force_login(beboer)
+
+    response = client.get(BOARD)
+
+    assert response.status_code == 200
+    assert "Vi spiste sammen." in response.content.decode()
+
+
+def test_the_link_is_optional(client: Client, beboer: Resident) -> None:
+    """Most posts are not about an event, so the field must never become a hurdle to posting."""
+    client.force_login(beboer)
+
+    client.post(BOARD + "opret", {"category": Category.NYT, "body": "Vaskemaskinen er i stykker."})
+
+    assert Notice.objects.get().event_id is None
+
+
+def test_no_event_chip_while_begivenheder_is_behind_its_own_gate(
+    client: Client, beboer: Resident, events_open: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two features, two independent rollout gates, and each has to check the other before linking
+    into it. A chip that 403s whoever taps it is worse than no chip."""
+    from events import access as events_access
+
+    event = _event(beboer, title="Fællesspisning i gården")
+    make_notice(beboer, event=event)
+    monkeypatch.setattr(events_access, "ACCESS_ROLES", (Role.ADMINISTRATOR,))
+    client.force_login(beboer)
+
+    body = client.get(BOARD).content.decode()
+
+    assert "Fællesspisning i gården" not in body
+    assert f"/intern/begivenheder/{event.pk}" not in body
+
+
+def test_the_event_field_is_absent_while_begivenheder_is_gated(client: Client, beboer: Resident) -> None:
+    """Removed from the form, not disabled — so a POST naming an event is ignored rather than merely
+    unrendered. The events gate is on by default, hence no `events_open` here."""
+    event = _event(beboer)
+    client.force_login(beboer)
+
+    assert "Handler om" not in client.get(BOARD + "opret").content.decode()
+
+    client.post(BOARD + "opret", {"category": Category.NYT, "body": "Indhold", "event": event.pk})
+
+    assert Notice.objects.get().event_id is None

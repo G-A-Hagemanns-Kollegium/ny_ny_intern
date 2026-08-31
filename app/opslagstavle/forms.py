@@ -14,13 +14,37 @@ from core.emoji import is_emoji, is_only_one_emoji, normalize_emoji
 from .models import MAX_BODY_CHARS, Notice, NoticeComment
 
 
+def linkable_events() -> object:
+    """The events a post may point at: upcoming, not cancelled, and OPEN TO EVERY RESIDENT.
+
+    The visibility filter is the load-bearing one. Opslagstavlen is readable by the whole house, so
+    a chip reading "Fødselsdag i 104 · 5. september" on a post about a private party would announce
+    the party to sixty people who were not invited — the one thing `kun inviterede` exists to
+    prevent. Restricting the CHOICES is also what validates the POST; see NoticeForm.__init__.
+
+    Cancelled events are dropped because linking to one is never what somebody means to do. An event
+    cancelled *after* it was linked keeps its chip, which is right — the post is how people find out
+    it is off.
+
+    Imported inside the function, not at module scope: `events` is a younger app that already points
+    back at this one in prose, and a deferred import keeps the dependency one-directional at import
+    time as well as on paper.
+    """
+    from events.models import Event, Visibility
+
+    return Event.objects.upcoming().filter(visibility=Visibility.AABENT, cancelled_at__isnull=True)
+
+
 class NoticeForm(forms.ModelForm):
     class Meta:
         model = Notice
         # Explicit, which kills mass-assignment: pinned_at/pinned_by/author/edited_at are set by the
         # views that are allowed to set them, never by whatever arrives in the POST body.
-        fields = ["category", "body"]
-        labels = {"category": "Kategori", "body": "Indhold"}
+        fields = ["category", "body", "event"]
+        labels = {"category": "Kategori", "body": "Indhold", "event": "Handler om"}
+        help_texts = {
+            "event": "Valgfrit. Knytter opslaget til en begivenhed, så folk kan gå direkte til tilmeldingen.",
+        }
         widgets = {
             "body": forms.Textarea(
                 attrs={
@@ -30,6 +54,30 @@ class NoticeForm(forms.ModelForm):
                 }
             ),
         }
+
+    def __init__(self, *args: object, events_allowed: bool = True, **kwargs: object) -> None:
+        """Bind the event choices HERE, never at class level.
+
+        Two reasons, and the first is the ordinary one: the queryset depends on "now", so a
+        class-level definition would be evaluated at import and offer whichever events were upcoming
+        when the process started.
+
+        The second is the security one. The choices are the ONLY events a POST can name — a
+        ModelChoiceField validates the submitted id against this queryset — so restricting it here
+        is also what stops somebody posting the id of a private event they were not invited to and
+        having its title rendered on a board the whole house reads.
+
+        `events_allowed=False` REMOVES the field rather than disabling it. Begivenheder has its own
+        rollout gate, and offering somebody a list of events they cannot open is at best confusing;
+        removing it also means a POST naming one is ignored rather than merely unrendered, which is
+        the difference between a hidden control and an absent one.
+        """
+        super().__init__(*args, **kwargs)  # type: ignore[arg-type]
+        if not events_allowed:
+            del self.fields["event"]
+            return
+        self.fields["event"].queryset = linkable_events()  # type: ignore[attr-defined]
+        self.fields["event"].empty_label = "Ingen"  # type: ignore[attr-defined]
 
     def clean_body(self) -> str:
         """Cap the body server-side as well as via maxlength.

@@ -5,37 +5,27 @@ K = a*100/(a+b+12) where a = months lived at GAHK (minus orlov) and b = months u
 both relative to the target (offer) month. Confirmed formula (incl. the +12). Higher K ranks first.
 """
 
+from core.danish import MONTHS
+
 
 def month_index(year: int, month: int) -> int:
     return year * 12 + (month - 1)
 
 
-# 0-indexed Danish month names, for turning an absolute month index back into a readable label.
-_DA_MONTHS = (
-    "januar",
-    "februar",
-    "marts",
-    "april",
-    "maj",
-    "juni",
-    "juli",
-    "august",
-    "september",
-    "oktober",
-    "november",
-    "december",
-)
+# Danish month names live in core.danish now (they were copy-pasted in three places). That list
+# is 1-indexed so MONTHS[date.month] works; this module counts months from zero, hence the +1.
 
 
 def month_label(index: int) -> str:
     """Human-readable 'Måned ÅÅÅÅ' for an absolute 0-indexed month index (inverse of month_index)."""
     year, month0 = divmod(index, 12)
-    return f"{_DA_MONTHS[month0].capitalize()} {year}"
+    return f"{MONTHS[1 + month0].capitalize()} {year}"
 
 
 def month_choices() -> list[tuple[int, str]]:
     """(month_number, Danish name) pairs 1..12, for <select> month pickers."""
-    return [(i, name.capitalize()) for i, name in enumerate(_DA_MONTHS, start=1)]
+    # MONTHS[0] is the empty placeholder that makes MONTHS[date.month] work, so skip it.
+    return [(i, name.capitalize()) for i, name in enumerate(MONTHS[1:], start=1)]
 
 
 def compute_k_parts(

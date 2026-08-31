@@ -1,7 +1,12 @@
 {% comment %}
   The message list on its own. Rendered inside feed.html on first load, and returned by
-  den_hurtige:feed_items for the 20s poll. Keep it self-contained: it is swapped into #js-feed
+  den_hurtige:feed_items for the 5s poll. Keep it self-contained: it is morphed into #js-feed
   wholesale, so anything outside this file will not refresh.
+
+  Replies are NOT here. Each message carries a "N svar" link into den_hurtige:thread, which opens
+  the side panel (#js-thread, a sibling of the polled region — see feed.html). That is what let the
+  feed query stop prefetching every reply of every message every five seconds; it now annotates a
+  count instead. See views._active_posts.
 
   Oldest first — the newest message sits directly above the composer, as in any chat.
 {% endcomment %}
@@ -12,86 +17,7 @@
     Without it a short back-and-forth reads as a stack of separate cards — what made the old feed
     feel like a forum.
   {% endcomment %}
-  <article class="msg{% if post.grouped %} msg-grouped{% endif %}{% if post.author_id == user.id %} msg-own{% endif %}"
-           id="msg-{{ post.pk }}">
-    <div class="msg-avatar" aria-hidden="true">
-      {% if not post.grouped %}{{ post.author.first_name|slice:":1" }}{{ post.author.last_name|slice:":1" }}{% endif %}
-    </div>
-    <div class="msg-body">
-      <div class="msg-head">
-        {% if not post.grouped %}<span class="msg-name">{{ post.author.full_name }}</span>{% endif %}
-        <span class="msg-meta">{{ post.created_at|date:"H:i" }} · udløber om {{ post.minutes_left }} min</span>
-        {% if post.author_id == user.id or can_moderate %}
-          <form method="post" action="{% url 'den_hurtige:delete_post' post.pk %}" class="msg-del"
-                onsubmit="return confirm('Slet «{{ post.content|truncatechars:60|escapejs }}» permanent?')">
-            {% csrf_token %}
-            <button type="submit" title="Slet besked" aria-label="Slet besked">&times;</button>
-          </form>
-        {% endif %}
-      </div>
-
-      <div class="msg-text">{{ post.content }}</div>
-      {% if post.image %}
-        <a href="{{ post.image.url }}" target="_blank" rel="noopener" class="msg-image">
-          <img src="{{ post.image.url }}" alt="" loading="lazy">
-        </a>
-      {% endif %}
-
-      {% comment %}
-        Reactions and the reply toggle share one row. Both are always rendered — the picker and
-        a "Svar" link exist even with nothing on the message — so as two stacked rows they cost
-        about 54px of every message before a word of content. Side by side that halves.
-      {% endcomment %}
-      <div class="msg-actions">
-        {% include "den_hurtige/_reactions.html" with reactions=post.reaction_rows %}
-
-        {% comment %}
-          Native <details> for the thread: no JS, works on iOS, keyboard accessible. frontend/src/feed.ts
-          re-opens whatever was open after a poll swap, otherwise reading a thread would be
-          interrupted every 20 seconds.
-        {% endcomment %}
-        <details class="thread" id="thread-{{ post.pk }}">
-        <summary>
-          {% with n=post.comments.all|length %}
-            {% if n %}{{ n }} svar{% else %}Svar{% endif %}
-          {% endwith %}
-        </summary>
-        {% for comment in post.comments.all %}
-          <div class="reply">
-            <span class="reply-name">{{ comment.author.full_name }}</span>
-            <span class="msg-meta">{{ comment.created_at|date:"H:i" }}</span>
-            <div class="msg-text">{{ comment.content }}</div>
-            {% if comment.image %}
-              <a href="{{ comment.image.url }}" target="_blank" rel="noopener" class="msg-image">
-                <img src="{{ comment.image.url }}" alt="" loading="lazy">
-              </a>
-            {% endif %}
-          </div>
-        {% endfor %}
-        <form method="post" action="{% url 'den_hurtige:create_comment' post.pk %}" class="reply-form"
-              enctype="multipart/form-data">
-          {% csrf_token %}
-          <label class="reply-attach" for="id_reply_image_{{ post.pk }}" title="Vedhæft billede">
-            <span aria-hidden="true">📎</span>
-            <span class="sr-only">Vedhæft billede til svar</span>
-            <input type="file" id="id_reply_image_{{ post.pk }}" name="image" accept="image/*">
-          </label>
-          <label class="sr-only" for="id_comment_{{ post.pk }}">Svar</label>
-          <input type="text" id="id_comment_{{ post.pk }}" name="content" required
-                 maxlength="{{ max_content_chars }}" placeholder="Svar…" enterkeyhint="send">
-          <button type="submit" class="btn btn-secondary">Send</button>
-          {% comment %}
-            One checkbox instead of the old radio pair. Unchecked still means "only the author",
-            which is the same default as before — see QuickComment.notify_everyone.
-          {% endcomment %}
-          <label class="reply-notify">
-            <input type="checkbox" name="notify" value="alle"> Underret alle
-          </label>
-        </form>
-        </details>
-      </div>
-    </div>
-  </article>
+  {% include "den_hurtige/_message.html" with post=post %}
 {% empty %}
   <div class="feed-empty">
     <p><strong>Ingen beskeder lige nu.</strong></p>
