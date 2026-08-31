@@ -1,4 +1,4 @@
-/** Ølbuddet — entry point for the `spil` bundle.
+/** Lords of the ØK: The Game — entry point for the `spil` bundle.
  *
  *  Loaded only by app/templates/spil/spil.html. It bails out silently on every other page, so even
  *  if the file is ever pulled in somewhere else it does nothing at all.

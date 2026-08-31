@@ -64,3 +64,8 @@ acme.json
 # app/media/public/image/intern/roomimages/ stay tracked until they are explicitly removed — and
 # they remain in history either way, so removing them is the same job as the 2026-08-04 dump.
 app/media/
+# Third-party sprite art for Ølbuddet (LimeZu "Modern Interiors", free tier). 1.3 MB of somebody
+# else's work under a non-commercial licence that says nothing about redistribution, so it is not
+# committed — the *generated* atlas (app/static/spil/atlas.png) is, and the build falls back to its
+# own procedural sprites when the pack is absent. See frontend/src/spil/ASSETS.md to re-download.
+frontend/src/spil/ASSETS/

@@ -13,7 +13,8 @@
  *  depends on seeded data.
  */
 
-import { TILE } from "./config";
+import { PROP_SIZE } from "./propsize";
+import { TILE, WALL_BACK_H, WALL_FACE_H } from "./config";
 
 export interface Rect {
   x: number;
@@ -42,12 +43,15 @@ export interface Prop {
 }
 
 export interface Obstacle {
-  /** World pixels — obstacles are placed by eye, not on the tile grid. */
+  /** World pixels — obstacles are placed by eye, not on the tile grid. This is the *drawn* rect. */
   x: number;
   y: number;
   w: number;
   h: number;
   sprite: string;
+  /** What you actually bump into, if that is smaller than the sprite: you should be able to brush
+   *  past the back of a sofa. Defaults to the whole rect. */
+  hit?: Rect;
 }
 
 /** Spilt beer. No collision; you just wade. */
@@ -96,9 +100,10 @@ export interface Floor {
   obstacles: Obstacle[];
   hazards: Hazard[];
   stairs: Stairwell[];
-  /** Wall colour for this floor — 2. sal is the red one. */
+  /** Wall colours for this floor — 2. sal is the red one. `wallLight` is the lit top of a face. */
   wall: string;
   wallDark: string;
+  wallLight: string;
 }
 
 export interface ServerRoom {
@@ -118,7 +123,7 @@ export const WORLD_H = FLOOR_TH * TILE;
 const STAIR_W = 12;
 const TOP_Y = 2;
 const TOP_H = 5;
-const CORR_Y = 7;
+export const CORR_Y = 7;
 const CORR_H = 4;
 const BOT_Y = 11;
 const BOT_H = 5;
@@ -185,6 +190,54 @@ function normalise(rooms: ServerRoom[]): RoomRec[] {
 }
 
 // ------------------------------------------------------------------------------------ furniture
+/** Against the wall opposite the door: one big piece per room. */
+const TALL = ["dresser", "dresser1", "dresser2", "dresser3", "dresser4", "bookcase", "bookcase1",
+  "wardrobe_tall", "blind", "blind1", "blind2", "wardrobe2", "wardrobe4", "cabinet"];
+/** The strip beside the desk, and the corner by the bed. Small things only. */
+const CORNER = ["bag", "bag1", "bag2", "bag3", "bag4", "board", "board1", "board2", "board3",
+  "plush", "plush1", "plush2", "bottle", "bottle1", "bottle2", "clothes", "plant"];
+/** Hung on the wall over the bed. */
+const WALL_ART = ["banner", "banner1", "banner2", "banner3", "banner4", "banner5", "pin", "pin1",
+  "poster", "mirror", "mirror2"];
+const BEDS = ["bed", "bed1", "bed2", "bed3", "bed4", "bed5"];
+const MATS = ["mat", "mat1", "mat2", "mat3", "rug", "rug2"];
+const NIGHTSTANDS = ["nightstand", "nightstand1", "nightstand2", "nightstand3"];
+
+const pickName = (pool: string[], n: number): string => pool[Math.abs(n) % pool.length];
+/** A sprite's real footprint. Anything the atlas does not have falls back to something small
+ *  enough not to overlap its neighbours. */
+const size = (name: string): [number, number] => PROP_SIZE[name] ?? [12, 12];
+/** Things you walk *over*, not into. */
+const FLAT = new Set(["rug", "rug2", "rug_big", "mat", "mat1", "mat2", "mat3", "kmat", "kmat1"]);
+
+const BED_W = 32;
+const DESK_W = 16;
+/** How much floor is kept clear in front of a room's big piece, so the resident can walk there. */
+const LANE_DEPTH = 20;
+
+/** The clear strip of floor between the bed and the desk. Everything that is not the bed or the
+ *  desk is centred on it, and it is where the room's occupant paces — so the two cannot drift
+ *  apart, `render.ts` asks for it here rather than working it out again. */
+export function roomLane(r: Rect, doorSide: "top" | "bottom", seed: number): {
+  x: number;
+  w: number;
+  y: number;
+} {
+  const x0 = px(r.x) + WALL + 2;
+  const topWall = doorSide === "top" ? WALL_FACE_H : WALL_BACK_H;
+  const botWall = doorSide === "bottom" ? WALL_FACE_H : WALL_BACK_H;
+  return {
+    x: x0 + (seed % 2 === 0 ? BED_W + 1 : DESK_W + 1),
+    w: px(r.w) - (WALL + 2) * 2 - BED_W - DESK_W - 2,
+    // The camera looks at the building from slightly south, so "in front of" always means further
+    // down the screen. Whichever wall the big piece stands against, the resident walks nearer than
+    // it — otherwise the wardrobe swallows them whole.
+    y: doorSide === "top"
+      ? px(r.y + r.h) - botWall - 6
+      : px(r.y + r.h) - botWall - 13,
+  };
+}
+
 /** Lay a room out from its seed. Deterministic, so a room looks the same every time you visit it.
  *
  *  The rule everywhere is the same: the big pieces go against the wall *opposite* the door, so the
@@ -192,10 +245,14 @@ function normalise(rooms: ServerRoom[]): RoomRec[] {
  *  the Gang. */
 function furnish(kind: CellKind, r: Rect, doorSide: "top" | "bottom", seed: number): Prop[] {
   const props: Prop[] = [];
+  // The usable floor is what is left between the two walls. The door wall is a full face; the one
+  // opposite is only a skirting, which is where the room finds space for a bed.
+  const topWall = doorSide === "top" ? WALL_FACE_H : WALL_BACK_H;
+  const botWall = doorSide === "bottom" ? WALL_FACE_H : WALL_BACK_H;
   const x0 = px(r.x) + WALL + 2;
-  const y0 = px(r.y) + WALL + 2;
+  const y0 = px(r.y) + topWall + 1;
   const x1 = px(r.x + r.w) - WALL - 2;
-  const y1 = px(r.y + r.h) - WALL - 2;
+  const y1 = px(r.y + r.h) - botWall - 1;
   const w = x1 - x0;
   const h = y1 - y0;
   const cx = x0 + w / 2;
@@ -220,23 +277,82 @@ function furnish(kind: CellKind, r: Rect, doorSide: "top" | "bottom", seed: numb
 
   switch (kind) {
     case "room": {
-      const bedX = flip ? x0 : x1 - 14;
-      const deskX = flip ? x1 - 16 : x0;
-      put("rug", cx - 9, cy - 6);
-      put("bed", bedX, atFar(20));
-      put("desk", deskX, atFar(10));
-      put("chair", deskX + 4, doorSide === "top" ? atFar(10) - 9 : atFar(10) + 11);
-      put(seed % 3 === 0 ? "shelf" : "wardrobe", flip ? x1 - 10 : x0, atNear(14));
-      if (seed % 4 === 0) put("plant", flip ? x0 + 2 : x1 - 8, atNear(10));
+      // A GAHK room is 102x58 px of floor: a bed and its nightstand on one side, a desk and chair
+      // on the other, and a clear lane down the middle that the resident paces. Everything is
+      // picked from the room's seed, so no two are furnished alike and any one room is always the
+      // same. Sizes come from `PROP_SIZE`, which the atlas generator writes, so the layout cannot
+      // drift when a sprite is recut.
+      const bedName = pickName(BEDS, seed);
+      const [bedW, bedH] = size(bedName);
+      const bedX = flip ? x0 : x1 - bedW;
+      const deskX = flip ? x1 - DESK_W : x0;
+      put(bedName, bedX, atFar(bedH));
+
+      // A nightstand tucked against the bed, on whichever side faces the middle of the room.
+      const nsName = pickName(NIGHTSTANDS, seed >> 3);
+      put(nsName, flip ? bedX + bedW + 1 : bedX - size(nsName)[0] - 1, atFar(size(nsName)[1]));
+
+      put("desk", deskX + 1, atFar(22));
+      put("chair", deskX + 2, doorSide === "top" ? atFar(22) - 22 : atFar(22) + 23);
+
+      // Something hung over the bed. The near wall is clear there — the bed only reaches 38 px in.
+      if ((seed >> 6) % 4 !== 0) {
+        const art = pickName(WALL_ART, seed >> 7);
+        put(art, bedX + (bedW - size(art)[0]) / 2, atNear(size(art)[1]));
+      }
+
+      const lane = roomLane(r, doorSide, seed);
+      const matName = pickName(MATS, seed >> 12);
+      if ((seed >> 11) % 4 !== 0) {
+        put(matName, lane.x + (lane.w - size(matName)[0]) / 2, cy - size(matName)[1] / 2);
+      }
+
+      // The big piece, held back by the width of the lane so the resident walks in front of it.
+      const tallName = pickName(TALL, seed >> 2);
+      const [tallW, tallH] = size(tallName);
+      const against = (sh: number): number => (doorSide === "top" ? y1 - LANE_DEPTH - sh : y0 + 4);
+      if (tallW <= 20) {
+        const mate = pickName(CORNER, seed >> 15);
+        put(tallName, lane.x + 2, against(tallH));
+        put(mate, lane.x + lane.w - size(mate)[0] - 2, against(size(mate)[1]));
+      } else {
+        put(tallName, lane.x + (lane.w - tallW) / 2, against(tallH));
+      }
+
+      // The strip past the desk has about 15 px to spare, so only the flattest things fit there.
+      if ((seed >> 8) % 3 !== 0) {
+        const cornerName = pickName(CORNER, seed >> 9);
+        put(cornerName, deskX + 1, atNear(Math.min(15, size(cornerName)[1])));
+      }
       break;
     }
-    case "kitchen":
-      put("counter", x0, atFar(10));
-      put("stove", x0 + 24, atFar(12));
-      put("fridge", x1 - 12, atFar(14));
-      put("table", cx - 9, cy - 2);
-      put("chair", cx - 4, atNear(8));
+    case "kitchen": {
+      // Gangkøkkenet. A worktop run along the wall opposite the door, and a table in the middle
+      // that four people can stand around — the party event puts its guests here.
+      const wall = (name: string, at: number): number => {
+        const [pw, ph] = size(name);
+        put(name, at, atFar(ph));
+        return at + pw + 1;
+      };
+      let at = x0 + 1;
+      at = wall(pickName(["kfridge", "kfridge1", "kfridge2"], seed), at);
+      at = wall(pickName(["worktop", "worktop1", "worktop2"], seed >> 2), at);
+      at = wall(pickName(["hob", "hob1", "hob2"], seed >> 4), at);
+      at = wall(pickName(["worktop", "worktop1", "worktop2"], seed >> 6), at);
+      if (at + 20 < x1) at = wall(seed % 2 ? "microwave" : "cooler", at);
+      if (at + 26 < x1) wall(pickName(["sideboard", "sideboard1", "sideboard2"], seed >> 8), at);
+
+      const mat = pickName(["kmat", "kmat1"], seed >> 10);
+      put(mat, cx - size(mat)[0] / 2, cy - size(mat)[1] / 2 + 4);
+      // A table with legs, then the cloth on top of it — the kitchen theme's "table" sprites are
+      // just the cloth, which on its own reads as a slab of colour on the floor.
+      const board = pickName(["lowtable", "lowtable1", "lowtable2", "lowtable3"], seed >> 11);
+      const [bw, bh] = size(board);
+      put(board, cx - bw / 2, cy - bh / 2);
+      put("stool", cx - bw / 2 - 16, cy - 2);
+      put("stool", cx + bw / 2 + 2, cy - 2);
       break;
+    }
     case "bath":
       put("shower", x0, atFar(14));
       put("toilet", cx - 4, atFar(11));
@@ -245,30 +361,50 @@ function furnish(kind: CellKind, r: Rect, doorSide: "top" | "bottom", seed: numb
     case "kiosk":
       // The bar is in the door wall — this is a counter you are served over, not a room you enter.
       put("bar", cx - 12, atNear(10));
-      line(["crate", "keg", "barrel", "crate"], 12, 5);
+      put("fridge", x0 + 4, atFar(32));
+      put("fridge", x0 + 72, atFar(32));
+      line(["crate", "keg", "barrel"], 12, 3, 8);
       break;
     case "workshop":
-      // No toolbox here: that one is a pickup in the world, not scenery.
-      put("workbench", x0 + 4, atFar(10));
+      put("workbench", x0 + 2, atFar(10));
       put("crate", x1 - 14, atFar(10));
-      put("shelf", cx - 8, atNear(6));
       break;
-    case "lounge":
-      put("sofa", x0 + 4, atFar(10));
-      put("table", cx - 9, cy - 4);
-      put("plant", x1 - 10, atFar(10));
+    case "lounge": {
+      // The cellar common room.
+      const couch = pickName(["couch", "couch1", "couch2", "couch3"], seed);
+      put("kmat", cx - 15, cy - 12);
+      put(couch, x0 + 6, atFar(size(couch)[1]));
+      const lt = pickName(["lowtable", "lowtable1", "lowtable2", "lowtable3"], seed >> 3);
+      put(lt, cx - size(lt)[0] / 2, cy - 6);
+      put("plant_tall", x1 - 18, atFar(34));
       break;
+    }
     case "wardrobe":
-      line(["wardrobe"], 14, Math.max(2, Math.floor(w / 22)), 4);
+      // Garderoben: a run of cupboards along the far wall.
+      line(["wardrobe_tall", "cupboard", "cupboard1"], size("wardrobe_tall")[1],
+        Math.max(2, Math.floor(w / 36)), 6);
       break;
-    case "hall":
-      put("rug", cx - 9, cy - 6);
-      put("sofa", x0 + 8, atFar(10));
-      put("sofa", x1 - 26, atFar(10));
-      put("table", cx - 9, atNear(12));
-      put("plant", x0 + 2, atNear(10));
-      put("plant", x1 - 10, atNear(10));
+    case "hall": {
+      // The Hall on Stuen and festsalen in Kælderen. Both are open — you walk straight in from the
+      // Gang — and both are wide, so the furniture is laid out as a repeating run rather than
+      // placed by hand: seating along the far wall, low tables in front of it, plants at the ends.
+      let at = x0 + 6;
+      let i = 0;
+      while (at + 34 < x1) {
+        const couch = pickName(["couch", "couch1", "couch2", "couch3"], seed + i);
+        const [cw, ch] = size(couch);
+        put(couch, at, atFar(ch));
+        const lt = pickName(["lowtable", "lowtable1", "lowtable2", "lowtable3"], seed + i * 3);
+        put(lt, at + (cw - size(lt)[0]) / 2, atFar(ch) + (doorSide === "top" ? -20 : ch + 4));
+        at += cw + 14;
+        i += 1;
+      }
+      const benchName = pickName(["bench", "bench1", "bench2"], seed >> 5);
+      put(benchName, cx - size(benchName)[0] / 2, atNear(size(benchName)[1]));
+      put("plant_tall", x0 + 2, atNear(34));
+      put("palm", x1 - 28, atNear(34));
       break;
+    }
     case "utility": {
       // Cellar storage. The kit is picked by the seed the caller passes, so vaskekælderen is full
       // of washing machines and cykelkælderen of bikes rather than both being generic clutter.
@@ -277,11 +413,10 @@ function furnish(kind: CellKind, r: Rect, doorSide: "top" | "bottom", seed: numb
         ["bike", "bike", "bike"],
         ["barrel", "keg", "crate"],
         ["crate", "barrel", "crate"],
-        ["table", "chair", "crate"],
+        ["shelf", "crate", "barrel"],
       ];
       const kit = kits[seed % kits.length];
       line(kit, 12, Math.max(2, Math.min(5, Math.floor(w / 30))), 8);
-      if (h > 50) put(kit[0], x0 + 8, atNear(12));
       break;
     }
     default:
@@ -500,16 +635,31 @@ function openFurniture(cells: Cell[]): Obstacle[] {
   for (const c of cells) {
     if (!c.open) continue;
     for (const prop of c.props) {
-      const size = PROP_SIZE[prop.sprite];
-      if (size) out.push({ x: prop.x, y: prop.y, w: size[0], h: size[1], sprite: prop.sprite });
+      // A hand-tuned box where there is one — you should be able to brush past the corner of a
+      // sofa — and otherwise one derived from the sprite. Falling through used to *drop* the prop
+      // entirely, which is how festsalen ended up an empty room the day it got furniture.
+      const [pw, ph] = size(prop.sprite);
+      const [bw, bh] = COLLIDE[prop.sprite] ?? (FLAT.has(prop.sprite)
+        ? [0, 0]
+        : [Math.max(6, pw - 8), Math.min(13, Math.max(5, ph - 8))]);
+      out.push({
+        x: prop.x,
+        y: prop.y,
+        w: pw,
+        h: ph,
+        sprite: prop.sprite,
+        // Anchored at the foot of the sprite: the base is what is on the floor with you.
+        hit: { x: prop.x + (pw - bw) / 2, y: prop.y + ph - bh, w: bw, h: bh },
+      });
     }
     c.props = [];
   }
   return out;
 }
 
-/** Collision sizes for the props that can end up in a walkable area. */
-const PROP_SIZE: Record<string, [number, number]> = {
+/** Collision boxes for props that end up in a walkable area. Deliberately *not* the sprite's real
+ *  footprint: you should be able to brush past the corner of a sofa. */
+const COLLIDE: Record<string, [number, number]> = {
   sofa: [18, 10],
   table: [18, 12],
   plant: [8, 10],
@@ -522,14 +672,14 @@ const PROP_SIZE: Record<string, [number, number]> = {
 
 /** Per-floor wall colour. 2. sal is the red one; the rest step through the house's warm neutrals so
  *  you can tell which floor you are on from the walls alone. */
-function wallsFor(index: number): { wall: string; wallDark: string } {
-  const palette: Record<number, { wall: string; wallDark: string }> = {
-    0: { wall: "#6d6a63", wallDark: "#474540" },
-    1: { wall: "#b7a684", wallDark: "#7d7057" },
-    2: { wall: "#a8b09a", wallDark: "#6f7565" },
-    3: { wall: "#b4544c", wallDark: "#7a3630" }, // 2. sal — red
-    4: { wall: "#9fa8b8", wallDark: "#6a7280" },
-    5: { wall: "#bda37e", wallDark: "#806c52" },
+function wallsFor(index: number): { wall: string; wallDark: string; wallLight: string } {
+  const palette: Record<number, { wall: string; wallDark: string; wallLight: string }> = {
+    0: { wall: "#6d6a63", wallDark: "#3f3d39", wallLight: "#8b877e" }, // Kælderen — bare render
+    1: { wall: "#b7a684", wallDark: "#6b6049", wallLight: "#d6c7a6" },
+    2: { wall: "#a8b09a", wallDark: "#616754", wallLight: "#c8cfba" },
+    3: { wall: "#b4544c", wallDark: "#632924", wallLight: "#d47a70" }, // 2. sal — red
+    4: { wall: "#9fa8b8", wallDark: "#5b626f", wallLight: "#c0c9d6" },
+    5: { wall: "#bda37e", wallDark: "#6f5d45", wallLight: "#dbc39e" },
   };
   return palette[index] ?? palette[1];
 }
@@ -593,6 +743,8 @@ function basement(): Floor {
 export interface Building {
   floors: Floor[];
   rooms: { room: number; floor: number; cell: Cell }[];
+  /** Where a party can break out: festsalen, and every gangkøkken. Never somebody's bedroom. */
+  partySpots: { cell: Cell; floor: number }[];
   kiosk: Cell;
   /** Where a shift begins: on the Gang, just outside the Ølkælder counter. */
   start: { x: number; y: number };
@@ -610,10 +762,18 @@ export function buildBuilding(serverRooms: ServerRoom[]): Building {
     }
   }
 
+  const partySpots: Building["partySpots"] = [];
+  for (const f of floors) {
+    for (const c of f.cells) {
+      if (c.kind === "kitchen" || (c.kind === "hall" && c.open)) partySpots.push({ cell: c, floor: f.index });
+    }
+  }
+
   const kiosk = floors[0].cells.find((c) => c.kind === "kiosk")!;
   return {
     floors,
     rooms: roomList,
+    partySpots,
     kiosk,
     start: { x: kiosk.doorX, y: px(CORR_Y + 1.5) },
   };

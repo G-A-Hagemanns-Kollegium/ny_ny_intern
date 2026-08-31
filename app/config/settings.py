@@ -46,7 +46,7 @@ INSTALLED_APPS = [
     "den_hurtige",
     "opslagstavle",
     "events",
-    "spil",  # Ølbuddet — the delivery game. No models, no migrations; read-only against core/oelkaelder.
+    "spil",  # Lords of the ØK — the delivery game. No models, no migrations; read-only against core/oelkaelder.
 ]
 
 MIDDLEWARE = [

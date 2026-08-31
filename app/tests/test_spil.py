@@ -1,4 +1,4 @@
-"""Ølbuddet (the delivery game).
+"""Lords of the ØK: The Game (the delivery game).
 
 The point of these tests is not the game — it runs in the browser and nothing here can see it. It is
 the *seam*: the page must be login-gated like every other internal page, it must survive an empty
@@ -72,7 +72,7 @@ def test_game_is_in_the_sidebar_for_everyone(make_resident: Callable) -> None:
     c.force_login(make_resident(email="spil-nav@gahk.dk"))
     nav = c.get("/nyintern/").context["nav_intern"]
     assert nav[-1][0] == "Fritid"
-    assert [(u, label) for u, label, _i in nav[-1][1]] == [(URL, "Ølbuddet")]
+    assert [(u, label) for u, label, _i in nav[-1][1]] == [(URL, "Lords of the ØK")]
 
 
 @pytest.mark.django_db
@@ -125,3 +125,18 @@ def test_game_leaves_empty_rooms_unnamed(make_resident: Callable) -> None:
     c = Client()
     c.force_login(make_resident(email="spil-empty-room@gahk.dk"))
     assert c.get(URL).context["spil_rooms"][0]["who"] == ""
+
+
+@pytest.mark.django_db
+def test_stylesheet_is_cache_busted(make_resident: Callable) -> None:
+    """The stylesheet link carries a version token.
+
+    Without one, `{% static %}` returns a bare path in development and an edited spil.css keeps
+    serving from the browser cache — which has silently hidden finished work more than once.
+    """
+    c = Client()
+    c.force_login(make_resident(email="css@gahk.dk"))
+    html = c.get(URL).content.decode()
+    assert "spil/spil.css?v=" in html
+    token = html.split("spil/spil.css?v=")[1].split('"')[0]
+    assert token.isdigit() and token != "0"

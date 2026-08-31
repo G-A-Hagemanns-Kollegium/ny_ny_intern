@@ -1,4 +1,4 @@
-"""Ølbuddet — the GAHK delivery game (hackathon feature).
+"""Lords of the ØK: The Game — the GAHK delivery game (hackathon feature).
 
 Deliberately read-only and self-contained:
 
@@ -11,6 +11,7 @@ Deliberately read-only and self-contained:
   part of the site-wide app.js bundle.
 """
 
+from pathlib import Path
 from typing import Any
 
 from django.conf import settings
@@ -76,6 +77,21 @@ def _goods() -> list[str]:
     return names[:MAX_GOODS] if names else FALLBACK_GOODS
 
 
+def _css_version() -> str:
+    """A cache-busting token for spil.css, taken from the file's own mtime.
+
+    In production the hashed manifest storage handles this. In development `{% static %}` returns a
+    bare path, so an edited stylesheet keeps serving from the browser cache until someone thinks to
+    hard-refresh — which has cost real time more than once. Reading one mtime per request is cheap
+    and the whole point is that it changes exactly when the file does.
+    """
+    css = Path(settings.BASE_DIR) / "static" / "spil" / "spil.css"
+    try:
+        return str(int(css.stat().st_mtime))
+    except OSError:
+        return "0"
+
+
 @login_required
 def play(request: HttpRequest) -> HttpResponse:
     return render(
@@ -88,5 +104,6 @@ def play(request: HttpRequest) -> HttpResponse:
             # storage a {% static %} call for a file that does not exist yet is a hard 500, and the
             # atlas is optional by design (the game draws itself until somebody supplies art).
             "spil_assets": f"{settings.STATIC_URL}spil/",
+            "spil_css_v": _css_version(),
         },
     )

@@ -1,11 +1,13 @@
-/** Orders: who wants what, and — once you have knocked — how long you have to get back.
+/** Orders: who wants what, how long you have to get back, and what it is worth.
  *
  *  Life cycle: pending → taken → carrying → paid.
  *
- *  A *pending* request has no clock on it at all. Residents wait as long as it takes; the game has
- *  no shift, no closing time and no rush hour. The single timer starts the moment you take the order
- *  at the door, and it is the whole difficulty curve: run down to Ølkælderen, load up, and be back
- *  before it expires.
+ *  A *pending* request has no clock on it. The single timer starts the moment you take the order at
+ *  the door, and it decides everything: kroner (the score) get a speed bonus, and experience is
+ *  almost entirely how much of the deadline you had left.
+ *
+ *  An order is addressed to a **cell**, not to a room number. Most of the time that cell is
+ *  somebody's room; during a party it is festsalen or a gangkøkken, where nobody lives.
  */
 
 import type { Building, Cell } from "./building";
@@ -23,6 +25,10 @@ import {
   PAY_PER_ITEM,
   SPEED_BONUS_MAX,
   URGENT_FRACTION,
+  XP_BASE,
+  XP_PER_FLOOR,
+  XP_PER_ITEM,
+  XP_SPEED,
 } from "./config";
 
 export type OrderPhase = "pending" | "taken" | "carrying";
@@ -34,19 +40,36 @@ export interface OrderLine {
 
 export interface Order {
   id: number;
+  /** Room number, or 0 for a delivery to somewhere nobody lives (a party). */
   room: number;
   floor: number;
   cell: Cell;
   who: string;
+  /** "205" or "Festsalen" — what the rail and the crate tag show. */
+  label: string;
   lines: OrderLine[];
-  /** Total units — this is what costs inventory space. */
   count: number;
   phase: OrderPhase;
-  /** Seconds allowed once taken, and how many are left. Both meaningless while pending. */
   limit: number;
   left: number;
-  /** Kroner promised at the door; the payout adds a speed bonus on top. */
   quote: number;
+}
+
+/** Which icon a product gets in the belt. The names come from the real Ølkælder list, so this
+ *  matches on what is *in* them rather than on a fixed menu, and anything new falls back to a
+ *  crate. Order matters: "Sodavand" contains "vand", so soft drinks are tested before water. */
+const ICONS: [RegExp, string][] = [
+  [/sodavand|cola|fanta|sprite|squash|soda|faxe/, "item_soda"],
+  [/vand|water|kildevand/, "item_water"],
+  [/øl|oel|beer|tuborg|carlsberg|pilsner|classic|hof|ipa|guld/, "item_beer"],
+  [/snaps|vodka|gin|rom|whisky|spiritus|shot|bitter|likør|drink/, "item_spirit"],
+  [/chips|snack|popcorn|peanut|nødder|saltstang|kiks|pizza/, "item_snack"],
+  [/slik|chokolade|candy|bland|lakrids|vingummi|karamel|is\b/, "item_candy"],
+];
+
+export function goodIcon(name: string): string {
+  const n = name.toLowerCase();
+  return ICONS.find(([re]) => re.test(n))?.[1] ?? "item_misc";
 }
 
 const pick = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)];
@@ -65,30 +88,31 @@ export class OrderBook {
     return this.active.filter((o) => o.phase === "pending").length;
   }
 
-  byRoom(room: number): Order | undefined {
-    return this.active.find((o) => o.room === room);
+  /** Every order addressed to this cell — a room has at most one, a party has several. */
+  atCell(cell: Cell): Order[] {
+    return this.active.filter((o) => o.cell === cell);
+  }
+
+  /** The one the player would mean by pressing E here: something to hand over first, then something
+   *  to knock for, then the one still waiting on the cellar. */
+  nextAtCell(cell: Cell): Order | undefined {
+    const here = this.atCell(cell);
+    return (
+      here.find((o) => o.phase === "carrying") ??
+      here.find((o) => o.phase === "pending") ??
+      here[0]
+    );
   }
 
   get running(): Order[] {
     return this.active.filter((o) => o.phase !== "pending");
   }
 
-  /** One new request, if there is room for one. Biased upwards: the long climbs pay best, so they
-   *  should also turn up often enough to be worth buying a lift for.
-   *
-   *  `force` skips the waiting-orders cap — events conjure their own requests and must not be
-   *  refused just because the board happens to be busy. */
-  spawn(force = false): Order | null {
-    if (!force && this.pendingCount() >= MAX_PENDING) return null;
-    const busy = new Set(this.active.map((o) => o.room));
-    const free = this.building.rooms.filter((r) => !busy.has(r.room));
-    if (!free.length) return null;
+  get carrying(): Order[] {
+    return this.active.filter((o) => o.phase === "carrying");
+  }
 
-    const a = pick(free);
-    const b = pick(free);
-    const target = b.floor > a.floor ? b : a;
-
-    const count = ORDER_MIN_ITEMS + Math.floor(Math.random() * (ORDER_MAX_ITEMS - ORDER_MIN_ITEMS + 1));
+  private build(cell: Cell, floor: number, room: number, label: string, who: string, count: number): Order {
     const lines: OrderLine[] = [];
     for (let i = 0; i < count; i++) {
       const name = pick(this.goods);
@@ -96,18 +120,17 @@ export class OrderBook {
       if (line) line.qty += 1;
       else lines.push({ name, qty: 1 });
     }
-
-    const limit = DEADLINE_BASE + DEADLINE_PER_ITEM * count + DEADLINE_PER_FLOOR * target.floor;
+    const limit = DEADLINE_BASE + DEADLINE_PER_ITEM * count + DEADLINE_PER_FLOOR * floor;
     const quote = Math.round(
-      (PAY_BASE + PAY_PER_ITEM * count + PAY_PER_FLOOR * target.floor) * jitter(PAY_JITTER),
+      (PAY_BASE + PAY_PER_ITEM * count + PAY_PER_FLOOR * floor) * jitter(PAY_JITTER),
     );
-
     const order: Order = {
       id: this.nextId++,
-      room: target.room,
-      floor: target.floor,
-      cell: target.cell,
-      who: occupantOf(target.cell),
+      room,
+      floor,
+      cell,
+      who,
+      label,
       lines,
       count,
       phase: "pending",
@@ -119,7 +142,39 @@ export class OrderBook {
     return order;
   }
 
-  /** Tick the clock on everything already accepted. Returns the orders that just ran out. */
+  /** One new request at a random free room.
+   *
+   *  `force` skips the waiting-orders cap. `maxFloor` keeps it low in the building — the run opens
+   *  with a few of these, because starting in the cellar with every order five flights up is a
+   *  miserable first thirty seconds.
+   */
+  spawn(force = false, maxFloor = 5): Order | null {
+    if (!force && this.pendingCount() >= MAX_PENDING) return null;
+    const busy = new Set(this.active.map((o) => o.cell));
+    const free = this.building.rooms.filter((r) => !busy.has(r.cell) && r.floor <= maxFloor);
+    if (!free.length) return null;
+
+    // Two draws, keeping the higher floor *half* the time. A straight max-of-two biases so hard
+    // that Stuen and 1. sal go quiet, which is the opposite of what a new player needs.
+    const a = pick(free);
+    const b = pick(free);
+    const target = b.floor > a.floor && Math.random() < 0.5 ? b : a;
+    const count = ORDER_MIN_ITEMS + Math.floor(Math.random() * (ORDER_MAX_ITEMS - ORDER_MIN_ITEMS + 1));
+    return this.build(
+      target.cell,
+      target.floor,
+      target.room,
+      String(target.room).padStart(3, "0"),
+      occupantOf(target.cell),
+      count,
+    );
+  }
+
+  /** An order addressed somewhere nobody lives — used by the party event. */
+  spawnAt(cell: Cell, floor: number, label: string, who: string, count: number): Order {
+    return this.build(cell, floor, 0, label, who, count);
+  }
+
   tick(dt: number): Order[] {
     const lost: Order[] = [];
     for (let i = this.active.length - 1; i >= 0; i--) {
@@ -147,6 +202,13 @@ export class OrderBook {
   /** The quote plus a bonus for every second of the deadline still unspent. */
   payout(o: Order): number {
     return Math.max(1, Math.round(o.quote * (1 + this.fraction(o) * SPEED_BONUS_MAX)));
+  }
+
+  /** Experience is mostly speed — the flat part is small on purpose. */
+  experience(o: Order): number {
+    return Math.round(
+      XP_BASE + XP_SPEED * this.fraction(o) + XP_PER_FLOOR * o.floor + XP_PER_ITEM * o.count,
+    );
   }
 
   complete(o: Order): void {

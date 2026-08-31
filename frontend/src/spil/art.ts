@@ -128,3 +128,76 @@ export function text(
   ctx.fillStyle = fill;
   ctx.fillText(s, Math.round(x), Math.round(y));
 }
+
+/** Text with a dark halo, for anything that has to stay legible over the world rather than over a
+ *  panel — the kroner popups and the level-up banner. */
+export function textOut(
+  ctx: CanvasRenderingContext2D,
+  s: string,
+  x: number,
+  y: number,
+  fill: string,
+  size = 7,
+  align: CanvasTextAlign = "center",
+): void {
+  ctx.font = `700 ${size}px "Ubuntu", system-ui, sans-serif`;
+  ctx.textAlign = align;
+  ctx.textBaseline = "alphabetic";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = Math.max(2, size / 3);
+  ctx.strokeStyle = "rgba(10,7,15,0.9)";
+  ctx.strokeText(s, Math.round(x), Math.round(y));
+  ctx.fillStyle = fill;
+  ctx.fillText(s, Math.round(x), Math.round(y));
+}
+
+/** Draw a sprite standing on the floor at (x, y): centred horizontally, feet on the point. Lets the
+ *  renderer stay ignorant of how tall a character sheet happens to be. */
+export function spriteFoot(
+  ctx: CanvasRenderingContext2D,
+  atlas: Atlas,
+  name: string,
+  x: number,
+  y: number,
+  flip = false,
+): boolean {
+  const f = atlas.frames[name];
+  if (!f || !atlas.image) return false;
+  const dx = Math.round(x - f.w / 2);
+  const dy = Math.round(y - f.h + 2);
+  if (!flip) return sprite(ctx, atlas, name, dx, dy);
+  ctx.save();
+  ctx.translate(Math.round(x) * 2, 0);
+  ctx.scale(-1, 1);
+  sprite(ctx, atlas, name, dx, dy);
+  ctx.restore();
+  return true;
+}
+
+/** Repeat a frame across a rectangle — floors and wall runs. */
+export function tileFill(
+  ctx: CanvasRenderingContext2D,
+  atlas: Atlas,
+  name: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+): boolean {
+  const f = atlas.frames[name];
+  if (!f || !atlas.image) return false;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  // Anchor to the world grid, not to the rect, so neighbouring rooms line up.
+  const x0 = Math.floor(x / f.w) * f.w;
+  const y0 = Math.floor(y / f.h) * f.h;
+  for (let ty = y0; ty < y + h; ty += f.h) {
+    for (let tx = x0; tx < x + w; tx += f.w) {
+      ctx.drawImage(atlas.image, f.x, f.y, f.w, f.h, tx, ty, f.w, f.h);
+    }
+  }
+  ctx.restore();
+  return true;
+}
