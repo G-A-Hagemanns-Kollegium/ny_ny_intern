@@ -47,6 +47,23 @@ Three consequences, none of them optional:
 The 320 MB / 53 000 files would also be a bad thing to put in git on its own merits: git keeps blobs
 forever, so it would weigh on every clone of this repo from now on.
 
+## Trimming the packs
+
+The atlas needs **105 of those 53 000 files** — about 850 KB. To find out which, ask the builder
+rather than guessing:
+
+```bash
+ATLAS_MANIFEST=1 npm run atlas    # writes frontend/tools/atlas-sources.txt
+```
+
+Every read of the packs goes through one function, so that list is exhaustive by construction. The
+checked-out `ASSETS/` here has been trimmed to it, plus each pack's `LICENSE.txt` and `READ_ME.txt`,
+which travel with the art. The full download lives outside the repo.
+
+If you re-cut a sprite from a file that is no longer present, the build will tell you: `single()`
+and `sheet()` throw on a missing path rather than silently dropping a frame. Re-download the pack,
+add the file, and regenerate the manifest.
+
 ### The character sheets
 
 Each combined sheet is 384×224 — rows of 24 frames of 16×32, **six per facing, ordered

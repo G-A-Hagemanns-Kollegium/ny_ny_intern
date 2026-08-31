@@ -672,7 +672,19 @@ function readPng(path) {
 
 if (existsSync(LIMEZU)) {
   const sheets = {};
-  const sheet = (rel) => (sheets[rel] ??= readPng(resolve(LIMEZU, rel)));
+  // Every read of the art packs goes through here, which makes it the one place that can answer
+  // "which source files does the atlas actually need?". `ATLAS_MANIFEST=1 node tools/build-atlas.mjs`
+  // writes that list, so the packs can be trimmed to it without guessing.
+  const used = new Set();
+  const sheet = (rel) => {
+    used.add(resolve(LIMEZU, rel));
+    return (sheets[rel] ??= readPng(resolve(LIMEZU, rel)));
+  };
+  if (process.env.ATLAS_MANIFEST) {
+    process.on("exit", () =>
+      writeFileSync(resolve(HERE, "atlas-sources.txt"), [...used].sort().join("\n") + "\n"),
+    );
+  }
 
   /** Copy a rectangle out of a sheet, optionally multiplied by a tint. */
   const cut = (rel, sx, sy, w, h, tint) => {
