@@ -1080,4 +1080,38 @@
   .lineage li > ul > li:first-child::after { top: 50%; }
   .lineage li > ul > li:last-child::after { bottom: 50%; }
   .lineage li > ul > li:only-child::after { display: none; }
+
+  /* ---- Reparationer (repair-tracking kanban) ----------------------------------------------------
+     .board-search: input grows, the two buttons stay their natural width — flex-wrap so it still
+     works stacked on a narrow phone rather than squeezing the input to nothing.
+
+     A plain flex row rather than a JS drag-and-drop library: moving a card is one of a handful of
+     known statuses (RepairTask.Status), so a "move to…" button per card is exactly as capable as a
+     drag as far as the user is concerned, with none of the touch-device fragility.
+
+     Flex + overflow-x rather than a grid: `min-width` on each column gives it a floor it cannot
+     shrink below, so on a phone the row overflows and becomes a native horizontal swipe (one column
+     at a time, with the next one peeking in as the affordance) instead of Tailwind's default of
+     squeezing five columns unreadably narrow or wrapping them into a five-screen-tall stack. On a
+     desktop-width board the same columns simply grow (`flex:1`) to fill the row and there is
+     nothing to scroll — one rule, no media query. */
+  .board-search { @apply flex flex-wrap gap-2; }
+  .board-search input { flex: 1 1 200px; }
+  .kanban { @apply flex gap-4; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; }
+  .kanban-col { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 100px;
+    flex: 1 0 240px; min-width: 240px; scroll-snap-align: start; }
+  .kanban-col-head { @apply flex items-center justify-between; font-weight: 700; font-size: 14px; padding: 0 2px; }
+  .kanban-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm); padding: 12px; }
+  .kanban-card h3 { font-size: 14px; font-weight: 700; margin: 0 0 4px; }
+  .kanban-card p { margin: 0 0 4px; font-size: 13px; }
+  .kanban-empty { font-size: 13px; padding: 0 2px; }
+  .kanban-move { @apply flex flex-wrap gap-1 mt-2; }
+  .kanban-move form { display: inline; }
+  .kanban-move button { @apply text-xs; background: var(--surface-2); border: 1px solid var(--border-strong);
+    border-radius: 6px; padding: 3px 7px; cursor: pointer; }
+  .kanban-move button:hover { background: var(--green-050); border-color: var(--green); color: var(--green-700); }
+  .kanban-danger { color: var(--neg); border-color: #e7c7c3 !important; }
+  .kanban-danger:hover { background: var(--neg-bg) !important; border-color: var(--neg) !important; color: var(--neg) !important; }
 }

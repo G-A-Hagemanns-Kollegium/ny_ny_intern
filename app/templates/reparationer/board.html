@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Reparationer - GAHK Intern{% endblock %}
+{% block content_width %}max-w-6xl{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <div>
+      <p class="eyebrow">Værktøjer</p>
+      <h1>Reparationer</h1>
+    </div>
+    <div class="head-actions">
+      <a class="btn" href="{% url 'reparationer:create' %}">Meld en reparation</a>
+    </div>
+  </div>
+
+  {% comment %}
+    Plain GET, not htmx: the result is bookmarkable/shareable ("se sagen om det utætte vandhane"),
+    back/forward works, and the board underneath needs no partial-swap machinery — same reasoning as
+    opslagstavle's category filter.
+  {% endcomment %}
+  <form method="get" class="board-search mb-4" role="search">
+    <input type="search" name="q" value="{{ query }}" placeholder="Søg i reparationer…" aria-label="Søg reparationer">
+    <button type="submit" class="btn btn-secondary">Søg</button>
+    {% if query %}<a href="{% url 'reparationer:board' %}" class="btn btn-secondary">Ryd</a>{% endif %}
+  </form>
+  {% if query %}
+    <p class="muted mb-4">
+      {% if result_count %}{{ result_count }} resultat{{ result_count|pluralize:"er" }}{% else %}Ingen resultater{% endif %}
+      for "{{ query }}".
+    </p>
+  {% endif %}
+
+  {% if push_configured %}
+    {% comment %} Slim opt-in bar, driven by frontend/src/push.ts — mirrors opslagstavle/board.html. {% endcomment %}
+    <div class="push-bar" data-push data-topic="reparationer"
+         data-vapid-key="{{ vapid_public_key }}"
+         data-url="{% url 'reparationer:save_subscription' %}"
+         data-subscribed="{% if push_subscribed %}1{% else %}0{% endif %}"
+         data-on-label="Få besked om reparationer"
+         data-off-label="Slå fra på denne enhed"
+         data-off-label-short="Slå fra på enheden"
+         data-success-text="Du får nu besked om nye og overdragede reparationer."
+         data-off-text="Beskeder om reparationer er slået fra på denne enhed.">
+      {% csrf_token %}
+      <button type="button" data-push-button hidden></button>
+      <span class="muted" data-push-message hidden></span>
+    </div>
+  {% endif %}
+
+  <div class="kanban">
+    {% for status, label, tasks in columns %}
+      <div class="kanban-col">
+        <div class="kanban-col-head">
+          <span>{{ label }}</span>
+          <span class="chip chip-quiet">{{ tasks|length }}</span>
+        </div>
+        {% for task in tasks %}
+          <div class="kanban-card">
+            <h3><a href="{% url 'reparationer:detail' task.pk %}">{{ task.title }}</a></h3>
+            {% if task.location %}<p class="muted">{{ task.location }}</p>{% endif %}
+            {% if task.description %}<p>{{ task.description|linebreaksbr }}</p>{% endif %}
+            <p class="chip chip-quiet">Ansvarlig: {{ task.get_responsible_display }}</p>
+            <p class="muted">
+              Meldt af {{ task.reported_by.first_name }} · {{ task.created_at|date:"j. M" }}
+              {% if task.comment_count %}· <a href="{% url 'reparationer:detail' task.pk %}">{{ task.comment_count }} note{{ task.comment_count|pluralize:"r" }}</a>{% endif %}
+            </p>
+            {% if can_move %}
+              <div class="kanban-move">
+                {% for s_value, s_label in statuses %}
+                  {% if s_value != task.status %}
+                    {% if can_manage or s_value != 'faerdig' %}
+                      <form method="post" action="{% url 'reparationer:set_status' task.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="status" value="{{ s_value }}">
+                        <input type="hidden" name="next" value="board">
+                        <button type="submit">→ {{ s_label }}</button>
+                      </form>
+                    {% endif %}
+                  {% endif %}
+                {% endfor %}
+                {% if can_handoff and task.responsible == 'vicevaert' %}
+                  <form method="post" action="{% url 'reparationer:set_responsible' task.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="board">
+                    <button type="submit">Overdrag til Repper</button>
+                  </form>
+                {% endif %}
+                {% if can_manage %}
+                  <form method="post" action="{% url 'reparationer:delete' task.pk %}"
+                        onsubmit="return confirm('Slet «{{ task.title|escapejs }}» permanent?');">
+                    {% csrf_token %}
+                    <button type="submit" class="kanban-danger">Slet</button>
+                  </form>
+                {% endif %}
+              </div>
+            {% endif %}
+          </div>
+        {% empty %}
+          <p class="muted kanban-empty">Ingen sager her.</p>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+{% endblock %}
