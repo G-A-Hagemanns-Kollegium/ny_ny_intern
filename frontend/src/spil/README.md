@@ -2,7 +2,7 @@
 
 A delivery game built for the GAHK hackathon on the `Albert-Hackathon` branch. You play a bud for
 Ølkælderen: knock on doors, fetch the goods from the cellar, run them back up. Reachable at
-`/nyintern/spil/`, from the **Fritid** section at the bottom of the sidebar.
+`/intern/spil/`, from the **Fritid** section at the bottom of the sidebar.
 
 The directory is still called `spil` everywhere — the app label, the URL and the CSS prefix are
 load-bearing and were not worth churning for a rename.

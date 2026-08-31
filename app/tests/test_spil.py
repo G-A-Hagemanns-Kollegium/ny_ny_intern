@@ -10,7 +10,7 @@ from collections.abc import Callable
 import pytest
 from django.test import Client
 
-URL = "/nyintern/spil/"
+URL = "/intern/spil/"
 
 
 @pytest.mark.django_db
@@ -70,7 +70,7 @@ def test_game_is_in_the_sidebar_for_everyone(make_resident: Callable) -> None:
     not mixed in with the tools above it."""
     c = Client()
     c.force_login(make_resident(email="spil-nav@gahk.dk"))
-    nav = c.get("/nyintern/").context["nav_intern"]
+    nav = c.get("/intern/").context["nav_intern"]
     assert nav[-1][0] == "Fritid"
     assert [(u, label) for u, label, _i in nav[-1][1]] == [(URL, "Lords of the ØK")]
 
