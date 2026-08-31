@@ -47,6 +47,11 @@
     </div>
   {% endif %}
 
+  {% comment %}
+    No move/handoff/delete controls here — those live on the detail page (templates/reparationer/
+    detail.html) only, so the overview stays a scannable list of what exists rather than a wall of
+    buttons. Deliberate, not an oversight.
+  {% endcomment %}
   <div class="kanban">
     {% for status, label, tasks in columns %}
       <div class="kanban-col">
@@ -64,36 +69,6 @@
               Meldt af {{ task.reported_by.first_name }} · {{ task.created_at|date:"j. M" }}
               {% if task.comment_count %}· <a href="{% url 'reparationer:detail' task.pk %}">{{ task.comment_count }} note{{ task.comment_count|pluralize:"r" }}</a>{% endif %}
             </p>
-            {% if can_move %}
-              <div class="kanban-move">
-                {% for s_value, s_label in statuses %}
-                  {% if s_value != task.status %}
-                    {% if can_manage or s_value != 'faerdig' %}
-                      <form method="post" action="{% url 'reparationer:set_status' task.pk %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="status" value="{{ s_value }}">
-                        <input type="hidden" name="next" value="board">
-                        <button type="submit">→ {{ s_label }}</button>
-                      </form>
-                    {% endif %}
-                  {% endif %}
-                {% endfor %}
-                {% if can_handoff and task.responsible == 'vicevaert' %}
-                  <form method="post" action="{% url 'reparationer:set_responsible' task.pk %}">
-                    {% csrf_token %}
-                    <input type="hidden" name="next" value="board">
-                    <button type="submit">Overdrag til Repper</button>
-                  </form>
-                {% endif %}
-                {% if can_manage %}
-                  <form method="post" action="{% url 'reparationer:delete' task.pk %}"
-                        onsubmit="return confirm('Slet «{{ task.title|escapejs }}» permanent?');">
-                    {% csrf_token %}
-                    <button type="submit" class="kanban-danger">Slet</button>
-                  </form>
-                {% endif %}
-              </div>
-            {% endif %}
           </div>
         {% empty %}
           <p class="muted kanban-empty">Ingen sager her.</p>

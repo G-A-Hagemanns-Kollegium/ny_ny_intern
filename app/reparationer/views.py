@@ -5,10 +5,10 @@ broken needs no role. Two crews then work the pipeline in sequence — see model
 `responsible`/`status` split — and each has a different ceiling:
 
   * Viceværterne (MOVE_ROLES minus MANAGE_ROLES) triage: they may move a ticket to any status
-    EXCEPT Færdig, and hand `responsible` from themselves to Reppergruppen once (Role.VICEVAERT
-    only — see set_responsible).
+    EXCEPT the two in MANAGER_ONLY_STATUSES, and hand `responsible` from themselves to
+    Reppergruppen once (Role.VICEVAERT only — see set_responsible).
   * Reppergruppen, Inspektionen and administrator (MANAGE_ROLES) have no ceiling: every status,
-    including closing a ticket, plus delete.
+    including MANAGER_ONLY_STATUSES and closing a ticket, plus delete.
 
 set_status is one view for both crews rather than two, because the columns a Vicevært may use are a
 strict subset of a manager's — splitting it would duplicate the "does this status exist" check for
@@ -33,6 +33,12 @@ from .models import RepairComment, RepairTask
 
 MANAGE_ROLES = (Role.REPPER, Role.INSPEKTION, Role.ADMINISTRATOR)
 MOVE_ROLES = (*MANAGE_ROLES, Role.VICEVAERT)
+
+# Statuses a Vicevært may never move a ticket INTO — the page never renders their buttons (see
+# board.html/detail.html), so reaching set_status with one of these as a non-manager only happens
+# via a replayed/crafted request. Færdig is closing the ticket; AK projekt is committing a slice of
+# Reppergruppen's AK hours to it — both are calls only that crew should make.
+MANAGER_ONLY_STATUSES = (RepairTask.Status.AK_PROJEKT, RepairTask.Status.FAERDIG)
 
 
 def can_delete_comment(request: HttpRequest, comment: RepairComment) -> bool:
@@ -75,12 +81,8 @@ def board(request: HttpRequest) -> HttpResponse:
         "reparationer/board.html",
         {
             "columns": columns,
-            "statuses": RepairTask.Status.choices,
             "query": query,
             "result_count": sum(len(items) for _, _, items in columns) if query else None,
-            "can_manage": request_has_role(request, *MANAGE_ROLES),
-            "can_move": request_has_role(request, *MOVE_ROLES),
-            "can_handoff": request_has_role(request, Role.VICEVAERT),
             "push_configured": push.is_configured(),
             "vapid_public_key": push.vapid_public_key(),
             "push_subscribed": services.is_subscribed(resident),
@@ -106,9 +108,9 @@ def create(request: HttpRequest) -> HttpResponse:
 def set_status(request: HttpRequest, pk: int) -> HttpResponseRedirect:
     task = get_object_or_404(RepairTask, pk=pk)
     status = request.POST.get("status")
-    if status == RepairTask.Status.FAERDIG and not request_has_role(request, *MANAGE_ROLES):
-        # A Vicevært passed the view-level MOVE_ROLES gate but Færdig is manager-only — see the
-        # module docstring. Silently ignored rather than 403: this is a button the page never
+    if status in MANAGER_ONLY_STATUSES and not request_has_role(request, *MANAGE_ROLES):
+        # A Vicevært passed the view-level MOVE_ROLES gate but this status is manager-only — see
+        # MANAGER_ONLY_STATUSES. Silently ignored rather than 403: this is a button the page never
         # renders for them, so reaching here only happens via a replayed/crafted request, and the
         # safe response to that is exactly what an unknown status value already gets below.
         return _redirect_after(request, task.pk)
@@ -165,6 +167,7 @@ def detail(request: HttpRequest, pk: int) -> HttpResponse:
             "comments": comments,
             "comment_form": RepairCommentForm(),
             "statuses": RepairTask.Status.choices,
+            "manager_only_statuses": MANAGER_ONLY_STATUSES,
             "can_manage": request_has_role(request, *MANAGE_ROLES),
             "can_move": request_has_role(request, *MOVE_ROLES),
             "can_handoff": request_has_role(request, Role.VICEVAERT),

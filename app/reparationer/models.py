@@ -6,11 +6,12 @@ sequence, tracked separately from `status`:
   * `responsible` says WHO currently owns the ticket — Viceværterne by default (they triage), or
     Reppergruppen once a Vicevært hands it over (views.set_responsible). It exists apart from
     `status` because the two axes are independent: a ticket can sit "I gang" under either owner.
-  * `status` says WHERE it is in the pipeline. Viceværterne may move a ticket through every column
-    except the last — closing something as done is Reppergruppen/Inspektionen/administrator's call
-    (views.MOVE_ROLES vs MANAGE_ROLES) — which is also why "Godkend af Repper" exists as its own
-    column rather than folding into "Færdig": a Vicevært needs somewhere to leave a ticket they
-    believe is finished without being able to actually close it.
+  * `status` says WHERE it is in the pipeline. Viceværterne may move a ticket through most columns,
+    but two are Reppergruppen/Inspektionen/administrator-only (views.MANAGER_ONLY_STATUSES): "AK
+    projekt" — routing a job to an AK work session is a commitment of AK hours only that crew should
+    make — and "Færdig" itself, for the same reason "Godkend af Repper" exists as its own column
+    rather than folding into it: a Vicevært needs somewhere to leave a ticket they believe is
+    finished without being able to actually close it.
 
 Status.choices is the single source both the board and the per-card "move to…" buttons iterate
 over, so column order here IS column order on the page.
@@ -26,6 +27,7 @@ class RepairTask(models.Model):
         NY = "ny", "Ny"
         I_GANG = "i_gang", "I gang"
         AFVENTER = "afventer", "Afventer"
+        AK_PROJEKT = "ak_projekt", "AK projekt"
         GODKENDT = "godkendt", "Godkend af Repper"
         FAERDIG = "faerdig", "Færdig"
 
