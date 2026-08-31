@@ -16,6 +16,7 @@
   <div class="card-flat card-pad mb-4">
     <p class="chip chip-quiet">{{ task.get_status_display }}</p>
     <p class="chip chip-quiet">Ansvarlig: {{ task.get_responsible_display }}</p>
+    {% if task.archived_at %}<p class="chip chip-quiet">Arkiveret {{ task.archived_at|date:"j. M Y" }}</p>{% endif %}
     {% if task.location %}<p class="muted">{{ task.location }}</p>{% endif %}
     {% if task.description %}<p>{{ task.description|linebreaksbr }}</p>{% endif %}
     <p class="muted text-sm">
@@ -42,6 +43,18 @@
             {% csrf_token %}
             <input type="hidden" name="next" value="detail">
             <button type="submit">Overdrag til Repper</button>
+          </form>
+        {% endif %}
+        {% if can_archive %}
+          <form method="post" action="{% url 'reparationer:archive_now' task.pk %}">
+            {% csrf_token %}
+            <button type="submit">Arkivér nu</button>
+          </form>
+        {% endif %}
+        {% if can_unarchive %}
+          <form method="post" action="{% url 'reparationer:unarchive' task.pk %}">
+            {% csrf_token %}
+            <button type="submit">Genåbn</button>
           </form>
         {% endif %}
         {% if can_manage %}

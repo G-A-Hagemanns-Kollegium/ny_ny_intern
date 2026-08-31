@@ -1099,9 +1099,13 @@
   .board-search input { flex: 1 1 200px; }
   .kanban { @apply flex gap-4; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; }
   .kanban-col { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 100px;
+    padding: 12px; display: flex; flex-direction: column; gap: 10px; max-height: 75vh;
     flex: 1 0 240px; min-width: 240px; scroll-snap-align: start; }
   .kanban-col-head { @apply flex items-center justify-between; font-weight: 700; font-size: 14px; padding: 0 2px; }
+  /* Cards scroll independently of the column header/count and of the other columns: without
+     min-height:0 a flex child defaults to min-height:auto, which ignores overflow entirely and lets
+     the column grow to fit every card instead — the bug this rule exists to prevent. */
+  .kanban-col-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
   .kanban-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
     box-shadow: var(--shadow-sm); padding: 12px; }
   .kanban-card h3 { font-size: 14px; font-weight: 700; margin: 0 0 4px; }

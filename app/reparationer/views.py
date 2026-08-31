@@ -18,9 +18,10 @@ no real separation of concerns.
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.db.models import Count, Q
+from django.db.models import Count, Q, QuerySet
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from core import push
@@ -56,21 +57,29 @@ def _redirect_after(request: HttpRequest, task_pk: int) -> HttpResponseRedirect:
     return redirect("reparationer:board")
 
 
+def _search(tasks: "QuerySet[RepairTask]", query: str) -> "QuerySet[RepairTask]":
+    """Title/location/description/reporter — everything a card actually shows, so a hit is never a
+    surprise ("why did this match?"). A plain icontains rather than a search index: the whole table
+    fits on a screen a few times over, so ranking would be over-engineering. Shared by the board and
+    the archive, which search the same fields over different base querysets (active vs. archived)."""
+    if not query:
+        return tasks
+    return tasks.filter(
+        Q(title__icontains=query)
+        | Q(location__icontains=query)
+        | Q(description__icontains=query)
+        | Q(reported_by__first_name__icontains=query)
+        | Q(reported_by__last_name__icontains=query)
+    )
+
+
 @login_required
 def board(request: HttpRequest) -> HttpResponse:
-    tasks = RepairTask.objects.select_related("reported_by").annotate(comment_count=Count("comments"))
     query = (request.GET.get("q") or "").strip()
-    if query:
-        # Title/location/description/reporter — everything a card actually shows, so a hit is
-        # never a surprise ("why did this match?"). A plain icontains rather than a search index:
-        # the whole table fits on a screen a few times over, so ranking would be over-engineering.
-        tasks = tasks.filter(
-            Q(title__icontains=query)
-            | Q(location__icontains=query)
-            | Q(description__icontains=query)
-            | Q(reported_by__first_name__icontains=query)
-            | Q(reported_by__last_name__icontains=query)
-        )
+    tasks = _search(
+        RepairTask.objects.active().select_related("reported_by").annotate(comment_count=Count("comments")),
+        query,
+    )
     columns = [
         (status, label, [t for t in tasks if t.status == status])
         for status, label in RepairTask.Status.choices
@@ -86,6 +95,26 @@ def board(request: HttpRequest) -> HttpResponse:
             "push_configured": push.is_configured(),
             "vapid_public_key": push.vapid_public_key(),
             "push_subscribed": services.is_subscribed(resident),
+        },
+    )
+
+
+@login_required
+def archive_list(request: HttpRequest) -> HttpResponse:
+    """Archived tickets: no columns (every one is Færdig by construction — see
+    models.RepairTaskQuerySet.due_for_archive), just a searchable list, newest-archived first."""
+    query = (request.GET.get("q") or "").strip()
+    tasks = _search(
+        RepairTask.objects.archived().select_related("reported_by").order_by("-archived_at"),
+        query,
+    )
+    return render(
+        request,
+        "reparationer/archive.html",
+        {
+            "tasks": tasks,
+            "query": query,
+            "can_manage": request_has_role(request, *MANAGE_ROLES),
         },
     )
 
@@ -145,6 +174,33 @@ def delete(request: HttpRequest, pk: int) -> HttpResponseRedirect:
 
 
 @require_POST
+@role_required(*MANAGE_ROLES)
+def archive_now(request: HttpRequest, pk: int) -> HttpResponseRedirect:
+    """Archive a Færdig ticket immediately instead of waiting for the nightly sweep
+    (archive_finished_repairs). Only meaningful for a Færdig, not-yet-archived ticket — the button
+    the page renders already guarantees that, so anything else is a no-op rather than an error."""
+    task = get_object_or_404(RepairTask, pk=pk)
+    if task.status == RepairTask.Status.FAERDIG and task.archived_at is None:
+        task.archived_at = timezone.now()
+        task.save(update_fields=["archived_at"])
+        messages.success(request, "Reparationen er arkiveret.")
+    return redirect("reparationer:detail", pk=task.pk)
+
+
+@require_POST
+@role_required(*MANAGE_ROLES)
+def unarchive(request: HttpRequest, pk: int) -> HttpResponseRedirect:
+    """Bring an archived ticket back onto the board — it reappears in Færdig, exactly where the
+    archive found it, since archiving never touched `status`."""
+    task = get_object_or_404(RepairTask, pk=pk)
+    if task.archived_at is not None:
+        task.archived_at = None
+        task.save(update_fields=["archived_at"])
+        messages.success(request, "Reparationen er genåbnet fra arkivet.")
+    return redirect("reparationer:detail", pk=task.pk)
+
+
+@require_POST
 @login_required
 def save_subscription(request: HttpRequest) -> HttpResponse:
     """Store (or drop) this browser's opt-in to Reparationer push notifications. No role gate beyond
@@ -154,11 +210,14 @@ def save_subscription(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def detail(request: HttpRequest, pk: int) -> HttpResponse:
-    """One repair with its note thread — the stable page a "→ status" or comment link lands on."""
+    """One repair with its note thread — the stable page a "→ status" or comment link lands on.
+    Works for an archived ticket too (RepairTask.objects is the unfiltered manager), which is the
+    whole point of archiving rather than deleting: still findable, still readable."""
     task = get_object_or_404(RepairTask.objects.select_related("reported_by"), pk=pk)
     comments = list(task.comments.select_related("author"))
     for comment in comments:
         comment.can_delete = can_delete_comment(request, comment)  # type: ignore[attr-defined]
+    can_manage = request_has_role(request, *MANAGE_ROLES)
     return render(
         request,
         "reparationer/detail.html",
@@ -168,9 +227,13 @@ def detail(request: HttpRequest, pk: int) -> HttpResponse:
             "comment_form": RepairCommentForm(),
             "statuses": RepairTask.Status.choices,
             "manager_only_statuses": MANAGER_ONLY_STATUSES,
-            "can_manage": request_has_role(request, *MANAGE_ROLES),
+            "can_manage": can_manage,
             "can_move": request_has_role(request, *MOVE_ROLES),
             "can_handoff": request_has_role(request, Role.VICEVAERT),
+            "can_archive": can_manage
+            and task.status == RepairTask.Status.FAERDIG
+            and task.archived_at is None,
+            "can_unarchive": can_manage and task.archived_at is not None,
         },
     )
 

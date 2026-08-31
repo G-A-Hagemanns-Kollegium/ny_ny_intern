@@ -9,6 +9,7 @@
       <h1>Reparationer</h1>
     </div>
     <div class="head-actions">
+      <a class="btn btn-secondary" href="{% url 'reparationer:archive_list' %}">Arkiv</a>
       <a class="btn" href="{% url 'reparationer:create' %}">Meld en reparation</a>
     </div>
   </div>
@@ -59,20 +60,22 @@
           <span>{{ label }}</span>
           <span class="chip chip-quiet">{{ tasks|length }}</span>
         </div>
-        {% for task in tasks %}
-          <div class="kanban-card">
-            <h3><a href="{% url 'reparationer:detail' task.pk %}">{{ task.title }}</a></h3>
-            {% if task.location %}<p class="muted">{{ task.location }}</p>{% endif %}
-            {% if task.description %}<p>{{ task.description|linebreaksbr }}</p>{% endif %}
-            <p class="chip chip-quiet">Ansvarlig: {{ task.get_responsible_display }}</p>
-            <p class="muted">
-              Meldt af {{ task.reported_by.first_name }} · {{ task.created_at|date:"j. M" }}
-              {% if task.comment_count %}· <a href="{% url 'reparationer:detail' task.pk %}">{{ task.comment_count }} note{{ task.comment_count|pluralize:"r" }}</a>{% endif %}
-            </p>
-          </div>
-        {% empty %}
-          <p class="muted kanban-empty">Ingen sager her.</p>
-        {% endfor %}
+        <div class="kanban-col-body">
+          {% for task in tasks %}
+            <div class="kanban-card">
+              <h3><a href="{% url 'reparationer:detail' task.pk %}">{{ task.title }}</a></h3>
+              {% if task.location %}<p class="muted">{{ task.location }}</p>{% endif %}
+              {% if task.description %}<p>{{ task.description|linebreaksbr }}</p>{% endif %}
+              <p class="chip chip-quiet">Ansvarlig: {{ task.get_responsible_display }}</p>
+              <p class="muted">
+                Meldt af {{ task.reported_by.first_name }} · {{ task.created_at|date:"j. M" }}
+                {% if task.comment_count %}· <a href="{% url 'reparationer:detail' task.pk %}">{{ task.comment_count }} note{{ task.comment_count|pluralize:"r" }}</a>{% endif %}
+              </p>
+            </div>
+          {% empty %}
+            <p class="muted kanban-empty">Ingen sager her.</p>
+          {% endfor %}
+        </div>
       </div>
     {% endfor %}
   </div>
