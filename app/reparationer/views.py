@@ -29,11 +29,15 @@ from residents.models import Role
 from residents.permissions import current_resident, request_has_role, role_required
 
 from . import services
-from .forms import RepairCommentForm, RepairTaskForm
+from .forms import COMMON_AREAS, RepairCommentForm, RepairTaskForm
 from .models import RepairComment, RepairTask
 
 MANAGE_ROLES = (Role.REPPER, Role.INSPEKTION, Role.ADMINISTRATOR)
 MOVE_ROLES = (*MANAGE_ROLES, Role.VICEVAERT)
+
+# The board's "sted" filter — same two-way split as the location dropdown itself (COMMON_AREAS vs.
+# everything else, which is only ever a room or a floor's toilet — see forms.location_choices).
+LOCATION_TYPES = [("faelles", "Fællesarealer"), ("vaerelser", "Værelser")]
 
 # Statuses a Vicevært may never move a ticket INTO — the page never renders their buttons (see
 # board.html/detail.html), so reaching set_status with one of these as a non-manager only happens
@@ -76,10 +80,19 @@ def _search(tasks: "QuerySet[RepairTask]", query: str) -> "QuerySet[RepairTask]"
 @login_required
 def board(request: HttpRequest) -> HttpResponse:
     query = (request.GET.get("q") or "").strip()
+    location_type = request.GET.get("sted") or ""
+    if location_type not in {value for value, _ in LOCATION_TYPES}:
+        location_type = ""  # an unknown value shows everything rather than 404ing
+
     tasks = _search(
         RepairTask.objects.active().select_related("reported_by").annotate(comment_count=Count("comments")),
         query,
     )
+    if location_type == "faelles":
+        tasks = tasks.filter(location__in=COMMON_AREAS)
+    elif location_type == "vaerelser":
+        tasks = tasks.exclude(location__in=[*COMMON_AREAS, ""])
+
     columns = [
         (status, label, [t for t in tasks if t.status == status])
         for status, label in RepairTask.Status.choices
@@ -91,6 +104,8 @@ def board(request: HttpRequest) -> HttpResponse:
         {
             "columns": columns,
             "query": query,
+            "location_type": location_type,
+            "location_types": LOCATION_TYPES,
             "result_count": sum(len(items) for _, _, items in columns) if query else None,
             "push_configured": push.is_configured(),
             "vapid_public_key": push.vapid_public_key(),

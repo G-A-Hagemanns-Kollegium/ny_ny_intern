@@ -31,6 +31,18 @@
     </p>
   {% endif %}
 
+  {% comment %}
+    Plain links, not a <select>: bookmarkable/shareable, composes with the search box's own query
+    string via {% querystring %}, and back/forward works — same reasoning as opslagstavle's category
+    filter.
+  {% endcomment %}
+  <nav class="board-filters" aria-label="Filtrér efter sted">
+    <a class="chip{% if not location_type %} is-active{% endif %}" href="{% querystring sted=None %}">Alle</a>
+    {% for value, label in location_types %}
+      <a class="chip{% if location_type == value %} is-active{% endif %}" href="{% querystring sted=value %}">{{ label }}</a>
+    {% endfor %}
+  </nav>
+
   {% if push_configured %}
     {% comment %} Slim opt-in bar, driven by frontend/src/push.ts — mirrors opslagstavle/board.html. {% endcomment %}
     <div class="push-bar" data-push data-topic="reparationer"
