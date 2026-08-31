@@ -1080,4 +1080,56 @@
   .lineage li > ul > li:first-child::after { top: 50%; }
   .lineage li > ul > li:last-child::after { bottom: 50%; }
   .lineage li > ul > li:only-child::after { display: none; }
+
+  /* --- Ølkælderkompasset --------------------------------------------------------------- */
+  .oelkaelder-compass { max-width: 38rem; margin: 0 auto; }
+  .compass-intro { text-align: center; margin: 4px auto 18px; }
+  .compass-intro h1 { margin: 4px 0 7px; font-size: clamp(26px, 7vw, 34px); }
+  .compass-intro .muted { margin: 0 auto; max-width: 31rem; font-size: 14px; }
+  .compass-card { position: relative; overflow: hidden; text-align: center; padding: 23px 18px 20px;
+    border: 1px solid var(--border); border-radius: 20px; background: linear-gradient(155deg, #fff 0%, var(--green-050) 100%); box-shadow: var(--shadow); }
+  .compass-card::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; background: var(--brass); }
+  .compass-face { position: relative; width: min(72vw, 292px); aspect-ratio: 1; margin: 3px auto 19px;
+    border: 1px solid var(--green-100); border-radius: 50%; background: rgba(255,255,255,.74); box-shadow: inset 0 0 0 9px rgba(31,90,58,.045), 0 12px 28px -20px rgba(24,74,48,.5); }
+  .compass-ring { position: absolute; inset: 12%; border: 1px dashed rgba(31,90,58,.32); border-radius: 50%; }
+  .compass-ring::before, .compass-ring::after { content: ""; position: absolute; background: rgba(31,90,58,.18); }
+  .compass-ring::before { width: 1px; top: -9%; bottom: -9%; left: 50%; }
+  .compass-ring::after { height: 1px; left: -9%; right: -9%; top: 50%; }
+  .compass-cardinal { position: absolute; z-index: 2; font-size: 11px; font-weight: 800; color: var(--green-700); }
+  .compass-cardinal-n { top: 7%; left: 50%; transform: translateX(-50%); color: var(--brass-ink); }
+  .compass-cardinal-e { top: 50%; right: 7%; transform: translateY(-50%); }
+  .compass-cardinal-s { bottom: 7%; left: 50%; transform: translateX(-50%); }
+  .compass-cardinal-w { top: 50%; left: 7%; transform: translateY(-50%); }
+  .compass-arrow { position: absolute; z-index: 3; left: 50%; top: 16%; width: 32%; height: 68%; transform: translateX(-50%) rotate(0deg); transform-origin: 50% 50%; transition: transform 220ms ease-out; }
+  .compass-arrow svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 5px 4px rgba(24,74,48,.2)); }
+  .compass-arrow path:first-child { fill: var(--green); stroke: var(--green-700); stroke-width: 2; stroke-linejoin: round; }
+  .compass-arrow-tail { fill: var(--brass); stroke: var(--brass-ink); stroke-width: 2; stroke-linejoin: round; }
+  .compass-centre { position: absolute; z-index: 4; left: 50%; top: 50%; width: 15px; height: 15px; transform: translate(-50%, -50%); border: 3px solid #fff; border-radius: 50%; background: var(--brass); box-shadow: var(--shadow-sm); }
+  .compass-destination .eyebrow { margin: 0 0 2px; }
+  .compass-destination h2 { margin: 0; font-size: 22px; }
+  .compass-distance { margin: 8px 0 1px; color: var(--green-700); font-size: 28px; font-weight: 760; letter-spacing: -.03em; }
+  .compass-bearing { margin: 0; font-size: 13px; }
+  .compass-status { min-height: 2.8em; max-width: 28rem; margin: 17px auto 12px; color: var(--muted); font-size: 14px; }
+  .compass-start { min-height: 44px; justify-content: center; padding-inline: 20px; font-size: 15px; }
+  .compass-start[hidden] { display: none; }
+  .compass-offers { margin-top: 24px; }
+  .compass-offers-head { display: flex; align-items: end; justify-content: space-between; margin-bottom: 9px; }
+  .compass-offers-head .eyebrow { margin: 0 0 2px; }
+  .compass-offers-head h2 { margin: 0; font-size: 19px; }
+  .compass-offer-list { display: flex; flex-direction: column; gap: 9px; }
+  .compass-offer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 15px;
+    border: 1px solid var(--border); border-left: 4px solid var(--brass); border-radius: var(--radius-sm); background: var(--surface); box-shadow: var(--shadow-sm); }
+  .compass-offer[hidden] { display: none; }
+  .compass-offer-main { min-width: 0; }
+  .compass-offer h3 { margin: 0; font-size: 15px; font-weight: 730; }
+  .compass-offer-main p { margin: 3px 0 0; color: var(--muted); font-size: 13.5px; line-height: 1.35; }
+  .compass-offer-meta { display: flex; align-items: end; flex-direction: column; gap: 5px; flex: none; font-size: 14px; color: var(--green-700); }
+  .compass-offer-empty { margin: 0; padding: 16px; border: 1px dashed var(--border-strong); border-radius: var(--radius-sm); color: var(--muted); text-align: center; font-size: 14px; }
+  .compass-offer-empty[hidden] { display: none; }
+  @media (max-width: 480px) {
+    .oelkaelder-compass-page .content { padding-top: 15px; }
+    .compass-card { margin-inline: -3px; }
+    .compass-face { width: min(78vw, 292px); }
+  }
+  @media (prefers-reduced-motion: reduce) { .compass-arrow { transition: none; } }
 }

@@ -28,6 +28,7 @@ from .models import (
     Adjustment,
     Deposit,
     InterestPolicy,
+    OelkaelderOffer,
     Product,
     PurchasePolicy,
     PurchaseShare,
@@ -151,6 +152,24 @@ def my_balance(request: HttpRequest) -> HttpResponse:
             "entries": _account_entries(accounts)[:100],
             "bank_reg": settings.OELKAELDER_BANK_REG,
             "bank_account": settings.OELKAELDER_BANK_ACCOUNT,
+        },
+    )
+
+
+@login_required
+def compass(request: HttpRequest) -> HttpResponse:
+    """The resident-facing Ølkælder compass. Location never leaves the browser."""
+    now = timezone.now()
+    return render(
+        request,
+        "oelkaelder/compass.html",
+        {
+            "destination": {
+                "name": "Ølkælderen",
+                "latitude": settings.OLKAELDER_LATITUDE,
+                "longitude": settings.OLKAELDER_LONGITUDE,
+            },
+            "offers": OelkaelderOffer.visible_at(now),
         },
     )
 
