@@ -311,8 +311,9 @@ Two traps:
   A flight has to land where the one below it left, or you slide sideways on every floor change.
 - **The sprite atlas is generated, not painted**, in three layers: procedural sprites, then the
   free tier over the top, then the full pack over that. Any of them can be missing and the build
-  still produces a complete, if plainer, game. The packs are gitignored because their licence
-  forbids redistributing them, and the required credit is on the title screen — see `ASSETS.md`.
+  still produces a complete, if plainer, game. Only the 105 source files the atlas is built from
+  are committed, with their licence text, and the required credit is on the title screen — see
+  `ASSETS.md` for the reasoning and for how to back it out.
 - **Sprite sizes are generated too** (`propsize.ts`). Rooms are laid out from a sprite's real
   footprint, so a hand-written table would drift silently the first time a sprite was recut.
 - **No vertical squash** for the 3D look, and **walls do not occlude the player**. Both were

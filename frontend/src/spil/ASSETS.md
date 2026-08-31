@@ -15,14 +15,12 @@ the download** — without it you get a complete, if plainer, game.
 
 ## The LimeZu pack
 
-Not committed, and **must not be** — see the licence below. `.gitignore` keeps it out. To get it
-back:
+Committed, but only the slice the atlas is built from: **105 files, about 850 KB**, out of a
+53 000 file / 321 MB download. Each pack's `LICENSE.txt` and `READ_ME.txt` is committed beside them,
+because art should not travel without its terms. `npm run atlas` therefore works from a fresh clone.
 
-1. Buy/download "Modern Interiors" from <https://limezu.itch.io/moderninteriors>.
-2. Unzip so that these paths exist:
-   `frontend/src/spil/ASSETS/moderninteriors/` (full pack) and, optionally,
-   `frontend/src/spil/ASSETS/Modern tiles_Free/` (free tier).
-3. `npm run atlas`
+If you need a sprite that was trimmed away, get the pack from
+<https://limezu.itch.io/moderninteriors>, drop the file in, and regenerate the manifest (below).
 
 ## Licence
 
@@ -36,16 +34,18 @@ Three consequences, none of them optional:
 
 1. **Commercial use is fine now.** The old "if the game ever leaves gahk.dk, buy it first" caveat is
    settled — that is what the purchase bought.
-2. **The pack still cannot be committed.** "Distribute the asset to others" is exactly what pushing
-   53 000 files to a *public* repo does, and buying a licence to *use* art is not a licence to
-   *redistribute* it. This is the same conclusion as before the purchase, for a stronger reason: the
-   free tier merely said nothing about redistribution, the paid one forbids it outright. What ships
-   is the **generated atlas** (`app/static/spil/atlas.png`) — the asset edited and used in a
-   project, which the licence expressly allows.
-3. **Credit is required.** It is on the title screen (`.spil-credit`). Do not remove it.
+2. **"Resell or distribute the asset to others" is the clause to keep in mind.** The kollegium's
+   decision was to commit the trimmed 105 files anyway, with the licence text beside them and the
+   credit on the title screen. Record that honestly: it is a judgement about the kollegium's own
+   licence, not something the wording plainly permits — a licence to *use* art is not obviously a
+   licence to republish the source files, even a hundred of them. Nothing at runtime depends on
+   them, so if LimeZu ever objects the fix is small: delete `ASSETS/`, put the directory back in
+   `.gitignore`, and the build falls back to its own procedural sprites until someone re-downloads.
+3. **Credit is required.** It is on the title screen (`.spil-credit`). Do not remove it — that is a
+   licence term, not decoration.
 
-The 320 MB / 53 000 files would also be a bad thing to put in git on its own merits: git keeps blobs
-forever, so it would weigh on every clone of this repo from now on.
+Committing the *whole* 320 MB would have been bad on its own merits regardless of licence: git keeps
+blobs forever, so it would weigh on every clone of this repo from now on. 850 KB does not.
 
 ## Trimming the packs
 
