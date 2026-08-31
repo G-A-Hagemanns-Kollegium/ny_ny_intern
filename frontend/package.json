@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "watch": "vite build --watch"
+    "watch": "vite build --watch",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "alpinejs": "^3.14.8",

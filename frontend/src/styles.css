@@ -625,6 +625,36 @@
   .banner-preview { background:var(--warn-bg); color:var(--brass-ink); border-bottom:1px solid #e7d8b0; }
   .banner-dev { background:#3730a3; color:#fff; }
 
+  /* --- GAHKCHA (deliberately UX-only and removable) ----------------------------------------- */
+  [x-cloak] { display:none !important; }
+  .gahkcha-layer { position:fixed; inset:0; z-index:100; display:grid; place-items:center; padding:18px;
+    isolation:isolate; }
+  .gahkcha-mounted { display:contents; }
+  .gahkcha-backdrop { position:absolute; inset:0; background:rgba(15,28,20,.58); backdrop-filter:blur(2px); }
+  .gahkcha-dialog { position:relative; z-index:1; width:min(100%, 550px); max-height:calc(100dvh - 36px); overflow:auto;
+    background:var(--surface); color:var(--ink); border:1px solid var(--border-strong); border-radius:16px;
+    box-shadow:0 24px 70px rgba(8,20,12,.32); padding:20px; }
+  .gahkcha-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
+  .gahkcha-heading h2 { margin:3px 0 0; font-size:20px; }
+  .gahkcha-kicker { margin:0; color:var(--brass-ink); font-size:10.5px; font-weight:750; letter-spacing:.13em; text-transform:uppercase; }
+  .gahkcha-prompt { margin:16px 0 13px; font-size:15px; font-weight:700; }
+  .gahkcha-skip { flex:none; border:0; background:none; color:var(--muted); padding:4px; font:inherit; font-size:13px; text-decoration:underline; cursor:pointer; }
+  .gahkcha-grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:6px; }
+  .gahkcha-tile { aspect-ratio:1; min-width:0; min-height:52px; overflow:hidden; position:relative; display:grid; place-items:center;
+    background:var(--sunken); border:2px solid var(--border); border-radius:7px; padding:0; cursor:pointer; }
+  .gahkcha-tile:hover { border-color:var(--green-100); }
+  .gahkcha-tile.is-selected { border-color:var(--green); box-shadow:inset 0 0 0 2px var(--green); }
+  .gahkcha-tile.is-selected::after { content:"✓"; position:absolute; top:4px; right:4px; width:20px; height:20px;
+    display:grid; place-items:center; border-radius:50%; background:var(--green); color:#fff; font-size:13px; font-weight:800; }
+  .gahkcha-tile img { display:block; width:100%; height:100%; object-fit:cover; }
+  .gahkcha-image-fallback { width:100%; height:100%; display:grid; place-content:center; justify-items:center; gap:3px;
+    background:linear-gradient(145deg, var(--sunken), var(--green-050)); color:var(--muted); font-size:11px; font-weight:700; }
+  .gahkcha-image-fallback svg { width:25px; height:25px; fill:none; stroke:currentColor; stroke-width:1.5; }
+  .gahkcha-feedback { min-height:1.5em; margin:12px 0 0; color:var(--neg); font-size:14px; font-weight:650; }
+  .gahkcha-feedback.is-success { color:var(--pos); }
+  .gahkcha-actions { display:flex; justify-content:flex-end; gap:9px; margin-top:12px; }
+  .gahkcha-actions .btn:disabled { cursor:wait; opacity:.75; }
+
   @media (max-width:960px) {
     /* The rows have to be redeclared with the areas: the desktop grid is two rows (auto 1fr) and
        the mobile stack is three, so without this the flexible 1fr landed on the TOP BAR and `main`

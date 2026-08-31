@@ -9,10 +9,12 @@ import "./push"; // Den Hurtige push-notification subscribe button (no-op elsewh
 import "./feed"; // Den Hurtige live-feed poll guard (no-op elsewhere)
 import "./opslagstavle"; // opslagstavlen Markdown toolbar + image upload (no-op elsewhere)
 import "./events"; // begivenheder guest-list picker (no-op elsewhere)
+import { initGahkcha } from "./gahkcha/gahkcha"; // optional, UX-only click easter egg
 
 // Alpine for small client-only interactions; HTMX (imported above) auto-wires hx-* attributes.
 // NB: the ølkælder till (kiosk) is deliberately NOT an Alpine island — it runs on an iOS 10.3 iPad
 // that cannot parse this bundle, so it ships self-contained ES5 in app/templates/oelkaelder/shop.html.
 (window as unknown as { Alpine: typeof Alpine }).Alpine = Alpine;
 
+initGahkcha(Alpine);
 Alpine.start();
