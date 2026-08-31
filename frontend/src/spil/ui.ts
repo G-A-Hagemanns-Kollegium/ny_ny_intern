@@ -382,7 +382,12 @@ export class Ui {
     this.open(`
       <h2>Vagten er slut</h2>
       <div class="spil-final">${kr(run.money)}</div>
-      ${place ? `<p class="spil-dim">Nr. <b class="spil-price">${place}</b> på ranglisten.</p>` : ""}
+      ${run.cheated
+        ? `<p class="spil-void">Konsollen blev brugt undervejs, så vagten er ikke kommet på
+             ranglisten. Kør en uden, hvis den skal tælle.</p>`
+        : place
+          ? `<p class="spil-dim">Nr. <b class="spil-price">${place}</b> på ranglisten.</p>`
+          : ""}
       <div class="spil-stats">
         <div><span>Leveret</span><strong>${run.delivered}</strong></div>
         <div><span>For sent</span><strong>${run.failed}</strong></div>

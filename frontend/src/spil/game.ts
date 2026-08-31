@@ -835,7 +835,27 @@ export class Game {
   }
 
   // ------------------------------------------------------------------------------- cheats
+  /** Commands that only look at the run. Everything else voids it — see `dispatch` below. */
+  private static readonly READ_ONLY = new Set(["hjælp", "hjaelp", "help", "?", "status"]);
+
+  private static unknown(name: string): string {
+    return `? ukendt kommando "${name}" — prøv hjælp`;
+  }
+
+  /** The console, wrapped: anything that is not a plain read marks the shift as cheated, and a
+   *  cheated shift cannot reach the leaderboard. Enforcing it here rather than in each case means a
+   *  command added later is disqualifying by default, which is the safe direction to be wrong in. */
   private command = (name: string, args: string[]): string => {
+    const out = this.dispatch(name, args);
+    const read = Game.READ_ONLY.has(name) || out === Game.unknown(name);
+    if (!read && !this.run.cheated) {
+      this.run.cheated = true;
+      this.ui.toast("Konsollen er brugt — vagten tæller ikke på ranglisten.", "is-bad");
+    }
+    return out;
+  };
+
+  private dispatch(name: string, args: string[]): string {
     const run = this.run;
     const num = (i: number, fallback = NaN): number => {
       const v = Number(args[i]);
@@ -963,9 +983,9 @@ export class Game {
         this.onAction({ type: "reset" });
         return "ranglisten er slettet";
       default:
-        return `? ukendt kommando "${name}" — prøv hjælp`;
+        return Game.unknown(name);
     }
-  };
+  }
 
   private scene(): Scene {
     const t = this.mode === "playing" && !this.travel ? this.target() : null;

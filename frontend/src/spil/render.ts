@@ -768,6 +768,8 @@ export class Renderer {
     // the whole right-hand half of the bar belongs to the order strip.
     const money = Math.round(run.money).toLocaleString("da-DK");
     text(ctx, "SCORE", SCORE_X, 9, "rgba(217,181,102,0.7)", 5.5);
+    // Say it while there is still a run to abandon, not as a surprise on the results screen.
+    if (run.cheated) text(ctx, "· TÆLLER IKKE", SCORE_X + 32, 9, P.red, 5.5);
     text(ctx, `${money} kr`, SCORE_X, 26, "#ffe1a0", 17);
 
     if (run.combo > 1) {

@@ -135,6 +135,13 @@
 }
 
 .spil-modal-box p { margin: .4em 0 .9em; }
+.spil-void {
+  padding: .5em .7em;
+  background: rgba(208, 106, 92, .12);
+  border-left: .25em solid var(--bad);
+  color: #f0c3bc;
+  font-size: .92em;
+}
 .spil-modal-box .spil-dim { opacity: .74; font-size: .92em; }
 .spil-price { color: var(--brass); font-weight: 700; font-variant-numeric: tabular-nums; }
 

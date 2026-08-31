@@ -269,9 +269,18 @@ history. `hjælp` lists everything. The ones that save real time:
 - `alt` — every skill maxed, lift repaired
 - `xp <n>`, `point <n>`, `tid <n>`, `slut`, `status`
 
-It is always on, not `DEBUG`-gated: the save is localStorage-only and the leaderboard is local, so
-there is nothing to protect. **If you ever add a server leaderboard, gate the console first** —
-`penge 99999` would otherwise make any posted score meaningless.
+It is always on, not `DEBUG`-gated, and it does not need to be: **using it voids the run.** The
+first command that changes anything sets `Run.cheated`, and `record()` refuses a cheated run, so a
+shift with `penge 99999` in it cannot reach the leaderboard. The HUD says so next to the score the
+moment it happens, and the results screen explains rather than silently omitting the rank.
+
+The rule is enforced in `command()`, which wraps `dispatch()`: everything that is not in
+`READ_ONLY` (`hjælp`, `status`, and unrecognised input) is disqualifying. That direction matters —
+a command added later is disqualifying by default, rather than quietly slipping past a list someone
+forgot to update. `record()` is the single place scores are written, so **a future server-side
+leaderboard inherits this for free**; the old "gate the console first" caveat is settled.
+
+Starting a fresh run clears the flag, so "En gang til" after a cheated shift counts normally.
 
 ---
 
@@ -305,7 +314,10 @@ Two traps:
 ## 7. Decisions worth not re-litigating
 
 - **The leaderboard is local (localStorage).** A shared one is small — one model, one POST view —
-  but it needs the cheat console gated first, and this app has been deliberately model-free.
+  and the console is no longer the blocker it was: a cheated run is already refused at `record()`,
+  which is the only place a score is written. What is left is that this app has been deliberately
+  model-free, and adding the first model is a decision for whoever owns the codebase, not a
+  side-effect of a game.
 - **Fictional names were replaced with real ones** on request. First names only, per §3.
 - **Both stairwells are aligned on every floor**, though the cellar plan draws the right one lower.
   A flight has to land where the one below it left, or you slide sideways on every floor change.

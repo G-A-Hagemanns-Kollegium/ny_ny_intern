@@ -92,6 +92,9 @@ export interface Run {
   tools: boolean;
   lift: boolean;
   bestCombo: number;
+  /** Set the moment the developer console changes anything. A cheated shift cannot reach the
+   *  leaderboard — which is what lets the console stay open in the first place. */
+  cheated: boolean;
   /** The chosen bud's passive, copied in so every balance helper works off the run alone. */
   perk: Perk;
 }
@@ -114,6 +117,7 @@ export function newRun(seconds: number, perk: Perk = { blurb: "" }): Run {
     tools: false,
     lift: false,
     bestCombo: 0,
+    cheated: false,
   };
 }
 
@@ -274,7 +278,13 @@ export function clearSave(): void {
 }
 
 /** Add a finished run to the board and return its placing (1-based), or 0 if it did not make it. */
+/** Adds the run to the local board and returns its place, or 0 if it did not make it.
+ *
+ *  A run that used the console never makes it. The board is local today, so there is nobody to
+ *  defraud but yourself — but the rule is enforced here, at the one place scores are written, so a
+ *  future server-side board inherits it for free rather than needing the console gated first. */
 export function record(save: Save, run: Run): number {
+  if (run.cheated) return 0;
   const entry: ScoreEntry = {
     score: run.money,
     level: run.level,
