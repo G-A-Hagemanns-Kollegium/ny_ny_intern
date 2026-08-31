@@ -69,3 +69,6 @@ app/media/
 # committed — the *generated* atlas (app/static/spil/atlas.png) is, and the build falls back to its
 # own procedural sprites when the pack is absent. See frontend/src/spil/ASSETS.md to re-download.
 frontend/src/spil/ASSETS/
+
+# macOS Finder droppings.
+.DS_Store
