@@ -83,9 +83,14 @@
     <ul class="rsvp-people">
       {% for r in seated %}
         <li>
-          <span class="rsvp-avatar" aria-hidden="true">
-            {{ r.resident.first_name|slice:":1" }}{{ r.resident.last_name|slice:":1" }}
-          </span>
+          {% if r.resident.profile_picture %}
+            <img class="rsvp-avatar rsvp-avatar-img" src="{{ r.resident.profile_picture.url }}"
+                 alt="" loading="lazy" aria-hidden="true">
+          {% else %}
+            <span class="rsvp-avatar" aria-hidden="true">
+              {{ r.resident.first_name|slice:":1" }}{{ r.resident.last_name|slice:":1" }}
+            </span>
+          {% endif %}
           <span class="rsvp-name">{{ r.resident.full_name }}</span>
           {% if r.resident_id == event.organiser_id %}<span class="muted rsvp-role">arrangør</span>{% endif %}
         </li>
