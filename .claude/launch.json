@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "gahk-dev",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "python", "app/manage.py", "runserver", "127.0.0.1:8800"],
+      "port": 8800
+    }
+  ]
+}

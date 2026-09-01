@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Lords of the ØK: The Game — GAHK Intern{% endblock %}
+{% block content_width %}max-w-6xl{% endblock %}
+
+{% comment %}
+  Lords of the ØK: The Game — the delivery game. Everything below is scoped to this page:
+
+    * spil.css      : only loaded here, and every rule is under .spil-* / #spil-*
+    * dist/spil.js  : its own Vite entry, NOT part of the site-wide app.js bundle
+    * json_script   : room + product names handed to the game as escaped JSON (never inline JS)
+
+  There is no explanatory copy around the frame on purpose: everything the player needs is drawn
+  inside the game. The page keeps its progress in localStorage and posts nothing.
+{% endcomment %}
+
+{% block content %}
+{# ?v= is the stylesheet's mtime — see _css_version() in views.py. #}
+<link rel="stylesheet" href="{% static 'spil/spil.css' %}?v={{ spil_css_v }}">
+
+{{ spil_rooms|json_script:"spil-rooms" }}
+{{ spil_goods|json_script:"spil-goods" }}
+
+<div class="spil-frame" id="spil-frame">
+  <canvas id="spil-canvas" width="896" height="576" data-assets="{{ spil_assets }}"
+          aria-label="Lords of the ØK: The Game — spilområde"></canvas>
+
+  {% comment %}
+    Everything below sits on top of the canvas; the game shows/hides it. The orders and the bonus
+    event are drawn inside the canvas, as one row of cards, so nothing here can land on top of them.
+  {% endcomment %}
+  <div class="spil-toast" id="spil-toast" hidden></div>
+
+  {% comment %}
+    Unspent skill points, Diablo-style: it sits in the bottom-right corner, glows, and has an arrow
+    bouncing at it, because a point you never notice is a point you never spend.
+  {% endcomment %}
+  {# The arrow is a sibling, not a child: the button's clip-path would cut it off. #}
+  <span class="spil-skillarrow" id="spil-skillarrow" aria-hidden="true" hidden></span>
+  <button class="spil-skillbtn" id="spil-skillbtn" type="button" hidden
+          title="Færdigheder (K)" aria-label="Brug færdighedspoint">
+    <span class="spil-skillbtn-plus" aria-hidden="true">+</span>
+    <span class="spil-skillbtn-n" id="spil-skillbtn-n">0</span>
+    <span class="spil-skillbtn-cap">POINT</span>
+  </button>
+
+  <div class="spil-modal" id="spil-modal" hidden>
+    <div class="spil-modal-box" id="spil-modal-box" role="dialog" aria-modal="true"></div>
+  </div>
+
+  <button class="spil-fs" id="spil-fullscreen" type="button" title="Fuld skærm">⛶</button>
+
+  {% comment %}
+    Developer console (open with / or ½ while the game has focus). Cheats only ever touch the
+    player's own localStorage save — there is no score to inflate and nothing is sent anywhere.
+  {% endcomment %}
+  <div class="spil-console" id="spil-console" hidden>
+    <div class="spil-console-log" id="spil-console-log"></div>
+    <label class="spil-console-row">
+      <span aria-hidden="true">&gt;</span>
+      <input id="spil-console-input" type="text" autocomplete="off" spellcheck="false"
+             aria-label="Udviklerkonsol">
+    </label>
+  </div>
+</div>
+
+<noscript><p class="card">Lords of the ØK: The Game kræver JavaScript.</p></noscript>
+
+<script type="module" src="{% static 'dist/spil.js' %}"></script>
+{% endblock %}

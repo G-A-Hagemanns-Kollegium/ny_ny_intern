@@ -1,0 +1,610 @@
+/* Lords of the ØK: The Game — page-scoped styling.
+   Loaded ONLY by templates/spil/spil.html. Every selector is under .spil-* / #spil-*, so nothing
+   here can reach another page even if the file is cached. Deliberately plain CSS (no Tailwind
+   directives): it is served straight from static/, not through the Vite/Tailwind build.
+
+   The look is the game's, not the site's: bevelled dark panels with brass edges, cut corners, hard
+   drop shadows and uppercase labels.
+
+   EVERYTHING SCALES WITH THE FRAME. `.spil-frame` is a size container and sets its own font-size
+   from its width, and every overlay is measured in `em`. So the same stylesheet gives a legible
+   rail in a 500 px column and a readable one across a 4K screen in fullscreen — no JS involved. */
+
+.spil-frame {
+  --bg: #17131f;
+  --bg-2: #221b2c;
+  --bg-3: #100c17;
+  --edge: #3a3048;
+  --brass: #d9b566;
+  --brass-dim: rgba(217, 181, 102, .28);
+  --ink: #efe7d8;
+  --good: #4f9a68;
+  --good-dark: #1d3f2a;
+  --bad: #d06a5c;
+  --cut-s: polygon(.4em 0, calc(100% - .4em) 0, 100% .4em, 100% calc(100% - .4em), calc(100% - .4em) 100%, .4em 100%, 0 calc(100% - .4em), 0 .4em);
+  --cut-l: polygon(.8em 0, calc(100% - .8em) 0, 100% .8em, 100% calc(100% - .8em), calc(100% - .8em) 100%, .8em 100%, 0 calc(100% - .8em), 0 .8em);
+
+  container-type: inline-size;
+  font-size: clamp(7px, 1.8cqw, 18px);
+
+  position: relative;
+  margin: 14px 0;
+  border: 2px solid var(--edge);
+  overflow: hidden;
+  background: #100c17;
+  box-shadow: 0 0 0 1px #000, 0 18px 40px -22px rgba(24, 40, 30, .55);
+  line-height: 0;
+  font-family: "Ubuntu", system-ui, "Segoe UI", Roboto, sans-serif;
+}
+
+#spil-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 14 / 9;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  touch-action: none;
+  outline: none;
+  cursor: default;
+}
+
+.spil-frame:fullscreen { display: grid; place-items: center; background: #0c0910; margin: 0; }
+.spil-frame:fullscreen #spil-canvas { width: auto; height: 100vh; max-width: 100vw; }
+
+/* In fullscreen the frame fills the screen but the canvas is letterboxed inside it, so anything
+   anchored to a *corner* has to be inset by the bar or it floats out over the background. The two
+   `min()`s are the canvas's own sizing rule (height 100vh, capped at 100vw wide) restated. */
+.spil-frame:fullscreen {
+  --spil-bar-x: calc((100vw - min(100vw, 155.556vh)) / 2);
+  --spil-bar-y: calc((100vh - min(100vh, 64.2857vw)) / 2);
+}
+.spil-frame:fullscreen .spil-skillbtn {
+  right: calc(var(--spil-bar-x) + .7em);
+  bottom: calc(var(--spil-bar-y) + .7em);
+}
+.spil-frame:fullscreen .spil-skillarrow {
+  right: calc(var(--spil-bar-x) + 2.1em);
+  bottom: calc(var(--spil-bar-y) + .7em + 4.9em);
+}
+.spil-frame:fullscreen .spil-toast { bottom: calc(var(--spil-bar-y) + 3.6em); }
+
+/* ---------------------------------------------------------------------------------- toast line */
+.spil-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 3.6em;
+  transform: translateX(-50%);
+  padding: .45em 1.2em;
+  background: rgba(12, 9, 18, .94);
+  border: 2px solid var(--edge);
+  color: var(--ink);
+  font-size: .96em;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  clip-path: var(--cut-s);
+}
+
+.spil-toast.is-good { border-color: var(--good); color: #bfe6cb; }
+.spil-toast.is-bad { border-color: var(--bad); color: #f0c3bc; }
+
+/* ------------------------------------------------------------------------------- game panels */
+.spil-modal {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1em;
+  background: rgba(8, 6, 12, .8);
+  overflow: auto;
+  line-height: 1.5;
+}
+
+.spil-modal-box {
+  width: min(46em, 100%);
+  max-height: 100%;
+  overflow: auto;
+  padding: 1.4em 1.7em 1.5em;
+  background: linear-gradient(180deg, var(--bg-2), var(--bg));
+  border: 2px solid var(--brass);
+  color: var(--ink);
+  font-size: 1em;
+  outline: none;
+  clip-path: var(--cut-l);
+}
+
+.spil-modal-box h2 {
+  margin: 0 0 .9em;
+  padding-bottom: .6em;
+  font-size: 1.1em;
+  font-weight: 700;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+  color: var(--brass);
+  border-bottom: 1px solid var(--brass-dim);
+}
+
+.spil-modal-box h3 {
+  margin: 1.1em 0 .4em;
+  font-size: .78em;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--brass);
+}
+
+.spil-modal-box p { margin: .4em 0 .9em; }
+.spil-void {
+  padding: .5em .7em;
+  background: rgba(208, 106, 92, .12);
+  border-left: .25em solid var(--bad);
+  color: #f0c3bc;
+  font-size: .92em;
+}
+.spil-modal-box .spil-dim { opacity: .74; font-size: .92em; }
+.spil-price { color: var(--brass); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* The final score, sized to be the only thing you look at. */
+.spil-final {
+  font-size: 3.1em;
+  font-weight: 700;
+  line-height: 1;
+  color: #ffe1a0;
+  letter-spacing: -.01em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 .06em 0 rgba(0, 0, 0, .55);
+}
+
+.spil-grid { display: grid; gap: .55em; grid-template-columns: repeat(auto-fit, minmax(12.5em, 1fr)); }
+
+.spil-card {
+  display: flex;
+  flex-direction: column;
+  gap: .18em;
+  text-align: left;
+  padding: .6em .75em;
+  background: var(--bg-3);
+  border: 2px solid var(--edge);
+  color: inherit;
+  font: inherit;
+  font-size: .9em;
+  line-height: 1.35;
+  clip-path: var(--cut-s);
+}
+
+button.spil-card { cursor: pointer; transition: border-color .08s, background .08s; }
+button.spil-card:hover:not([disabled]) { background: #221a10; border-color: var(--brass); }
+button.spil-card[disabled] { opacity: .4; cursor: not-allowed; }
+.spil-card b { color: #fff; font-size: 1.05em; }
+.spil-card small { opacity: .74; }
+.spil-card.is-owned { border-color: var(--good-dark); }
+.spil-card.is-owned .spil-price { color: var(--good); }
+
+/* Keyboard selection — arrows and WASD move this, Enter takes it. */
+.is-sel { outline: none; }
+button.spil-card.is-sel { border-color: var(--brass); background: #2a2011; box-shadow: 0 0 0 2px rgba(217, 181, 102, .3); }
+.spil-btn.is-sel { box-shadow: 0 .25em 0 #102516, 0 0 0 2px var(--brass); }
+
+.spil-pips { display: flex; gap: .18em; margin-top: .25em; }
+.spil-pips i { width: .85em; height: .35em; background: rgba(255, 255, 255, .16); }
+.spil-pips i.is-on { background: var(--brass); }
+
+.spil-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(7em, 1fr)); gap: .4em; margin: .8em 0 0; }
+.spil-stats div { padding: .45em .6em; background: var(--bg-3); border: 1px solid var(--edge); }
+.spil-stats span { display: block; font-size: .62em; letter-spacing: .14em; text-transform: uppercase; opacity: .55; }
+.spil-stats strong { font-size: 1.25em; color: #fff; font-variant-numeric: tabular-nums; }
+
+.spil-board { list-style: none; margin: 0; padding: 0; display: grid; gap: .2em; }
+.spil-board li { display: flex; align-items: baseline; gap: .6em; padding: .3em .6em; background: var(--bg-3); border-left: .2em solid var(--edge); font-size: .9em; }
+.spil-board li.is-you { border-left-color: var(--brass); background: #221a10; }
+.spil-board-n { width: 1.4em; text-align: right; opacity: .5; font-variant-numeric: tabular-nums; }
+.spil-board b { color: #ffe1a0; font-variant-numeric: tabular-nums; }
+.spil-board small { opacity: .6; margin-left: auto; }
+
+/* Chunky buttons with a hard shadow that the press animation takes away. */
+.spil-actions { display: flex; flex-wrap: wrap; gap: .7em; margin-top: 1.2em; }
+
+.spil-btn {
+  font: inherit;
+  font-size: .88em;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  padding: .6em 1.3em;
+  background: #2f7a4c;
+  border: 2px solid #16351f;
+  box-shadow: 0 .25em 0 #102516;
+  color: #fff;
+  cursor: pointer;
+  clip-path: var(--cut-s);
+}
+
+.spil-btn:hover { background: #3b9260; }
+.spil-btn:active { transform: translateY(.15em); box-shadow: 0 .08em 0 #102516; }
+.spil-btn.is-ghost { background: #241d2e; border-color: #120e18; box-shadow: 0 .25em 0 #0c0912; color: var(--ink); }
+.spil-btn.is-ghost:hover { background: #2f2740; }
+.spil-btn.is-ghost.is-sel { box-shadow: 0 .25em 0 #0c0912, 0 0 0 2px var(--brass); }
+
+/* ------------------------------------------------------------------------------ fullscreen knob */
+.spil-fs {
+  position: absolute;
+  top: .55em;
+  right: .55em;
+  width: 2em;
+  height: 2em;
+  border: 2px solid var(--edge);
+  background: rgba(16, 12, 23, .8);
+  color: var(--ink);
+  font-size: 1em;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.spil-fs:hover { border-color: var(--brass); color: var(--brass); }
+
+/* ------------------------------------------------------------------- character-select portraits */
+/* Four buds, four columns — they are a row of choices, not a wrapping list. */
+.spil-grid-chars { grid-template-columns: repeat(4, 1fr); }
+.spil-grid-chars .spil-card { padding: .8em .5em; font-size: .82em; }
+.spil-char { align-items: center; text-align: center; gap: .5em; padding: 1em .8em; }
+.spil-char small { min-height: 4.2em; font-size: .88em; }
+
+/* The tutorial, shown once between picking a bud and the clock starting. */
+.spil-steps { margin: .2em 0 .8em; padding-left: 1.5em; display: grid; gap: .45em; font-size: .92em; line-height: 1.45; list-style: decimal outside; }
+.spil-steps li { padding-left: .2em; }
+.spil-steps li::marker { color: var(--brass); font-weight: 700; }
+.spil-steps b { color: #fff; }
+kbd {
+  display: inline-block;
+  padding: 0 .35em;
+  background: var(--bg-3);
+  border: 1px solid var(--edge);
+  border-bottom-width: 2px;
+  font: inherit;
+  font-size: .88em;
+  color: var(--brass);
+}
+
+/* The lift panel: one row per floor, stacked the way the shaft is — 4. sal on top, Kælderen at the
+   bottom. The rows are in the DOM in that order too, so the arrow keys move the way the cage does. */
+.spil-shaft { display: flex; flex-direction: column; gap: .18em; }
+
+.spil-floor {
+  display: flex;
+  align-items: baseline;
+  gap: .6em;
+  width: 100%;
+  padding: .42em .7em;
+  background: var(--bg-3);
+  border: 2px solid var(--edge);
+  border-left-width: .3em;
+  color: inherit;
+  font: inherit;
+  font-size: .9em;
+  text-align: left;
+}
+button.spil-floor { cursor: pointer; transition: border-color .08s, background .08s; }
+button.spil-floor:hover { background: #221a10; border-color: var(--brass); }
+button.spil-floor.is-sel { border-color: var(--brass); background: #2a2011; box-shadow: 0 0 0 2px rgba(217, 181, 102, .3); }
+.spil-floor.is-here { border-left-color: var(--brass); background: #221a10; }
+.spil-floor b { color: #fff; flex: 1; }
+.spil-floor small { opacity: .6; font-size: .82em; }
+.spil-floor-n {
+  width: 1.5em;
+  height: 1.5em;
+  display: grid;
+  place-items: center;
+  align-self: center;
+  background: #16121d;
+  color: var(--brass);
+  font-size: .82em;
+  font-variant-numeric: tabular-nums;
+}
+.spil-floor.is-here .spil-floor-n { background: var(--brass); color: #16121d; }
+
+/* ------------------------------------------------------------------------------- title screen */
+/* Gold, serif, and deliberately not the site's typeface: this is the one place the game gets to
+   look like a poster rather than an intranet page. */
+.spil-title { display: grid; justify-items: center; gap: .1em; margin: .3em 0 .9em; line-height: 1; }
+.spil-title span {
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--brass);
+  text-shadow: 0 .06em 0 rgba(0, 0, 0, .6);
+}
+.spil-title-the { font-size: 1.5em; letter-spacing: .3em; text-transform: uppercase; opacity: .9; }
+.spil-title-main {
+  font-size: 3.6em;
+  font-weight: 700;
+  letter-spacing: .01em;
+  text-transform: uppercase;
+  color: #e8c46f;
+}
+.spil-title-sub {
+  font-size: 1.15em;
+  letter-spacing: .42em;
+  text-transform: uppercase;
+  opacity: .75;
+  border-top: 1px solid var(--brass-dim);
+  padding-top: .4em;
+  margin-top: .2em;
+}
+.spil-title-line { text-align: center; margin: 0 auto .4em; max-width: 30em; }
+.spil-title-actions { justify-content: center; margin-bottom: 1.4em; }
+.spil-btn-big { font-size: 1.25em; padding: .7em 2.6em; letter-spacing: .22em; }
+
+/* Attribution for the sprite pack. Required by its licence, so it is part of the title screen and
+   not a thing anyone can quietly delete to tidy the layout. */
+.spil-credit {
+  margin: 1.2em 0 0;
+  font-size: .72em;
+  letter-spacing: .06em;
+  opacity: .45;
+}
+.spil-credit span { color: var(--brass); }
+
+/* --------------------------------------------------------------------------------- tutorial */
+/* Four illustrated steps, then the keys. The art is atlas frames, so the board shows the actual
+   doors, crates and bottles the player is about to see. */
+.spil-chip { display: inline-block; vertical-align: middle; }
+.spil-how {
+  list-style: none;
+  margin: .2em 0 .9em;
+  padding: 0;
+  display: grid;
+  gap: .5em;
+  grid-template-columns: repeat(2, 1fr);
+}
+.spil-step {
+  display: grid;
+  grid-template-columns: 1.5em 5.6em 1fr;
+  grid-template-areas: "n art title" "n art body";
+  align-items: center;
+  gap: .1em .8em;
+  padding: .7em .8em;
+  background: var(--bg-3);
+  border: 2px solid var(--edge);
+  border-left: .25em solid var(--brass-dim);
+  font-size: .92em;
+  line-height: 1.35;
+}
+.spil-step-n {
+  grid-area: n;
+  display: grid;
+  place-items: center;
+  width: 1.5em;
+  height: 1.5em;
+  background: var(--brass);
+  color: #16121d;
+  font-weight: 700;
+  font-size: .85em;
+}
+.spil-step-art {
+  grid-area: art;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: .2em;
+  height: 4em;
+}
+.spil-step b { grid-area: title; color: #fff; align-self: end; }
+.spil-step small { grid-area: body; opacity: .8; align-self: start; }
+
+.spil-modal-box h3 + .spil-keys { margin-top: .2em; }
+.spil-keys { display: grid; grid-template-columns: repeat(2, 1fr); gap: .3em .9em; margin-bottom: .4em; font-size: .9em; }
+.spil-keyrow { display: flex; align-items: center; gap: .4em; }
+.spil-keyrow b { color: #fff; }
+.spil-keyrow i { opacity: .55; font-style: normal; font-size: .88em; }
+
+/* ------------------------------------------------------------------------------ færdigheder */
+/* One row per skill, one card per level of it: a build reads as lines you extend. The panel is
+   allowed to scroll — there are more rows than fit, and that is fine. */
+.spil-track { margin-bottom: .7em; }
+.spil-track header { display: flex; align-items: baseline; gap: .6em; margin-bottom: .25em; }
+.spil-track header b { color: var(--brass); font-size: .8em; letter-spacing: .18em; text-transform: uppercase; }
+.spil-track header small { opacity: .5; font-size: .8em; }
+
+.spil-skillrow {
+  display: grid;
+  grid-template-columns: 2.4em minmax(6em, auto) 1fr auto auto;
+  align-items: center;
+  gap: .1em .7em;
+  padding: .35em .6em;
+  margin-bottom: .25em;
+  background: var(--bg-3);
+  border: 2px solid var(--edge);
+  border-left: .22em solid var(--brass-dim);
+  font-size: .86em;
+}
+.spil-skillrow.is-blocked { opacity: .55; }
+.spil-skillrow-icon { justify-self: center; }
+.spil-skillrow b { color: #fff; }
+.spil-skillrow-note { opacity: .7; }
+
+.spil-track-line { display: flex; align-items: center; justify-self: end; }
+.spil-track-link { width: 1em; height: .22em; background: var(--edge); flex: 0 0 auto; }
+.spil-track-link.is-on { background: var(--brass); }
+
+/* One card per level. Exactly one is ever for sale — the next one along. */
+.spil-lvl {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.2em;
+  height: 2.2em;
+  padding: 0;
+  background: var(--bg);
+  border: 2px solid var(--edge);
+  color: rgba(255, 255, 255, .35);
+  font: inherit;
+  font-weight: 700;
+  cursor: not-allowed;
+  clip-path: var(--cut-s);
+}
+.spil-lvl.is-owned { background: #23543a; border-color: var(--good); color: #dff2e5; }
+.spil-lvl.is-next {
+  cursor: pointer;
+  border-color: var(--brass);
+  color: var(--brass);
+  animation: spil-skillglow 1.25s ease-in-out infinite;
+}
+.spil-lvl.is-next:hover { background: #2a2011; }
+.spil-lvl.is-sel { box-shadow: 0 0 0 2px var(--brass); background: #2a2011; }
+.spil-lvl-n { font-size: .95em; line-height: 1; }
+.spil-lvl-buy {
+  position: absolute;
+  bottom: -.05em;
+  font-size: .48em;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  opacity: .8;
+}
+.spil-cost { color: rgba(255, 255, 255, .5); font-variant-numeric: tabular-nums; }
+.spil-maxed { color: var(--good); }
+.spil-locked { color: var(--bad); }
+
+/* The bud's own passive, under the blurb on the select screen. */
+.spil-perk {
+  margin-top: .3em;
+  padding-top: .3em;
+  border-top: 1px solid var(--brass-dim);
+  color: var(--brass);
+  opacity: 1 !important;
+}
+
+/* The bud, drawn in CSS from the same palette as his sprite — no extra image request just to fill
+   a menu, and it stays crisp at any size. */
+.spil-portrait {
+  width: 3.4em;
+  height: 4.4em;
+  align-self: center;
+  background:
+    linear-gradient(#d9a273 0 0) 50% 24% / 1.7em 1.5em no-repeat,
+    linear-gradient(#5d3f27 0 0) 50% 13% / 1.85em .64em no-repeat,
+    linear-gradient(#3f7a55 0 0) 50% 78% / 2.3em 1.9em no-repeat,
+    linear-gradient(#2b5c3d 0 0) 50% 90% / 1.05em .64em no-repeat,
+    #16121d;
+  box-shadow: inset 0 0 0 2px #2a2236;
+}
+
+.spil-portrait.is-locked { background: #16121d; }
+.spil-portrait.is-locked::after {
+  content: "?";
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font-size: 1.8em;
+  font-weight: 700;
+  color: rgba(255, 255, 255, .18);
+}
+
+button.spil-card.is-locked { cursor: not-allowed; }
+
+/* ------------------------------------------------------------------------- developer console */
+/* Opened with / or ½ while the game has focus. Cheats only touch this browser's own save. */
+.spil-console {
+  position: absolute;
+  left: .7em;
+  right: .7em;
+  bottom: .7em;
+  max-width: 44em;
+  padding: .6em .7em;
+  background: rgba(8, 6, 12, .95);
+  border: 2px solid var(--brass);
+  color: #cfe6d3;
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: .9em;
+  line-height: 1.45;
+  clip-path: var(--cut-s);
+}
+
+.spil-console-log {
+  max-height: 12em;
+  overflow: auto;
+  margin-bottom: .45em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.spil-console-line.is-dim { opacity: .55; }
+.spil-console-line.is-echo { color: var(--brass); }
+.spil-console-line.is-ok { color: #cfe6d3; }
+.spil-console-line.is-bad { color: #f0b0a6; }
+
+.spil-console-row { display: flex; align-items: center; gap: .6em; border-top: 1px solid var(--brass-dim); padding-top: .45em; }
+.spil-console-row span { color: var(--brass); font-weight: 700; }
+
+#spil-console-input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  padding: .15em 0;
+  border: 0;
+  background: none;
+  color: #fff;
+  font: inherit;
+  outline: none;
+}
+
+@media (max-width: 640px) {
+  .spil-frame { line-height: normal; }
+}
+
+/* ---------------------------------------------------------------- unspent skill points button */
+/* Diablo's stat button: it sits on the side and glows until you have spent what you earned. */
+/* The bottom-right corner itself. It sits *over* the right-hand end of the canvas's bottom bar
+   rather than floating above it — `drawLevel` leaves that corner empty for exactly this. */
+.spil-skillbtn {
+  position: absolute;
+  right: .7em;
+  bottom: .7em;
+  display: grid;
+  gap: .05em;
+  place-items: center;
+  width: 4.4em;
+  padding: .5em .25em .4em;
+  background: linear-gradient(180deg, #3d7a52, #23543a);
+  border: 2px solid var(--brass);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  clip-path: var(--cut-s);
+  animation: spil-skillglow 1.25s ease-in-out infinite;
+}
+
+.spil-skillbtn:hover { background: linear-gradient(180deg, #4b9163, #2b6746); }
+.spil-skillbtn:active { transform: translateY(.1em); }
+.spil-skillbtn-plus { font-size: 1.55em; font-weight: 700; line-height: .8; color: var(--brass); }
+.spil-skillbtn-n { font-size: 1.35em; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.spil-skillbtn-cap { font-size: .56em; letter-spacing: .12em; opacity: .8; }
+
+/* An arrow bouncing at the button. The glow alone was not enough to notice mid-delivery, and it
+   sits outside the button because the button's clip-path would cut a child off. */
+.spil-skillarrow {
+  position: absolute;
+  right: 2.1em;
+  bottom: calc(.7em + 4.9em);
+  width: 0;
+  height: 0;
+  border-left: .8em solid transparent;
+  border-right: .8em solid transparent;
+  border-top: 1em solid var(--brass);
+  filter: drop-shadow(0 .12em 0 rgba(0, 0, 0, .55));
+  animation: spil-skillpoint 1s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes spil-skillpoint {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(.5em); }
+}
+
+@keyframes spil-skillglow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217, 181, 102, .55), 0 .2em 0 #10281a; }
+  50% { box-shadow: 0 0 .7em .18em rgba(217, 181, 102, .55), 0 .2em 0 #10281a; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spil-skillbtn { animation: none; box-shadow: 0 0 0 2px rgba(217, 181, 102, .5), 0 .2em 0 #10281a; }
+  .spil-skillarrow { animation: none; }
+}
