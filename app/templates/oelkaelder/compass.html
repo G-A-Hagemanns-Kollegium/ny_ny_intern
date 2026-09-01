@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Ølkælderkompasset - GAHK Intern{% endblock %}
+{% block body_class %}oelkaelder-compass-page{% endblock %}
+{% block content_width %}max-w-xl{% endblock %}
+{% block content %}
+  {{ destination|json_script:"oelkaelder-destination" }}
+  <section class="oelkaelder-compass" data-oelkaelder-compass data-destination-script="oelkaelder-destination">
+    <div class="compass-intro">
+      <p class="eyebrow">Find vej til en kold én</p>
+      <h1>Ølkælderkompasset</h1>
+      <p class="muted">Bruger kun din telefons position i browseren — den sendes ikke til GAHK.</p>
+    </div>
+
+    <div class="compass-card">
+      <div class="compass-face" data-compass-visual role="img" aria-label="Kompas ikke startet">
+        <span class="compass-cardinal compass-cardinal-n">N</span>
+        <span class="compass-cardinal compass-cardinal-e">Ø</span>
+        <span class="compass-cardinal compass-cardinal-s">S</span>
+        <span class="compass-cardinal compass-cardinal-w">V</span>
+        <div class="compass-ring" aria-hidden="true"></div>
+        <div class="compass-arrow" data-compass-arrow aria-hidden="true">
+          <svg viewBox="0 0 64 92" focusable="false"><path d="M32 3 56 58 32 48 8 58Z"/><path class="compass-arrow-tail" d="m32 48 13 30-13 11-13-11Z"/></svg>
+        </div>
+        <div class="compass-centre" aria-hidden="true"></div>
+      </div>
+
+      <div class="compass-destination">
+        <p class="eyebrow">Destination</p>
+        <h2>Ølkælderen</h2>
+        <p class="compass-distance num" data-compass-distance>Afventer position</p>
+        <p class="compass-bearing muted num" data-compass-bearing hidden></p>
+      </div>
+
+      <p class="compass-status" data-compass-status aria-live="polite">
+        Tryk på start for at give kompasset adgang til position og retning.
+      </p>
+      <button type="button" class="btn compass-start" data-compass-start>
+        Start kompasset
+      </button>
+    </div>
+
+    <section class="compass-offers" aria-labelledby="compass-offers-heading" data-compass-offers>
+      <div class="compass-offers-head">
+        <div>
+          <p class="eyebrow">På vej ned?</p>
+          <h2 id="compass-offers-heading">I Ølkælderen lige nu</h2>
+        </div>
+      </div>
+      <div class="compass-offer-list" data-compass-offer-list>
+        {% for offer in offers %}
+          <article class="compass-offer"{% if offer.ends_at %} data-offer-expires-at="{{ offer.ends_at|date:'c' }}"{% endif %}>
+            <div class="compass-offer-main">
+              <h3>{{ offer.title }}</h3>
+              {% if offer.description %}<p>{{ offer.description }}</p>{% endif %}
+            </div>
+            <div class="compass-offer-meta">
+              {% if offer.price_text %}<strong>{{ offer.price_text }}</strong>{% endif %}
+              {% if offer.ends_at %}
+                <span class="chip chip-brass" data-offer-countdown>Slutter {{ offer.ends_at|date:"H:i" }}</span>
+              {% endif %}
+            </div>
+          </article>
+        {% empty %}
+          <p class="compass-offer-empty" data-compass-offer-empty>Ingen tilbud lige nu — men kompasset virker stadig 🍺</p>
+        {% endfor %}
+        <p class="compass-offer-empty" data-compass-offer-empty hidden>Ingen tilbud lige nu — men kompasset virker stadig 🍺</p>
+      </div>
+    </section>
+  </section>
+{% endblock %}

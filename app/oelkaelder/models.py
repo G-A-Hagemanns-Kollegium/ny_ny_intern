@@ -7,8 +7,10 @@ split is stored per shopper with **largest-remainder** rounding so shares sum ex
 purchase write (transaction + items + shares) is wrapped in `transaction.atomic` at the view layer.
 """
 
+from datetime import datetime
+
 from django.db import models
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.utils import timezone
 
 
@@ -49,6 +51,38 @@ class Product(models.Model):  # intern_oelkaelder_product
         if self.weight_price_ore:
             return "weight"
         return "fixed"
+
+
+class OelkaelderOffer(models.Model):
+    """A small, time-bound promotion shown on Ølkælderkompasset."""
+
+    title = models.CharField(max_length=160)
+    description = models.TextField(blank=True)
+    price_text = models.CharField(max_length=80, blank=True)
+    starts_at = models.DateTimeField(null=True, blank=True)
+    ends_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    priority = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["priority", "starts_at", "-created_at"]
+        verbose_name = "Ølkældertilbud"
+        verbose_name_plural = "Ølkældertilbud"
+
+    def __str__(self) -> str:
+        return self.title
+
+    @classmethod
+    def visible_at(cls, now: datetime) -> models.QuerySet["OelkaelderOffer"]:
+        """Offers visible at ``now``. Server-side filtering remains authoritative."""
+        return (
+            cls.objects.filter(is_active=True)
+            .filter(Q(starts_at__isnull=True) | Q(starts_at__lte=now))
+            .filter(Q(ends_at__isnull=True) | Q(ends_at__gt=now))
+            .order_by("priority", "starts_at", "-created_at")
+        )
 
 
 class Shopper(models.Model):  # intern_shopper (+ intern_oelkaelder_saldo.active)

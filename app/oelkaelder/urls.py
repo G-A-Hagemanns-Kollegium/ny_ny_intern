@@ -8,6 +8,7 @@ urlpatterns = [
     path("", views.shop, name="shop"),
     path("purchase", views.purchase, name="purchase"),
     path("min-saldo", views.my_balance, name="my"),
+    path("kompas", views.compass, name="compass"),
     path("admin", views.admin, name="admin"),
     path("deposit/<int:pk>", views.add_deposit, name="deposit"),
     path("deposit/<int:pk>/annuller", views.void_deposit, name="void_deposit"),

@@ -42,6 +42,7 @@ from events.demo import seed as seed_events
 from events.models import CalendarFeedToken, Event, EventInvite, Rsvp
 from oelkaelder.models import (
     Deposit,
+    OelkaelderOffer,
     Product,
     PurchaseShare,
     Shopper,
@@ -110,6 +111,7 @@ WIPE_ORDER: list[type[models.Model]] = [
     Deposit,
     Shopper,
     Product,
+    OelkaelderOffer,
     RoomConditionScore,
     RoomCondition,
     RoomCriterion,
@@ -377,6 +379,27 @@ class Command(BaseCommand):
 
     # ----------------------------------------------------------- ølkælder
     def _seed_oelkaelder(self, residents: list[Resident]) -> None:
+        # Deliberately demo-only copy: live offers are administered in Django admin, not code.
+        OelkaelderOffer.objects.bulk_create(
+            [
+                OelkaelderOffer(
+                    title="Fredagsfadøl",
+                    description="En lille belønning for at have overlevet ugens læsning.",
+                    price_text="2 × fadøl · 30 kr.",
+                    starts_at=self.now - timedelta(minutes=30),
+                    ends_at=self.now + timedelta(hours=2),
+                    priority=0,
+                ),
+                OelkaelderOffer(
+                    title="Kælder-kombi",
+                    description="En kold øl og noget sprødt til bordet.",
+                    price_text="Øl + chips · 20 kr.",
+                    starts_at=self.now - timedelta(minutes=15),
+                    ends_at=self.now + timedelta(hours=4),
+                    priority=1,
+                ),
+            ]
+        )
         products = [
             Product.objects.create(name=n, price_ore=p, active=True, highlighted=h)
             for n, p, h in [

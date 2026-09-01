@@ -162,6 +162,11 @@ INDSTILLING_EMAIL = os.environ.get("INDSTILLING_EMAIL", "indstillingen@gahk.dk")
 OELKAELDER_BANK_REG = os.environ.get("OELKAELDER_BANK_REG", "9070")
 OELKAELDER_BANK_ACCOUNT = os.environ.get("OELKAELDER_BANK_ACCOUNT", "1642635456")
 
+# Ølkælderkompasset destination (Ølkælderen): 55.694377, 12.587402.
+# Environment values allow a correction without a code deployment.
+OLKAELDER_LATITUDE = float(os.environ.get("OLKAELDER_LATITUDE", "55.694377"))
+OLKAELDER_LONGITUDE = float(os.environ.get("OLKAELDER_LONGITUDE", "12.587402"))
+
 # Front-page visit counter: server-side secret for HMAC-hashing visitor IPs (F-002/F-011).
 VISIT_COUNTER_HMAC_KEY = os.environ.get("VISIT_COUNTER_HMAC_KEY", "dev-hmac-key")
 
