@@ -25,8 +25,6 @@ class Role(models.TextChoices):
     OELKAELDER = "oelkaelder", "Ølkælderen"
     REGNSKAB = "regnskab", "Regnskab"
     PR = "pr", "PR"  # frontpage/CMS content editors (F-006)
-    REPPER = "repper", "Reppergruppen"  # repair-crew: manages the Reparationer board
-    VICEVAERT = "vicevaert", "Viceværterne"  # triages Reparationer before handing it to Repper
     ADMINISTRATOR = "administrator", "Administrator"
     # NOTE: legacy `editpage` is intentionally omitted — there is no runtime CMS editing (F-006/F-007).
 

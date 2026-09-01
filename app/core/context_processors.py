@@ -81,11 +81,6 @@ def _nav_intern(roles: Collection[str], user_pk: int) -> list[NavSection]:
         grupper.append(("/intern/oelkaelder/admin", "Ølkælder-admin", "beer"))
     if "regnskab" in roles:
         grupper.append(("/intern/regnskab/", "Regnskab", "receipt"))
-    # Open to every resident, same as Opslagstavlen: reporting a repair needs no role. Reppergruppen
-    # manages the board once inside — see reparationer.views.MANAGE_ROLES.
-    vaerktoejer: list[NavItem] = [
-        ("/intern/reparationer/", "Reparationer", "wrench"),
-    ]
     administration: list[NavItem] = []
     if "indstilling" in roles:
         administration.append(("/optagelse/listansoegninger", "Ansøgninger", "inbox"))
@@ -103,7 +98,6 @@ def _nav_intern(roles: Collection[str], user_pk: int) -> list[NavSection]:
         ("Oversigt", oversigt),
         ("Værelser", vaerelser),
         ("Grupper & konti", grupper),
-        ("Værktøjer", vaerktoejer),
         ("Administration", administration),
         ("Ressourcer", ressourcer),
     ]

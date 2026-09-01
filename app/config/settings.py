@@ -46,7 +46,6 @@ INSTALLED_APPS = [
     "den_hurtige",
     "opslagstavle",
     "events",
-    "reparationer",
 ]
 
 MIDDLEWARE = [
