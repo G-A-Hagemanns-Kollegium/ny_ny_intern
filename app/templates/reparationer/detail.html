@@ -38,11 +38,19 @@
             {% endif %}
           {% endif %}
         {% endfor %}
-        {% if can_handoff and task.responsible == 'vicevaert' %}
+        {% comment %}
+          One button, pointing at whichever crew is NOT holding the ticket — the handoff goes both
+          ways (views.set_responsible), and the ticket only ever has two owners, so a picker would
+          be a dropdown with one real choice in it.
+        {% endcomment %}
+        {% if can_handoff %}
           <form method="post" action="{% url 'reparationer:set_responsible' task.pk %}">
             {% csrf_token %}
             <input type="hidden" name="next" value="detail">
-            <button type="submit">Overdrag til Repper</button>
+            <input type="hidden" name="responsible" value="{{ other_responsible }}">
+            <button type="submit">
+              {% if task.responsible == 'vicevaert' %}Overdrag til Repper{% else %}Send tilbage til Viceværterne{% endif %}
+            </button>
           </form>
         {% endif %}
         {% if can_archive %}

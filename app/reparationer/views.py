@@ -5,8 +5,8 @@ broken needs no role. Two crews then work the pipeline in sequence — see model
 `responsible`/`status` split — and each has a different ceiling:
 
   * Viceværterne (MOVE_ROLES minus MANAGE_ROLES) triage: they may move a ticket to any status
-    EXCEPT the two in MANAGER_ONLY_STATUSES, and hand `responsible` from themselves to
-    Reppergruppen once (Role.VICEVAERT only — see set_responsible).
+    EXCEPT the two in MANAGER_ONLY_STATUSES, and hand `responsible` over to Reppergruppen (see
+    set_responsible).
   * Reppergruppen, Inspektionen and administrator (MANAGE_ROLES) have no ceiling: every status,
     including MANAGER_ONLY_STATUSES and closing a ticket, plus delete.
 
@@ -19,7 +19,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Q, QuerySet
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -59,6 +59,36 @@ def _redirect_after(request: HttpRequest, task_pk: int) -> HttpResponseRedirect:
     if request.POST.get("next") == "detail":
         return redirect("reparationer:detail", pk=task_pk)
     return redirect("reparationer:board")
+
+
+def _is_drag(request: HttpRequest) -> bool:
+    """Whether this POST came from the board's drag-and-drop (frontend/src/reparationer.ts) rather
+    than from a plain form. The drag has already moved the card in the DOM, so it wants a verdict it
+    can act on — not a redirect whose body it would only throw away."""
+    return request.headers.get("x-requested-with") == "XMLHttpRequest"
+
+
+def _move_response(request: HttpRequest, task: RepairTask, error: str = "") -> HttpResponse:
+    """One answer for both callers: JSON for the drag, a redirect for a form POST.
+
+    A refused drag still gets 200, with `ok: false` and a reason — the card has to be put back and
+    the reason shown, which needs a body a fetch can read, and an error page is not one. Whether to
+    refuse is the caller's decision; this only reports it.
+    """
+    if _is_drag(request):
+        return JsonResponse(
+            {
+                "ok": not error,
+                "error": error,
+                "status": task.status,
+                "status_label": task.get_status_display(),
+                "responsible": task.responsible,
+                "responsible_label": task.get_responsible_display(),
+            }
+        )
+    if error:
+        messages.error(request, error)
+    return _redirect_after(request, task.pk)
 
 
 def _search(tasks: "QuerySet[RepairTask]", query: str) -> "QuerySet[RepairTask]":
@@ -110,6 +140,11 @@ def board(request: HttpRequest) -> HttpResponse:
             "push_configured": push.is_configured(),
             "vapid_public_key": push.vapid_public_key(),
             "push_subscribed": services.is_subscribed(resident),
+            # Dragging a card is the board's only move control (see board.html). Both flags are read
+            # by frontend/src/reparationer.ts, which wires up nothing at all without can_move.
+            "can_move": request_has_role(request, *MOVE_ROLES),
+            "can_manage": request_has_role(request, *MANAGE_ROLES),
+            "manager_only_statuses": MANAGER_ONLY_STATUSES,
         },
     )
 
@@ -149,34 +184,57 @@ def create(request: HttpRequest) -> HttpResponse:
 
 @require_POST
 @role_required(*MOVE_ROLES)
-def set_status(request: HttpRequest, pk: int) -> HttpResponseRedirect:
+def set_status(request: HttpRequest, pk: int) -> HttpResponse:
     task = get_object_or_404(RepairTask, pk=pk)
     status = request.POST.get("status")
     if status in MANAGER_ONLY_STATUSES and not request_has_role(request, *MANAGE_ROLES):
         # A Vicevært passed the view-level MOVE_ROLES gate but this status is manager-only — see
-        # MANAGER_ONLY_STATUSES. Silently ignored rather than 403: this is a button the page never
-        # renders for them, so reaching here only happens via a replayed/crafted request, and the
-        # safe response to that is exactly what an unknown status value already gets below.
-        return _redirect_after(request, task.pk)
+        # MANAGER_ONLY_STATUSES. Answered rather than ignored: the board lets them pick a card up
+        # and carry it anywhere, so landing on a column that is not theirs is an ordinary slip, and
+        # it deserves the card back plus a reason. The buttons on the detail page still never render
+        # for them, so a form POST reaching here is a replayed request and gets the same refusal.
+        return _move_response(request, task, "Kun Reppergruppen kan flytte en sag hertil.")
     if status in RepairTask.Status.values:
         task.status = status
         task.save(update_fields=["status", "updated_at"])
-    return _redirect_after(request, task.pk)
+    return _move_response(request, task)
 
 
 @require_POST
-@role_required(Role.VICEVAERT)
-def set_responsible(request: HttpRequest, pk: int) -> HttpResponseRedirect:
-    """The one handoff a Vicevært may make: themselves -> Reppergruppen. There is no view for the
-    reverse — Reppergruppen picking a ticket back up is a conversation, not a button, and the
-    MANAGE_ROLES crew can already do anything to a ticket regardless of who it says is responsible."""
+@role_required(*MOVE_ROLES)
+def set_responsible(request: HttpRequest, pk: int) -> HttpResponse:
+    """Hand a ticket between the two crews, in either direction.
+
+    Vicevært -> Repper is the normal path: triage is done, this one needs the repair crew. Repper ->
+    Vicevært is the same move backwards, for the ticket that turns out not to need Reppergruppen
+    after all. Without it the only way back was the Django admin, and a handoff nobody can undo is
+    one people hesitate to make in the first place.
+
+    Both crews may move it both ways — MOVE_ROLES, not a gate per direction. Which crew is holding a
+    ticket is a working arrangement between two crews who talk to each other, not a privilege one of
+    them holds over the other, and either side of a handoff is equally entitled to say it was wrong.
+    The ceiling that does matter — closing a ticket, or committing AK hours to it — sits on `status`
+    (MANAGER_ONLY_STATUSES), and this view does not touch status.
+
+    Each direction notifies the crew that just inherited the ticket, never the one letting it go:
+    whoever acted already knows.
+    """
     task = get_object_or_404(RepairTask, pk=pk)
-    if task.responsible == RepairTask.Responsible.VICEVAERT:
-        task.responsible = RepairTask.Responsible.REPPER
-        task.save(update_fields=["responsible", "updated_at"])
+    responsible = request.POST.get("responsible")
+    if responsible not in RepairTask.Responsible.values:
+        return _move_response(request, task, "Ukendt ansvarlig.")
+    if responsible == task.responsible:
+        return _move_response(request, task)  # already there: nothing to save, nobody to notify
+
+    task.responsible = responsible
+    task.save(update_fields=["responsible", "updated_at"])
+    if responsible == RepairTask.Responsible.REPPER:
         services.notify_handed_to_repper(task)
         messages.success(request, "Reparationen er overdraget til Repper.")
-    return _redirect_after(request, task.pk)
+    else:
+        services.notify_handed_to_vicevaert(task)
+        messages.success(request, "Reparationen er sendt tilbage til Viceværterne.")
+    return _move_response(request, task)
 
 
 @require_POST
@@ -244,7 +302,12 @@ def detail(request: HttpRequest, pk: int) -> HttpResponse:
             "manager_only_statuses": MANAGER_ONLY_STATUSES,
             "can_manage": can_manage,
             "can_move": request_has_role(request, *MOVE_ROLES),
-            "can_handoff": request_has_role(request, Role.VICEVAERT),
+            "can_handoff": request_has_role(request, *MOVE_ROLES),
+            "other_responsible": (
+                RepairTask.Responsible.REPPER
+                if task.responsible == RepairTask.Responsible.VICEVAERT
+                else RepairTask.Responsible.VICEVAERT
+            ),
             "can_archive": can_manage
             and task.status == RepairTask.Status.FAERDIG
             and task.archived_at is None,
