@@ -7,6 +7,21 @@ from core.uploads import check_image_upload
 from .models import Resident
 
 
+class LocalDateInput(forms.DateInput):
+    """A native date picker that actually pre-fills.
+
+    `type=date` only accepts a value shaped exactly "YYYY-MM-DD". Under LANGUAGE_CODE="da" Django
+    renders dates as "17.05.2000", which the browser silently discards, so an edit form comes up
+    blank and quietly wipes the date on save. Same trap — and same fix — as events'
+    LocalDateTimeInput.
+    """
+
+    input_type = "date"
+
+    def __init__(self, **kwargs: object) -> None:
+        super().__init__(format="%Y-%m-%d", **kwargs)  # type: ignore[arg-type]
+
+
 class EmailAuthenticationForm(AuthenticationForm):
     """Login form relabelled for email (the resident USERNAME_FIELD is `email`)."""
 
@@ -47,9 +62,9 @@ class ResidentEditForm(forms.ModelForm):
             "fylgje_raw": "Fylgje (fritekst, hvis ukendt)",
         }
         widgets = {
-            "birthday": forms.DateInput(attrs={"type": "date"}),
-            "move_in_date": forms.DateInput(attrs={"type": "date"}),
-            "move_out_date": forms.DateInput(attrs={"type": "date"}),
+            "birthday": LocalDateInput(),
+            "move_in_date": LocalDateInput(),
+            "move_out_date": LocalDateInput(),
         }
 
     def __init__(self, *args, **kwargs) -> None:  # noqa: ANN002, ANN003

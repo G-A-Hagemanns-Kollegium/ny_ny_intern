@@ -53,9 +53,10 @@
       <thead>
         <tr class="text-left bg-gray-50 border-b border-gray-200 text-gray-600">
           {% for h in headers %}
-            <th class="px-3 py-2 font-semibold whitespace-nowrap">
+            {# padding on the link, not the cell, so the whole header cell is clickable #}
+            <th class="p-0 font-semibold whitespace-nowrap">
               <a href="{% querystring sort=h.key dir=h.next_dir page=None %}"
-                 class="hover:underline">{{ h.label }} <span class="text-gray-400">{{ h.arrow }}</span></a>
+                 class="block px-3 py-2 hover:underline">{{ h.label }} <span class="text-gray-400">{{ h.arrow }}</span></a>
             </th>
           {% endfor %}
         </tr>
