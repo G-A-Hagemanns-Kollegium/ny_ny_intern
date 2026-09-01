@@ -9,12 +9,13 @@
 <table cellpadding="6" class="text-sm zebra" style="width:100%; border-collapse:collapse">
   <thead><tr style="text-align:left; border-bottom:1px solid #e6e8ec; white-space:nowrap">
     {% for h in headers %}
-      <th style="padding-right:1.5rem">
+      <th style="{% if h.sortable %}padding:0{% else %}padding-right:1.5rem{% endif %}">
         {% if h.sortable %}
           <a href="{% url 'directory' %}?period={{ period_value }}&amp;q={{ q|urlencode }}&amp;sort={{ h.key }}&amp;dir={{ h.next_dir }}"
              hx-get="{% url 'directory_rows' %}?sort={{ h.key }}&amp;dir={{ h.next_dir }}"
              hx-target="#dir-table" hx-swap="innerHTML" hx-include="[name='q'],[name='period']"
-             class="no-underline">{{ h.label }} <span class="muted">{{ h.arrow }}</span></a>
+             class="no-underline" style="display:block; padding:6px 1.5rem 6px 6px"
+             >{{ h.label }} <span class="muted">{{ h.arrow }}</span></a>
         {% else %}{{ h.label }}{% endif %}
       </th>
     {% endfor %}
