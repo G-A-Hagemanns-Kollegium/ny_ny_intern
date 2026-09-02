@@ -4,7 +4,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
 from . import views, views_regnskab
-from .forms import EmailAuthenticationForm
+from .forms import EmailAuthenticationForm, ResidentPasswordResetForm
 
 urlpatterns = [
     path("", views.dashboard, name="dashboard"),
@@ -53,6 +53,7 @@ urlpatterns = [
     path(
         "admin/password-reset",
         auth_views.PasswordResetView.as_view(
+            form_class=ResidentPasswordResetForm,  # also reaches residents who never set a password
             template_name="registration/password_reset_form.html",
             email_template_name="registration/password_reset_email.html",
             subject_template_name="registration/password_reset_subject.txt",
