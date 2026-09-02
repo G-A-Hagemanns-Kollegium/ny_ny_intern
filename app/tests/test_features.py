@@ -53,6 +53,34 @@ def test_password_reset_is_case_insensitive(make_resident: Callable) -> None:
 
 
 @pytest.mark.django_db
+def test_reset_reaches_a_resident_who_never_set_a_password() -> None:
+    """A newly created resident has no usable password until they follow the welcome link, which is a
+    reset token and expires after 2h. Django's stock PasswordResetForm skips such accounts, so the
+    "glemt kodeord" fallback the welcome mail points at sent nothing at all — and the view redirects
+    to "done" regardless, so the lockout was silent. ResidentPasswordResetForm must reach them."""
+    r = Resident(email="ny@gahk.dk", first_name="Ny", last_name="Beboer")
+    r.set_unusable_password()  # exactly what the alumneliste's add_new does
+    r.save()
+    mail.outbox = []
+    resp = Client().post("/intern/admin/password-reset", {"email": "ny@gahk.dk"})
+    assert resp.status_code == 302
+    assert len(mail.outbox) == 1
+    assert mail.outbox[0].to == ["ny@gahk.dk"]
+
+
+@pytest.mark.django_db
+def test_reset_still_ignores_deactivated_residents() -> None:
+    """Widening the form to unusable passwords must not also let a moved-out resident back in:
+    is_active stays the gate."""
+    r = Resident(email="ude@gahk.dk", first_name="Ude", last_name="Flyttet", is_active=False)
+    r.set_unusable_password()
+    r.save()
+    mail.outbox = []
+    assert Client().post("/intern/admin/password-reset", {"email": "ude@gahk.dk"}).status_code == 302
+    assert mail.outbox == []  # no link for a deactivated account
+
+
+@pytest.mark.django_db
 def test_monthly_role_is_time_bound(make_resident: Callable) -> None:
     r = make_resident(roles=[Role.AK])
     y, m = active_period()
