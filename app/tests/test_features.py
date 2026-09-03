@@ -53,6 +53,34 @@ def test_password_reset_is_case_insensitive(make_resident: Callable) -> None:
 
 
 @pytest.mark.django_db
+def test_reset_reaches_a_resident_who_never_set_a_password() -> None:
+    """A newly created resident has no usable password until they follow the welcome link, which is a
+    reset token and expires after 2h. Django's stock PasswordResetForm skips such accounts, so the
+    "glemt kodeord" fallback the welcome mail points at sent nothing at all — and the view redirects
+    to "done" regardless, so the lockout was silent. ResidentPasswordResetForm must reach them."""
+    r = Resident(email="ny@gahk.dk", first_name="Ny", last_name="Beboer")
+    r.set_unusable_password()  # exactly what the alumneliste's add_new does
+    r.save()
+    mail.outbox = []
+    resp = Client().post("/intern/admin/password-reset", {"email": "ny@gahk.dk"})
+    assert resp.status_code == 302
+    assert len(mail.outbox) == 1
+    assert mail.outbox[0].to == ["ny@gahk.dk"]
+
+
+@pytest.mark.django_db
+def test_reset_still_ignores_deactivated_residents() -> None:
+    """Widening the form to unusable passwords must not also let a moved-out resident back in:
+    is_active stays the gate."""
+    r = Resident(email="ude@gahk.dk", first_name="Ude", last_name="Flyttet", is_active=False)
+    r.set_unusable_password()
+    r.save()
+    mail.outbox = []
+    assert Client().post("/intern/admin/password-reset", {"email": "ude@gahk.dk"}).status_code == 302
+    assert mail.outbox == []  # no link for a deactivated account
+
+
+@pytest.mark.django_db
 def test_monthly_role_is_time_bound(make_resident: Callable) -> None:
     r = make_resident(roles=[Role.AK])
     y, m = active_period()
@@ -62,6 +90,52 @@ def test_monthly_role_is_time_bound(make_resident: Callable) -> None:
 
 
 # ---------------------------------------------------------------- admissions (F-001)
+def _rundvisning_data(motivation: str) -> dict[str, str]:
+    return {
+        "full_name": "Ny",
+        "email": "ny@x.dk",
+        "gender": "male",
+        "age": "22",
+        "study_year": "1",
+        "year_left": "3",
+        "university": "DTU",
+        "field_of_study": "Fysik",
+        "heard_about_us": "plakat",
+        "motivation": motivation,
+    }
+
+
+def test_rundvisning_motivation_renders_500_character_limit() -> None:
+    response = Client().get("/optagelse/ansoeg")
+
+    assert response.status_code == 200
+    assert response.context["form"]["motivation"].field.max_length == 500
+    assert 'maxlength="500"' in str(response.context["form"]["motivation"])
+
+
+@pytest.mark.django_db
+def test_rundvisning_accepts_500_character_motivation() -> None:
+    motivation = ("a " * 249) + "ab"
+    assert len(motivation) == 500
+
+    response = Client().post("/optagelse/send_rundvisning", _rundvisning_data(motivation))
+
+    assert response.status_code == 302
+    assert Application.objects.get().motivation == motivation
+
+
+@pytest.mark.django_db
+def test_rundvisning_rejects_501_character_motivation() -> None:
+    motivation = ("a " * 249) + "abc"
+    assert len(motivation) == 501
+
+    response = Client().post("/optagelse/send_rundvisning", _rundvisning_data(motivation))
+
+    assert response.status_code == 200
+    assert "motivation" in response.context["form"].errors
+    assert not Application.objects.exists()
+
+
 @pytest.mark.django_db
 def test_rundvisning_emails_applicant_only() -> None:
     """The committee is no longer notified per rundvisning request; only the applicant auto-reply

@@ -751,6 +751,7 @@
   .rsvp-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--brass); color: #fff;
     display: grid; place-items: center; font-weight: 700; font-size: 11.5px; flex: none;
     text-transform: uppercase; }
+  .rsvp-avatar-img { object-fit: cover; background: var(--surface); }
   .rsvp-name { font-size: 14px; font-weight: 600; }
   .rsvp-role { margin-left: auto; font-size: 11.5px; }
   /* The venteliste, below the seated list and visibly secondary to it: numbers rather than
