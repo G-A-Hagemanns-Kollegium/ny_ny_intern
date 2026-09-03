@@ -459,6 +459,21 @@ class Command(BaseCommand):
             body="<p>Sådan søger du en plads på kollegiet.</p>",
             menu_category=2,
         )
+        # A sub-page, so the section sidebar (cms.views._section_nav) and the CMS overview's
+        # reachability badge are both exercised in dev — with only top-level slugs, neither ever
+        # renders, and the bug that made a renamed page vanish was invisible locally.
+        Page.objects.create(
+            slug="faciliteter",
+            header="Faciliteter",
+            body="<p>Kollegiets faciliteter.</p>",
+            menu_category=1,
+        )
+        Page.objects.create(
+            slug="faciliteter/kokken",
+            header="Køkkenet",
+            body="<p>Fælleskøkkenet på hver gang.</p>",
+            menu_category=1,
+        )
         for _ in range(6):
             NewsItem.objects.create(
                 title=self.fake.sentence(nb_words=6),

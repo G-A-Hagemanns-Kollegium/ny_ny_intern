@@ -149,6 +149,26 @@ erDiagram
         int uploaded_by_id FK
     }
 
+    cms_PageRedirect {
+        int id PK
+        string old_path
+        int page_id FK
+        datetime created_at
+        int created_by_id FK
+    }
+
+    cms_PageVersion {
+        int id PK
+        int page_id FK
+        string slug
+        string header
+        text body
+        string background_image
+        datetime created_at
+        int created_by_id FK
+        string note
+    }
+
     ak_AkEntry {
         int id PK
         int resident_id FK
@@ -459,6 +479,10 @@ erDiagram
     admissions_Application }o--|o residents_Resident : "received_by"
     admissions_Application }o--|o residents_Resident : "discarded_by"
     cms_CmsImage }o--|o residents_Resident : "uploaded_by"
+    cms_PageRedirect }o--|| cms_Page : "page"
+    cms_PageRedirect }o--|o residents_Resident : "created_by"
+    cms_PageVersion }o--|o cms_Page : "page"
+    cms_PageVersion }o--|o residents_Resident : "created_by"
     ak_AkEntry }o--|| residents_Resident : "resident"
     ak_AkEntry }o--|o residents_Resident : "created_by"
     ak_AkMonthlyCharge }o--|o residents_Resident : "updated_by"
@@ -615,9 +639,33 @@ erDiagram
         int uploaded_by_id FK
     }
 
+    cms_PageRedirect {
+        int id PK
+        string old_path
+        int page_id FK
+        datetime created_at
+        int created_by_id FK
+    }
+
+    cms_PageVersion {
+        int id PK
+        int page_id FK
+        string slug
+        string header
+        text body
+        string background_image
+        datetime created_at
+        int created_by_id FK
+        string note
+    }
+
     residents_Resident { }
 
     cms_CmsImage }o--|o residents_Resident : "uploaded_by"
+    cms_PageRedirect }o--|| cms_Page : "page"
+    cms_PageRedirect }o--|o residents_Resident : "created_by"
+    cms_PageVersion }o--|o cms_Page : "page"
+    cms_PageVersion }o--|o residents_Resident : "created_by"
 ```
 
 ## core
