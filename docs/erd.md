@@ -46,6 +46,7 @@ erDiagram
         bool wants_den_hurtige
         bool wants_opslagstavle
         bool wants_begivenheder
+        bool wants_reparationer
     }
 
     residents_Resident {
@@ -147,6 +148,26 @@ erDiagram
         string caption
         datetime uploaded_at
         int uploaded_by_id FK
+    }
+
+    cms_PageRedirect {
+        int id PK
+        string old_path
+        int page_id FK
+        datetime created_at
+        int created_by_id FK
+    }
+
+    cms_PageVersion {
+        int id PK
+        int page_id FK
+        string slug
+        string header
+        text body
+        string background_image
+        datetime created_at
+        int created_by_id FK
+        string note
     }
 
     ak_AkEntry {
@@ -449,6 +470,27 @@ erDiagram
         datetime last_used_at
     }
 
+    reparationer_RepairTask {
+        int id PK
+        string title
+        text description
+        string location
+        string status
+        string responsible
+        int reported_by_id FK
+        datetime created_at
+        datetime updated_at
+        datetime archived_at
+    }
+
+    reparationer_RepairComment {
+        int id PK
+        int task_id FK
+        int author_id FK
+        text body
+        datetime created_at
+    }
+
     core_PushSubscription }o--|| residents_Resident : "user"
     residents_Resident }o--|o residents_Resident : "sponsor"
     residents_Residency }o--|| residents_Resident : "resident"
@@ -459,6 +501,10 @@ erDiagram
     admissions_Application }o--|o residents_Resident : "received_by"
     admissions_Application }o--|o residents_Resident : "discarded_by"
     cms_CmsImage }o--|o residents_Resident : "uploaded_by"
+    cms_PageRedirect }o--|| cms_Page : "page"
+    cms_PageRedirect }o--|o residents_Resident : "created_by"
+    cms_PageVersion }o--|o cms_Page : "page"
+    cms_PageVersion }o--|o residents_Resident : "created_by"
     ak_AkEntry }o--|| residents_Resident : "resident"
     ak_AkEntry }o--|o residents_Resident : "created_by"
     ak_AkMonthlyCharge }o--|o residents_Resident : "updated_by"
@@ -502,6 +548,9 @@ erDiagram
     events_Rsvp }o--|| events_Event : "event"
     events_Rsvp }o--|| residents_Resident : "resident"
     events_CalendarFeedToken ||--|| residents_Resident : "resident"
+    reparationer_RepairTask }o--|| residents_Resident : "reported_by"
+    reparationer_RepairComment }o--|| reparationer_RepairTask : "task"
+    reparationer_RepairComment }o--|| residents_Resident : "author"
 ```
 
 ## admissions
@@ -615,9 +664,33 @@ erDiagram
         int uploaded_by_id FK
     }
 
+    cms_PageRedirect {
+        int id PK
+        string old_path
+        int page_id FK
+        datetime created_at
+        int created_by_id FK
+    }
+
+    cms_PageVersion {
+        int id PK
+        int page_id FK
+        string slug
+        string header
+        text body
+        string background_image
+        datetime created_at
+        int created_by_id FK
+        string note
+    }
+
     residents_Resident { }
 
     cms_CmsImage }o--|o residents_Resident : "uploaded_by"
+    cms_PageRedirect }o--|| cms_Page : "page"
+    cms_PageRedirect }o--|o residents_Resident : "created_by"
+    cms_PageVersion }o--|o cms_Page : "page"
+    cms_PageVersion }o--|o residents_Resident : "created_by"
 ```
 
 ## core
@@ -663,6 +736,7 @@ erDiagram
         bool wants_den_hurtige
         bool wants_opslagstavle
         bool wants_begivenheder
+        bool wants_reparationer
     }
 
     residents_Resident { }
@@ -932,6 +1006,38 @@ erDiagram
     opslagstavle_NoticeReaction }o--|| residents_Resident : "author"
     opslagstavle_NoticeImage }o--|o opslagstavle_Notice : "notice"
     opslagstavle_NoticeImage }o--|o residents_Resident : "uploaded_by"
+```
+
+## reparationer
+
+```mermaid
+erDiagram
+    reparationer_RepairTask {
+        int id PK
+        string title
+        text description
+        string location
+        string status
+        string responsible
+        int reported_by_id FK
+        datetime created_at
+        datetime updated_at
+        datetime archived_at
+    }
+
+    reparationer_RepairComment {
+        int id PK
+        int task_id FK
+        int author_id FK
+        text body
+        datetime created_at
+    }
+
+    residents_Resident { }
+
+    reparationer_RepairTask }o--|| residents_Resident : "reported_by"
+    reparationer_RepairComment }o--|| reparationer_RepairTask : "task"
+    reparationer_RepairComment }o--|| residents_Resident : "author"
 ```
 
 ## residents

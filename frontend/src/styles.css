@@ -375,7 +375,6 @@
      exists, so a busy message pays nothing for it. See _reactions.html. */
   .reaction-add .add-label { display:none; }
   .reactions.is-empty .reaction-add .add-label { display:inline; }
-  .reaction-who { border-style:dashed; color:var(--muted); }
 
   .emoji-grid { display:grid; grid-template-columns:repeat(6, 1fr); gap:2px; }
   .emoji-choice { font-size:22px; line-height:1; padding:7px 6px; border:0; border-radius:8px;
@@ -384,19 +383,16 @@
   .emoji-other { margin-top:8px; }
   .emoji-other input { width:100%; }
 
-  /* Who reacted: one row per person, ordered by emoji exactly as the pills are
-     (core.reactions.reaction_rows). A grid rather than a flex row so the names line up in a column
-     no matter how wide the emoji renders -- a flag or a ZWJ family is much wider than 👍, and ragged
-     names are hard to scan in a list you scroll. */
+  /* Who reacted with ONE emoji: a row per person, in the order they reacted
+     (core.reactions.reaction_rows). A list you scan rather than a comma-joined paragraph, which is
+     what fifteen names wrapped into. */
   .who-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; }
-  /* Flex with a fixed-width .who-emoji rather than a grid column, so ONE rule serves both callers:
-     opslagstavlen still prefixes every row with its emoji and needs the names to line up in a
-     column, while Den Hurtige's panels are per emoji (it is in the title instead) and would
-     otherwise indent every name past an empty 26px gutter. Absent emoji, absent gutter. */
+  /* Just the name: every panel is per emoji now, and the emoji is in the title. This used to carry
+     a fixed-width .who-emoji gutter for opslagstavlen's single all-emoji panel, which no longer
+     exists. */
   .who-row { display:flex; align-items:baseline; gap:8px;
     padding:5px 2px; font-size:14px; line-height:1.35; }
   .who-row + .who-row { border-top:1px solid var(--border); }
-  .who-emoji { font-size:17px; line-height:1.2; flex:none; width:26px; }
   .who-names { color:var(--ink); overflow-wrap:anywhere; }
 
   /* Hover companion to the who panels, for mice only (frontend/src/feed.ts decides). A plain
@@ -555,7 +551,7 @@
     .msg-name { font-size:13.5px; }
     .msg-text { font-size:14.5px; line-height:1.35; }
     .msg-actions { gap:8px; margin-top:4px; }
-    .reaction, .reaction-add, .reaction-who { padding:3px 8px; font-size:12.5px; }
+    .reaction, .reaction-add { padding:3px 8px; font-size:12.5px; }
     /* Bottom sheet on a phone: easier to reach one-handed than a centred box, and anchoring to the
        bottom keeps it out of the way of the emoji keyboard the free-text field opens. */
     /* Freeze the page while a sheet is open. The sheet is position:fixed against the LAYOUT

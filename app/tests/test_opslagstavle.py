@@ -1254,6 +1254,81 @@ def test_no_reader_panel_on_the_board_when_nobody_has_reacted(client: Client, be
     assert "who-picker" not in client.get(BOARD).content.decode()
 
 
+def test_the_board_panels_are_one_per_emoji(client: Client, beboer: Resident) -> None:
+    """The board used to render a single 👥 panel listing everyone, grouped by emoji. It is now one
+    panel per emoji, opened from the pill — the same widget Den Hurtige has, so the same control no
+    longer answers a different question depending on which page you are on."""
+    notice = make_notice(beboer)
+    mette = Resident.objects.create(email="m@gahk.dk", first_name="Mette", last_name="Hansen")
+    anders = Resident.objects.create(email="a@gahk.dk", first_name="Anders", last_name="Bo")
+    NoticeReaction.objects.create(notice=notice, author=beboer, emoji="👍")
+    NoticeReaction.objects.create(notice=notice, author=mette, emoji="👍")
+    NoticeReaction.objects.create(notice=notice, author=anders, emoji="🎉")
+    client.force_login(beboer)
+
+    body = client.get(BOARD).content.decode()
+
+    assert body.count('class="who-row"') == 3  # one per reaction, not one per emoji
+    assert body.count('class="pop who-picker"') == 2  # one panel per emoji, not one for the notice
+
+    # Slice on the panel ids, not the bare keys — the pills reference the same keys in data-who.
+    thumb = body[body.index(f'id="who-{notice.pk}-1"') : body.index(f'id="who-{notice.pk}-2"')]
+    assert "Mette Hansen" in thumb
+    assert "Anders Bo" not in thumb  # he used the other emoji
+
+    # The 👥 pill is gone: the pills themselves are now the way in.
+    assert "reaction-who" not in body
+
+
+def test_holding_a_board_reaction_pill_is_what_opens_the_reader_panel(
+    client: Client, beboer: Resident
+) -> None:
+    """Each pill points at its own panel by id, which is what frontend/src/feed.ts binds the hold,
+    hover, right-click and Shift+Enter gestures to. That module is delegated from `document` and
+    keys on `.reaction[data-who]`, so it covers this page without knowing anything about it —
+    but only if the markup carries the hook."""
+    notice = make_notice(beboer)
+    NoticeReaction.objects.create(notice=notice, author=beboer, emoji="👍")
+    client.force_login(beboer)
+
+    body = client.get(BOARD).content.decode()
+
+    assert f'data-who="who-{notice.pk}-1"' in body
+    assert f'id="who-{notice.pk}-1"' in body
+    assert 'aria-haspopup="dialog"' in body
+    # Tapping a pill must still be the toggle, never the panel.
+    assert f'hx-post="{BOARD}{notice.pk}/reaktion"' in body
+
+
+def test_the_add_reaction_button_spells_itself_out_on_an_untouched_notice(
+    client: Client, beboer: Resident
+) -> None:
+    """On a notice with no reactions the picker is the only thing in the row, where a bare glyph
+    reads as an empty slot rather than the button that fills it. CSS keys off `.is-empty`."""
+    notice = make_notice(beboer)
+    client.force_login(beboer)
+
+    body = client.get(BOARD).content.decode()
+
+    assert 'class="reactions is-empty"' in body
+    assert "Reagér" in body
+
+    NoticeReaction.objects.create(notice=notice, author=beboer, emoji="👍")
+    assert 'class="reactions is-empty"' not in client.get(BOARD).content.decode()
+
+
+def test_the_toggled_row_still_carries_the_reader_panel(client: Client, beboer: Resident) -> None:
+    """The toggle re-renders only this partial, so the panels and their data-who hooks have to come
+    back with it — otherwise reacting would silently strip the gestures until the next full load."""
+    notice = make_notice(beboer)
+    client.force_login(beboer)
+
+    body = client.post(f"{BOARD}{notice.pk}/reaktion", {"emoji": "👍"}).content.decode()
+
+    assert f'data-who="who-{notice.pk}-1"' in body
+    assert f'id="who-{notice.pk}-1"' in body
+
+
 def test_toggling_a_reaction_returns_the_row_as_it_now_is(client: Client, beboer: Resident) -> None:
     """Regression: the toggle renders the row from a queryset read AFTER the write. Fetching the
     notice with the reactions prefetch instead built that cache before apply_toggle ran, so the tap
