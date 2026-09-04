@@ -29,6 +29,9 @@
         {% endcomment %}
         <div class="reply-head">
           <span class="reply-name">{{ comment.author.full_name }}</span>
+          {% if comment.author_embedsgruppe %}
+            <span class="chip chip-embedsgruppe">{{ comment.author_embedsgruppe }}</span>
+          {% endif %}
           <span class="msg-meta">{{ comment.created_at|date:"j. M Y, H:i" }}</span>
           {% if comment.can_delete %}
             <form method="post" action="{% url 'opslagstavle:delete_comment' comment.pk %}" class="msg-del"

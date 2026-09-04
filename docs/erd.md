@@ -389,6 +389,7 @@ erDiagram
 
     opslagstavle_Notice {
         int id PK
+        string author_embedsgruppe
         int author_id FK
         string category
         text body
@@ -401,6 +402,7 @@ erDiagram
 
     opslagstavle_NoticeComment {
         int id PK
+        string author_embedsgruppe
         int notice_id FK
         int author_id FK
         text body
@@ -958,6 +960,7 @@ erDiagram
 erDiagram
     opslagstavle_Notice {
         int id PK
+        string author_embedsgruppe
         int author_id FK
         string category
         text body
@@ -970,6 +973,7 @@ erDiagram
 
     opslagstavle_NoticeComment {
         int id PK
+        string author_embedsgruppe
         int notice_id FK
         int author_id FK
         text body

@@ -18,16 +18,19 @@ divergences from the sibling feature:
     why that is worth a few milliseconds a page.
 """
 
+from collections.abc import Iterable
 from datetime import timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from django.conf import settings
 from django.db import models
 from django.db.models import F
+from django.db.models.base import ModelBase
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
 from core.files import delete_attached_files
+from residents.models import Resident, embedsgruppe_of
 
 # ~2 years (shortened from five after user testing: a board people actually read does not need a
 # half-decade of history, and a shorter window is the point of leaving Facebook). Leap days are noise
@@ -83,7 +86,60 @@ class NoticeQuerySet(models.QuerySet["Notice"]):
         return self.filter(created_at__lt=cutoff, pinned_at__isnull=True)
 
 
-class Notice(models.Model):
+class AuthoredByResident(models.Model):
+    """A post or a comment, with its author's embedsgruppe frozen at the moment it was written.
+
+    The pill beside a byline (see templates/opslagstavle/_notice_card.html) is a snapshot, not a
+    lookup. Embedsgrupper rotate monthly (F-010), so resolving it on read would relabel the whole
+    board every time indstilling saves a månedsliste — a post from last spring would be attributed
+    to whatever group its author happens to be in this month, and the archive would spend most of
+    its life wrong. Written once, it stays true.
+
+    A NAME, not a FK to core.Workgroup, for the same reason: a snapshot has to survive the group
+    being renamed or deleted, and a FK would follow the rename and take the post's history with it.
+
+    Stamped in `save()` rather than by each caller. There are four ways a post gets created (the
+    compose view, the comment view, opslagstavle.demo and the admin) and a snapshot that is
+    sometimes missing is worse than no snapshot at all — the pill would silently vanish from
+    whichever path someone forgot. It costs one query per *creation*, which is rare; reading the
+    board costs none, which is not.
+    """
+
+    author_embedsgruppe = models.CharField(
+        max_length=100,  # core.Workgroup.name
+        blank=True,
+        verbose_name="Embedsgruppe",
+        help_text="Forfatterens embedsgruppe da opslaget blev skrevet. Sættes automatisk.",
+    )
+
+    class Meta:
+        abstract = True
+
+    if TYPE_CHECKING:  # declared as a real FK by each concrete model, with its own related_name
+        author: Resident
+
+    def save(
+        self,
+        *,
+        force_insert: bool | tuple[ModelBase, ...] = False,
+        force_update: bool = False,
+        using: str | None = None,
+        update_fields: Iterable[str] | None = None,
+    ) -> None:
+        # Only on the way in, and only if nothing set it: an edit must not re-stamp a post with its
+        # author's group today (the same reasoning as `edited_at` not being auto_now), and a fixture
+        # that wants a post attributed to a particular month can set the field itself.
+        if self._state.adding and not self.author_embedsgruppe:
+            self.author_embedsgruppe = embedsgruppe_of(self.author)
+        super().save(
+            force_insert=force_insert,
+            force_update=force_update,
+            using=using,
+            update_fields=update_fields,
+        )
+
+
+class Notice(AuthoredByResident):
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notices")
     category = models.CharField(
         max_length=20, choices=Category.choices, default=Category.NYT, verbose_name="Kategori"
@@ -165,7 +221,7 @@ class Notice(models.Model):
         return self.pinned_at is not None
 
 
-class NoticeComment(models.Model):
+class NoticeComment(AuthoredByResident):
     """A reply to a notice. **Plain text, deliberately not Markdown.**
 
     Keeping Markdown to the post body confines the embedded-image lifecycle (see NoticeImage) to one
