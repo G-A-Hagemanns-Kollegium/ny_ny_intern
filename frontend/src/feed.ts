@@ -266,8 +266,11 @@ window.addEventListener("popstate", (event) => {
 // The tooltip is a direct child of <body> and position:fixed, so nothing can clip it and no
 // ancestor can trap it — the same reasoning as the .pop panels themselves (see styles.css).
 //
-// All of it is delegated from `document`: the pills live inside #js-feed and are morphed every few
-// seconds, so anything bound to a pill directly would have to be re-armed after every poll.
+// All of it is delegated from `document`, and keyed on `.reaction[data-who]` rather than on
+// anything Den Hurtige owns. Two reasons, both load-bearing: the feed's pills are morphed every few
+// seconds, so anything bound to a pill directly would have to be re-armed after every poll — and
+// opslagstavlen renders the same markup on a page this module knows nothing about, which is why
+// giving the noticeboard these gestures needed no code here beyond the window-scroll line below.
 const WHO_HOLD_MS = 450; // long-press
 const WHO_HOVER_MS = 400;
 const WHO_MOVE_SLOP = 10; // px of finger drift that still counts as a hold, not a scroll
@@ -353,8 +356,12 @@ if (canHover) {
 }
 
 // The tooltip is positioned against the viewport, so anything that moves the pill must retire it
-// rather than leave it floating somewhere the pill no longer is.
+// rather than leave it floating somewhere the pill no longer is. Both scrollers are covered because
+// the two callers scroll differently: Den Hurtige's chat shell scrolls #js-feed itself (see the
+// note at the top of this file), while opslagstavlen is an ordinary page that scrolls the window.
+// Listening only to the first left a tooltip hanging mid-screen as the noticeboard scrolled under it.
 feed?.addEventListener("scroll", hideTip, { passive: true });
+window.addEventListener("scroll", hideTip, { passive: true });
 window.addEventListener("resize", hideTip);
 
 document.addEventListener("pointerdown", (event: PointerEvent) => {
