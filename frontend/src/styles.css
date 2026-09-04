@@ -1081,4 +1081,77 @@
   .lineage li > ul > li:first-child::after { top: 50%; }
   .lineage li > ul > li:last-child::after { bottom: 50%; }
   .lineage li > ul > li:only-child::after { display: none; }
+
+  /* ---- Reparationer (repair-tracking kanban) ----------------------------------------------------
+     .board-search: input grows, the two buttons stay their natural width — flex-wrap so it still
+     works stacked on a narrow phone rather than squeezing the input to nothing.
+
+     Cards are dragged between columns by frontend/src/reparationer.ts (pointer events, so a finger
+     works too), never by a drag-and-drop library — the whole gesture is "put this card in that
+     column", and a dependency would be more code than the thing it does. The "move to…" buttons on
+     a ticket's detail page stay the way through for keyboards, screen readers and a board with no
+     JavaScript, so nothing here is the only route to a status change.
+
+     Flex + overflow-x rather than a grid: `min-width` on each column gives it a floor it cannot
+     shrink below, so on a phone the row overflows and becomes a native horizontal swipe (one column
+     at a time, with the next one peeking in as the affordance) instead of Tailwind's default of
+     squeezing five columns unreadably narrow or wrapping them into a five-screen-tall stack. On a
+     desktop-width board the same columns simply grow (`flex:1`) to fill the row and there is
+     nothing to scroll — one rule, no media query. */
+  .board-search { @apply flex flex-wrap gap-2; }
+  .board-search input { flex: 1 1 200px; }
+  .kanban { @apply flex gap-4; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; }
+  .kanban-col { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 12px; display: flex; flex-direction: column; gap: 10px; max-height: 75vh;
+    flex: 1 0 240px; min-width: 240px; scroll-snap-align: start; }
+  .kanban-col-head { @apply flex items-center justify-between; font-weight: 700; font-size: 14px; padding: 0 2px; }
+  /* Cards scroll independently of the column header/count and of the other columns: without
+     min-height:0 a flex child defaults to min-height:auto, which ignores overflow entirely and lets
+     the column grow to fit every card instead — the bug this rule exists to prevent. */
+  .kanban-col-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+  .kanban-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm); padding: 12px; position: relative; }
+  .kanban-card h3 { font-size: 14px; font-weight: 700; margin: 0 0 4px; }
+  /* The whole tile opens the ticket, not just the four words of its title. The title's own link is
+     stretched over the card rather than the card being given a click handler: it stays one real
+     <a> — keyboard-focusable, middle-clickable, shown in the status bar on hover — and it works
+     with no JavaScript at all. The note-count link underneath points at the same page, so nothing
+     is lost by covering it. */
+  .kanban-card h3 a::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+  .kanban-card:hover { border-color: var(--green-100); }
+  .kanban-card p { margin: 0 0 4px; font-size: 13px; }
+  .kanban-empty { font-size: 13px; padding: 0 2px; }
+  .kanban-move { @apply flex flex-wrap gap-1 mt-2; }
+  .kanban-move form { display: inline; }
+  .kanban-move button { @apply text-xs; background: var(--surface-2); border: 1px solid var(--border-strong);
+    border-radius: 6px; padding: 3px 7px; cursor: pointer; }
+  .kanban-move button:hover { background: var(--green-050); border-color: var(--green); color: var(--green-700); }
+  .kanban-danger { color: var(--neg); border-color: #e7c7c3 !important; }
+  .kanban-danger:hover { background: var(--neg-bg) !important; border-color: var(--neg) !important; color: var(--neg) !important; }
+
+  /* ---- Dragging a card (frontend/src/reparationer.ts) -----------------------------------------
+     Only a board that CAN be dragged says so: [data-can-move="1"] is the server's answer to "may
+     this person move tickets" (views.MOVE_ROLES), so nobody else gets a grab cursor promising a
+     gesture that would be refused. */
+  .kanban[data-can-move="1"] .kanban-card { cursor: grab; touch-action: pan-y; -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none; }
+  /* Belt to reparationer.ts's braces on dragstart: the card is one big link (see below), and a
+     browser drags a link natively unless told not to. */
+  .kanban-card a { -webkit-user-drag: none; }
+  /* The real card, left behind in its old column while the ghost is carried: dimmed rather than
+     removed, so the columns hold their layout and a refused drop is simply nothing happening. */
+  .kanban-card.is-dragging { opacity: .4; }
+  /* The clone under the pointer. pointer-events:none so elementFromPoint sees the column beneath
+     it and not the thing being dragged. */
+  .kanban-ghost { position: fixed; z-index: 60; pointer-events: none; margin: 0; cursor: grabbing;
+    box-shadow: var(--shadow); transform: rotate(1.5deg); opacity: .95; }
+  body.kanban-dragging { cursor: grabbing; }
+  /* See reparationer.ts: while a card is being carried, the board scrolls itself a few pixels at a
+     time when the card is held near an edge, and snap points would undo each of those nudges. */
+  .kanban.is-dragging-board { scroll-snap-type: none; }
+  .kanban-col.is-drop-target { border-color: var(--green); background: var(--green-050); }
+  /* A Vicevært over "AK projekt" or "Færdig": the column says no before the finger lifts, rather
+     than the card snapping back a moment later with an explanation. */
+  .kanban-col.is-drop-refused { border-color: var(--neg); background: var(--neg-bg); }
+  .kanban-note { font-size: 13px; }
 }
