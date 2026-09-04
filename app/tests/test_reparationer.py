@@ -26,7 +26,7 @@ from django.utils import timezone
 from core import push
 from core.models import PushSubscription
 from reparationer.models import ARCHIVE_AFTER_DAYS, RepairComment, RepairTask
-from residents.models import Resident, Role
+from residents.models import WORKGROUP_ROLE, Resident, Role
 
 BOARD = "/intern/reparationer/"
 pytestmark = pytest.mark.django_db
@@ -383,3 +383,13 @@ def test_search_matches_the_fields_a_card_shows(client: Client, beboer: Resident
     page = client.get(f"{BOARD}?q=batik").content.decode()
     assert "Knirkende dør" in page
     assert "Utæt vandhane" not in page
+
+
+def test_the_two_crews_get_their_role_from_their_embedsgruppe() -> None:
+    """The rest of this file hands out `repper`/`vicevaert` directly, so it would still pass if no
+    real resident could ever hold them. In production a role comes from the month's embedsgruppe
+    (residents.views._sync_month_roles reads WORKGROUP_ROLE), keyed by the Workgroup name the ETL
+    imported verbatim from intern_alumne_workgroup — 'Repperne' (id 22) and 'Vicevært' (id 20).
+    Spelling either differently silently grants nothing, which is exactly the bug this pins."""
+    assert WORKGROUP_ROLE["Repperne"] == Role.REPPER
+    assert WORKGROUP_ROLE["Vicevært"] == Role.VICEVAERT

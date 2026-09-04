@@ -42,6 +42,8 @@ WORKGROUP_ROLE = {
     "Ølkælderen": Role.OELKAELDER,
     "Regnskabsgruppen": Role.REGNSKAB,  # legacy intern_alumne_workgroup name (id 23)
     "PR-gruppen": Role.PR,  # grants CMS/frontpage editing
+    "Repperne": Role.REPPER,  # manages the Reparationer board (reparationer.views.MANAGE_ROLES)
+    "Vicevært": Role.VICEVAERT,  # triages Reparationer before handing it to Repperne
 }
 WORKGROUP_ROLE_VALUES = frozenset(WORKGROUP_ROLE.values())
 

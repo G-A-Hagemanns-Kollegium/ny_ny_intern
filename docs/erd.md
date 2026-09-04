@@ -46,6 +46,7 @@ erDiagram
         bool wants_den_hurtige
         bool wants_opslagstavle
         bool wants_begivenheder
+        bool wants_reparationer
     }
 
     residents_Resident {
@@ -469,6 +470,27 @@ erDiagram
         datetime last_used_at
     }
 
+    reparationer_RepairTask {
+        int id PK
+        string title
+        text description
+        string location
+        string status
+        string responsible
+        int reported_by_id FK
+        datetime created_at
+        datetime updated_at
+        datetime archived_at
+    }
+
+    reparationer_RepairComment {
+        int id PK
+        int task_id FK
+        int author_id FK
+        text body
+        datetime created_at
+    }
+
     core_PushSubscription }o--|| residents_Resident : "user"
     residents_Resident }o--|o residents_Resident : "sponsor"
     residents_Residency }o--|| residents_Resident : "resident"
@@ -526,6 +548,9 @@ erDiagram
     events_Rsvp }o--|| events_Event : "event"
     events_Rsvp }o--|| residents_Resident : "resident"
     events_CalendarFeedToken ||--|| residents_Resident : "resident"
+    reparationer_RepairTask }o--|| residents_Resident : "reported_by"
+    reparationer_RepairComment }o--|| reparationer_RepairTask : "task"
+    reparationer_RepairComment }o--|| residents_Resident : "author"
 ```
 
 ## admissions
@@ -711,6 +736,7 @@ erDiagram
         bool wants_den_hurtige
         bool wants_opslagstavle
         bool wants_begivenheder
+        bool wants_reparationer
     }
 
     residents_Resident { }
@@ -980,6 +1006,38 @@ erDiagram
     opslagstavle_NoticeReaction }o--|| residents_Resident : "author"
     opslagstavle_NoticeImage }o--|o opslagstavle_Notice : "notice"
     opslagstavle_NoticeImage }o--|o residents_Resident : "uploaded_by"
+```
+
+## reparationer
+
+```mermaid
+erDiagram
+    reparationer_RepairTask {
+        int id PK
+        string title
+        text description
+        string location
+        string status
+        string responsible
+        int reported_by_id FK
+        datetime created_at
+        datetime updated_at
+        datetime archived_at
+    }
+
+    reparationer_RepairComment {
+        int id PK
+        int task_id FK
+        int author_id FK
+        text body
+        datetime created_at
+    }
+
+    residents_Resident { }
+
+    reparationer_RepairTask }o--|| residents_Resident : "reported_by"
+    reparationer_RepairComment }o--|| reparationer_RepairTask : "task"
+    reparationer_RepairComment }o--|| residents_Resident : "author"
 ```
 
 ## residents
