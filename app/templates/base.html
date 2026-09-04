@@ -107,7 +107,7 @@
         {% for section, items in nav_intern %}
           <div class="nav-label">{{ section }}</div>
           {% for url, label, icon in items %}
-            <a class="nav-item{% if url == active_nav_url %} active{% endif %}" href="{{ url }}"{% if '://' in url %} target="_blank" rel="noopener"{% endif %}>
+            <a class="nav-item{% if url == active_nav_url %} active{% endif %}" href="{{ url }}"{% if url == '/intern/alumneliste/' or url == '/intern/ak/' %} data-gahkcha{% endif %}{% if '://' in url %} target="_blank" rel="noopener"{% endif %}>
               <svg class="ni" aria-hidden="true"><use href="#i-{{ icon }}"></use></svg>{{ label }}
             </a>
           {% endfor %}
@@ -129,6 +129,7 @@
       </div>
     </main>
   </div>
+  {% include "includes/gahkcha_modal.html" %}
   {# The one service worker for the whole intern PWA; root path so its scope covers /intern/. #}
   <script>
     if ('serviceWorker' in navigator) {
