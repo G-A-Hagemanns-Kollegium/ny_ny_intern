@@ -37,6 +37,9 @@ POSTGRES_PASSWORD=<pw>                            # for the compose postgres ser
 OELKAELDER_KIOSK_IPS=<the till's server-observed source IP>   # confirm from access logs, NOT ipconfig
 VAPID_PUBLIC_KEY=…  VAPID_PRIVATE_KEY=…           # Web Push for Den Hurtige — see below
 VAPID_ADMIN_EMAIL=autosvar@gahk.dk                # real address: push services report failures here
+S3_BUCKET=…  S3_LOCATION=fsn1  S3_ACCESS_KEY=…  S3_SECRET_KEY=…   # media object storage — see §4c
+AWS_REQUEST_CHECKSUM_CALCULATION=when_required    # ⚠ required with the above — see §4c
+AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
 ```
 Store real values in Coolify's secret manager / a vault — not in git.
 
@@ -75,7 +78,8 @@ Fresh repo (do **not** import the legacy history — it contains plaintext secre
 2. Install **Coolify** (recommended): git-push deploys, TLS, env management. Point it at the repo; it builds
    the `Dockerfile` and runs it. (Alternative: **Kamal** — `kamal setup`/`deploy` using the same Dockerfile.)
 3. Run **Postgres** (managed, or the `postgres` service in `docker-compose.prod.yml`) and **MariaDB** (for
-   MediaWiki). Mount a **`media` volume** for uploads.
+   MediaWiki). Mount the **`media` volume** for uploads — still required, and still the rollback,
+   even after the object-storage migration in §4c.
 4. `web` runs `migrate` on start then gunicorn; Coolify/Traefik terminates TLS and proxies to :8000.
 5. `Scaleway` is the fallback if you prefer a first-party managed Postgres.
 
@@ -129,6 +133,72 @@ boundary.
 calendar month and exposed as a button for the ølkælder officers, so automating it is a policy
 decision for them, not a technical one.
 
+### 4c. Media on object storage (Hetzner Object Storage)
+
+Uploads can live in an S3-compatible bucket instead of the `media` volume. **`S3_BUCKET` is the
+whole switch**: unset, everything writes to `MEDIA_ROOT` exactly as before, which is what dev and CI
+run. There is no second flag and no half-enabled state.
+
+**`MEDIA_URL` stays `/media/`, permanently.** It is a prefix of content stored in the *database*:
+`cms.Page.background_image` is a CharField holding the URL string outright, the CMS toolbar writes
+`<img src="/media/…">` into page bodies, and opslag bodies embed the same in Markdown. Repointing it
+at the bucket host makes those images vanish (the sanitiser drops a src it does not recognise) and
+makes the next edit of an existing opslag release its images for `purge_notices` to delete a day
+later — silently, both of them. **The live exposure is the CMS**, which the legacy ETL populated;
+opslagstavlen is still behind its rollout gate, so its share grows when that opens.
+`core/storage.py` carries the argument; `core.checks` (**core.E007–E009**) refuses to start the
+process if it is ever broken. Instead, `core.media.serve_media` answers `/media/<path>` with a 302
+to a short-lived presigned URL.
+
+Setup, in order:
+
+1. Create the bucket in the **same location as the VM** (`fsn1`) — traffic inside eu-central does
+   not count against the egress allowance. The name becomes a DNS label, so lowercase and
+   **no dots**, or TLS fails against Hetzner's wildcard certificate.
+2. Set the six variables from §2 in Coolify. **The two `AWS_*_CHECKSUM_*` ones are not optional**:
+   botocore ≥ 1.36 sends `x-amz-checksum-crc32` with `aws-chunked` framing on every PUT, which
+   Hetzner mis-stores or rejects. The failure is nasty — a 200 whose stored object contains the
+   chunk framing, or `XAmzContentSHA256Mismatch`. Confirm with one real upload before trusting it.
+3. `python manage.py migrate_media_to_s3 --dry-run`, and check the count against
+   `find app/media -type f | wc -l` before running it for real. It is idempotent and never deletes,
+   so re-run it after the cutover to catch anything uploaded in between.
+4. `python manage.py audit_media` — **zero missing** is the thing to confirm. A referenced file that
+   is not in storage renders as a broken image on a page that still returns 200, so nothing else
+   will tell you. Expect *orphans* to be non-zero and harmless: `relocate_media` copies in legacy
+   images whose rows the ETL may not have created, and a freshly uploaded opslag image is
+   unreferenced on purpose until its post is saved.
+5. **Keep the `media` volume mounted** for at least one release. Unsetting `S3_BUCKET` is the
+   rollback, and it only works while the files are still there.
+
+Two settings are load-bearing rather than tuning, and both are commented in `config/settings.py`:
+`file_overwrite=False` (django-storages defaults it to *True*, and `Resident.profile_picture`
+uploads to a flat prefix with no uniquifier — so the second resident to upload an `IMG_1234.jpg`
+would silently replace the first one's photo), and `location="media"` (with no prefix,
+`safe_join` collapses `..` instead of raising, and `/media/../backups/…` would hand out a presigned
+URL for a database dump).
+
+`audit_media` is **report-only, and must stay that way.** A media reference can live in six places,
+only one of which is a FileField — see the command's docstring and `tests/test_audit_media.py`,
+which has one test per source. Miss one and an automatic sweep deletes live content with no undo.
+
+**`/media/` is no longer public.** It used to be, as the legacy `/public/` images were — so anyone
+who guessed `/media/profile_pictures/IMG_1234.jpg` (a real name: no date, no random suffix) could
+read a resident's photograph. Now only `core.media.PUBLIC_PREFIXES` — just `cms/` — is anonymous,
+and every other prefix redirects to the login page.
+
+`cms/` is the exception because `cms.CmsImage` uploads are embedded in `Page.body`, `NewsItem.body`
+and `Event.description`, which the logged-out front page renders; `body_media` rewrites only the
+*legacy* `/public/…` paths to `/static/legacy/`, so it never moves these off `/media/`. Every other
+prefix was checked individually and is reachable only from `/intern/` — including `oel/` and
+`public/`, which look public-ish and are not (ølkælder lives under `/intern/oelkaelder/`, and
+`relocate_media` copies only ølkælder and værelsestjek legacy images into `media/public/`).
+
+**If a front-page image ever goes missing, this list is the first thing to check** — add a prefix
+only after tracing it the same way. The gate is a blanket `login_required` per prefix, not
+per-object: any logged-in resident can fetch any non-`cms/` file, so a *private* begivenhed's poster
+is protected from the public but not from other residents. Closing that would mean resolving each
+path back to its owning row and applying `events.access.visible_to`; deliberately not done.
+
 ## 5. Data migration to prod
 ```
 mysqldump the live gahk_dk  →  load into the MariaDB staging container
@@ -159,6 +229,14 @@ Encoding: connection charset is utf8mb3 — check per-table charsets, watch lati
 - [ ] Fresh GitHub repo, CI green, Dependabot on.
 - [ ] Hetzner + Coolify up; `.env.prod` secrets set (all rotated).
 - [ ] Postgres + MariaDB provisioned; `media` volume mounted.
+- [ ] **If moving media to the bucket (§4c):** bucket created in `fsn1` with a dot-free name; all six
+      env vars set *including* both `AWS_*_CHECKSUM_*`; one real upload verified; then
+      `migrate_media_to_s3 --dry-run` reviewed, run for real, and `audit_media` reporting **zero
+      missing**. Keep the `media` volume — unsetting `S3_BUCKET` is the rollback.
+- [ ] After the bucket is live, confirm images still render on a **public CMS page** while logged
+      OUT — that is the live, ETL-populated content, the only prefix the gate leaves anonymous, and
+      the one that actually has something to lose. Then log in and check opslagstavlen and
+      begivenheder. All of these fail silently: the page returns 200 either way.
 - [ ] `task etl` + `etl_verify` + `relocate_media` run against a fresh dump; counts sane.
 - [ ] `createsuperuser`; assign initial roles via `/admin/roles`.
 - [ ] `sendtestemail` green for **both** sender addresses (§2); one real "glemt kodeord" round-trip.
