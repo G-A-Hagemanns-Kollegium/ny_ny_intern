@@ -376,7 +376,11 @@ def test_create_post_stores_an_attached_image(
 
 @pytest.mark.parametrize("remove", ["expire", "delete"])
 def test_an_attached_image_is_erased_with_its_post(
-    make_resident: Callable[..., Resident], settings: object, tmp_path: Path, remove: str
+    make_resident: Callable[..., Resident],
+    settings: object,
+    tmp_path: Path,
+    remove: str,
+    django_capture_on_commit_callbacks: Callable,
 ) -> None:
     """The feature promises posts disappear. Django has not deleted FileField files on row delete
     since 1.3, so without the post_delete receiver the text would expire on schedule while the photo
@@ -392,11 +396,14 @@ def test_an_attached_image_is_erased_with_its_post(
     stored = tmp_path / post.image.name
     assert stored.is_file()
 
-    if remove == "expire":
-        QuickPost.objects.filter(pk=post.pk).update(expires_at=timezone.now() - timedelta(minutes=1))
-        QuickPost.objects.purge_expired()
-    else:
-        post.delete()
+    # core.files defers the storage delete to commit, so the callbacks have to be run for the
+    # file to actually go.
+    with django_capture_on_commit_callbacks(execute=True):
+        if remove == "expire":
+            QuickPost.objects.filter(pk=post.pk).update(expires_at=timezone.now() - timedelta(minutes=1))
+            QuickPost.objects.purge_expired()
+        else:
+            post.delete()
 
     assert not stored.exists(), "the image outlived its post"
 
@@ -1041,7 +1048,11 @@ def test_a_reply_can_carry_an_image(
 
 
 def test_a_reply_image_is_erased_with_its_post(
-    client: Client, make_resident: Callable[..., Resident], settings: object, tmp_path: Path
+    client: Client,
+    make_resident: Callable[..., Resident],
+    settings: object,
+    tmp_path: Path,
+    django_capture_on_commit_callbacks: Callable,
 ) -> None:
     """Replies are removed by cascade, never by Model.delete(), so the file-cleanup receiver has to
     be registered for QuickComment as well or the photo outlives the thread."""
@@ -1057,7 +1068,8 @@ def test_a_reply_image_is_erased_with_its_post(
     stored = tmp_path / comment.image.name
     assert stored.is_file()
 
-    post.delete()  # cascades to the reply
+    with django_capture_on_commit_callbacks(execute=True):
+        post.delete()  # cascades to the reply
 
     assert not stored.exists(), "the reply image outlived its thread"
 

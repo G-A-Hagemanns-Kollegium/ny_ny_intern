@@ -20,7 +20,7 @@ from django.test import Client
 from django.utils import timezone
 
 from core import push
-from core.models import PushSubscription
+from core.models import PushSubscription, Room, Workgroup
 from den_hurtige import access as den_hurtige_access
 from opslagstavle import access
 from opslagstavle.models import (
@@ -32,7 +32,7 @@ from opslagstavle.models import (
     NoticeImage,
     NoticeReaction,
 )
-from residents.models import Resident, Role
+from residents.models import Residency, Resident, Role, active_period
 
 BOARD = "/intern/opslagstavle/"
 pytestmark = pytest.mark.django_db
@@ -104,6 +104,20 @@ def make_notice(author: Resident, **kwargs: object) -> Notice:
         author=author,
         body=kwargs.pop("body", "Noget **indhold**."),  # type: ignore[arg-type]
         **kwargs,
+    )
+
+
+def give_embedsgruppe(resident: Resident, name: str, room_number: int) -> None:
+    """Put `resident` in the `name` embedsgruppe for the active month — the pill's only source."""
+    year, month = active_period()
+    Residency.objects.create(
+        resident=resident,
+        room=Room.objects.create(
+            legacy_index=room_number, number=room_number, floor="stuen", side="mod gaden"
+        ),
+        workgroup=Workgroup.objects.get_or_create(name=name)[0],
+        year=year,
+        month=month,
     )
 
 
@@ -685,6 +699,136 @@ def test_the_board_costs_no_extra_query_per_reaction(
     assert len(after.captured_queries) == len(before.captured_queries)
 
 
+def test_a_byline_shows_the_authors_embedsgruppe(client: Client, beboer: Resident) -> None:
+    """On the card and, on the detail page, on a comment too — both bylines name a person, so both
+    answer "who is that"."""
+    give_embedsgruppe(beboer, "Repperne", room_number=201)
+    notice = make_notice(beboer)
+    client.force_login(beboer)
+
+    assert "Repperne" in client.get(BOARD).content.decode()
+
+    NoticeComment.objects.create(notice=notice, author=beboer, body="Enig.")
+    page = client.get(f"{BOARD}{notice.pk}").content.decode()
+
+    assert page.count("Repperne") == 2  # the post's byline and the comment's
+
+
+def test_a_byline_keeps_the_embedsgruppe_the_author_had_when_they_posted(
+    client: Client, beboer: Resident
+) -> None:
+    """The point of storing it rather than looking it up. Embedsgrupper rotate monthly, so on a
+    board that keeps two years of posts a live lookup would relabel the whole archive every time
+    indstilling saves a månedsliste — and a post about the kitchen written by that month's
+    Køkkengruppen would end up attributed to whichever group its author moved on to."""
+    give_embedsgruppe(beboer, "Køkkengruppen", room_number=204)
+    make_notice(beboer)
+
+    Residency.objects.filter(resident=beboer).update(
+        workgroup=Workgroup.objects.get_or_create(name="Repperne")[0]
+    )
+    client.force_login(beboer)
+    page = client.get(BOARD).content.decode()
+
+    assert "Køkkengruppen" in page
+    assert "Repperne" not in page
+
+
+def test_editing_a_post_does_not_restamp_its_embedsgruppe(client: Client, beboer: Resident) -> None:
+    """`save()` stamps on the way in only — the same reasoning as edited_at not being auto_now.
+    Fixing a typo must not silently reattribute a post to the author's current group."""
+    give_embedsgruppe(beboer, "Køkkengruppen", room_number=205)
+    notice = make_notice(beboer)
+    Residency.objects.filter(resident=beboer).update(
+        workgroup=Workgroup.objects.get_or_create(name="Repperne")[0]
+    )
+    client.force_login(beboer)
+
+    client.post(f"{BOARD}{notice.pk}/rediger", {"category": Category.NYT, "body": "Rettet."})
+
+    notice.refresh_from_db()
+    assert notice.body == "Rettet."
+    assert notice.author_embedsgruppe == "Køkkengruppen"
+
+
+def test_a_byline_shows_no_pill_when_the_author_has_no_embedsgruppe(
+    client: Client, beboer: Resident, other: Resident
+) -> None:
+    """An alumnus has no residency, and their posts stay on the board for years. An empty pill
+    beside their name would read as a group whose name failed to load."""
+    give_embedsgruppe(beboer, "Repperne", room_number=202)
+    make_notice(other)
+    client.force_login(beboer)
+
+    page = client.get(BOARD).content.decode()
+
+    assert "Ann Anden" in page
+    assert "chip-embedsgruppe" not in page
+
+
+def test_the_board_looks_up_no_embedsgruppe_at_all(
+    client: Client, beboer: Resident, make_resident: Callable
+) -> None:
+    """The snapshot is a column on a row the board already fetched, so rendering a page of pills
+    costs nothing. A lookup here would be an N+1 across every post on the page."""
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    give_embedsgruppe(beboer, "Repperne", room_number=203)
+    make_notice(beboer)
+    for i in range(5):
+        author = make_resident(email=f"a{i}@gahk.dk", first_name=f"A{i}", last_name="Author")
+        give_embedsgruppe(author, "Viceværterne", room_number=210 + i)
+        make_notice(author)
+    client.force_login(beboer)
+
+    with CaptureQueriesContext(connection) as captured:
+        page = client.get(BOARD).content.decode()
+
+    assert page.count("chip-embedsgruppe") == 6  # one pill per post, all six rendered
+    assert [q["sql"] for q in captured.captured_queries if "core_workgroup" in q["sql"]] == []
+
+
+def test_the_backfill_reads_the_month_each_post_was_actually_written_in(
+    beboer: Resident,
+) -> None:
+    """The migration's backfill is not a guess: a post carries created_at, and Residency stores one
+    row per (resident, month), so the group its author was in that month is on record. A resident
+    who has since moved to another group must not have their old posts relabelled — which is the
+    whole reason the field exists, and would be undetectable if the backfill got it wrong."""
+    import importlib
+
+    from django.apps import apps as real_apps
+
+    backfill = importlib.import_module(
+        "opslagstavle.migrations.0004_author_embedsgruppe"
+    ).backfill_embedsgruppe
+
+    year, month = active_period()
+    then = (year - 1, month)
+    give_embedsgruppe(beboer, "Repperne", room_number=206)  # their group now
+    Residency.objects.create(
+        resident=beboer,
+        room=Room.objects.create(legacy_index=207, number=207, floor="stuen", side="mod gaden"),
+        workgroup=Workgroup.objects.get_or_create(name="Køkkengruppen")[0],
+        year=then[0],
+        month=then[1],
+    )
+    old = make_notice(beboer)
+    recent = make_notice(beboer)
+    # Backdate one post into `then`, and clear both snapshots so the backfill has work to do —
+    # exactly the state the migration finds on a board that predates the field.
+    Notice.objects.filter(pk=old.pk).update(
+        created_at=timezone.now().replace(year=then[0]), author_embedsgruppe=""
+    )
+    Notice.objects.filter(pk=recent.pk).update(author_embedsgruppe="")
+
+    backfill(real_apps, None)
+
+    assert Notice.objects.get(pk=old.pk).author_embedsgruppe == "Køkkengruppen"
+    assert Notice.objects.get(pk=recent.pk).author_embedsgruppe == "Repperne"
+
+
 # --- images ---------------------------------------------------------------------------------------
 
 
@@ -804,7 +948,10 @@ def test_an_image_someone_else_uploaded_cannot_be_claimed(
 
 
 def test_deleting_a_post_deletes_its_image_and_the_file(
-    client: Client, beboer: Resident, media_tmp: Path
+    client: Client,
+    beboer: Resident,
+    media_tmp: Path,
+    django_capture_on_commit_callbacks: Callable,
 ) -> None:
     client.force_login(beboer)
     url = json.loads(client.post(BOARD + "billede", {"file": png()}).content)["url"]
@@ -813,7 +960,8 @@ def test_deleting_a_post_deletes_its_image_and_the_file(
     stored = media_tmp / NoticeImage.objects.get().file.name
     assert stored.is_file()
 
-    client.post(f"{BOARD}{notice.pk}/slet")
+    with django_capture_on_commit_callbacks(execute=True):
+        client.post(f"{BOARD}{notice.pk}/slet")
 
     assert not NoticeImage.objects.exists()
     assert not stored.exists(), "the image outlived its post"
@@ -889,7 +1037,9 @@ def test_purge_dry_run_deletes_nothing(beboer: Resident, media_tmp: Path) -> Non
     assert NoticeImage.objects.exists()
 
 
-def test_purge_erases_the_files_of_the_posts_it_deletes(beboer: Resident, media_tmp: Path) -> None:
+def test_purge_erases_the_files_of_the_posts_it_deletes(
+    beboer: Resident, media_tmp: Path, django_capture_on_commit_callbacks: Callable
+) -> None:
     """A bulk queryset delete never calls Model.delete() but DOES fire post_delete — which is exactly
     why NoticeImage cleans up in a receiver, and why this works at all."""
     from django.core.management import call_command
@@ -899,12 +1049,15 @@ def test_purge_erases_the_files_of_the_posts_it_deletes(beboer: Resident, media_
     stored = media_tmp / image.file.name
     assert stored.is_file()
 
-    call_command("purge_notices")
+    with django_capture_on_commit_callbacks(execute=True):
+        call_command("purge_notices")
 
     assert not stored.exists()
 
 
-def test_purge_sweeps_an_old_unclaimed_upload(beboer: Resident, media_tmp: Path) -> None:
+def test_purge_sweeps_an_old_unclaimed_upload(
+    beboer: Resident, media_tmp: Path, django_capture_on_commit_callbacks: Callable
+) -> None:
     """The abandoned-draft case: the composer was opened, pictures added, the tab closed."""
     from django.core.management import call_command
 
@@ -912,7 +1065,8 @@ def test_purge_sweeps_an_old_unclaimed_upload(beboer: Resident, media_tmp: Path)
     NoticeImage.objects.update(uploaded_at=timezone.now() - timedelta(days=7))
     stored = media_tmp / image.file.name
 
-    call_command("purge_notices")
+    with django_capture_on_commit_callbacks(execute=True):
+        call_command("purge_notices")
 
     assert not NoticeImage.objects.exists()
     assert not stored.exists()

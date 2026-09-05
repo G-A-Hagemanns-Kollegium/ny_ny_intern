@@ -959,6 +959,17 @@
   .notice-headline { flex: 1; min-width: 0; }
   .notice-tags { @apply flex flex-wrap items-center gap-2 mb-1; }
   /* "Handler om <begivenhed>". A brass chip so it does not read as a second category. */
+  /* The author's embedsgruppe, beside their name on a card and on a comment. Quiet on purpose --
+     it is context, not a status, and EVERY byline carries one, so at .chip's default green a page
+     of posts read as a wall of badges with nothing standing out.
+
+     display:inline-block rather than .chip's inline-flex: a flex container has no text of its own,
+     so text-overflow has nothing to clip. The ellipsis only ever fires where the row cannot wrap
+     (.reply-head is nowrap, because .msg-del is pushed right with margin-left:auto); on a card the
+     pill drops to the next line instead. min-width:0 is what lets it shrink at all. */
+  .chip-embedsgruppe { display: inline-block; background: var(--surface-2); color: var(--muted);
+    border-color: var(--border-strong); font-size: 11px; padding: 1px 8px; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; }
   .chip-event { background: var(--warn-bg); color: var(--brass-ink); border-color: #e7d8b0;
     display: inline-flex; align-items: center; gap: 5px; text-decoration: none; max-width: 100%;
     overflow: hidden; text-overflow: ellipsis; }
@@ -1007,6 +1018,11 @@
     text-transform: uppercase; }
   .notice-byline { @apply flex flex-col; min-width: 0; }
   .notice-name { @apply font-semibold leading-snug; color: var(--ink); }
+  /* Name and embedsgruppe pill share the byline's first line; the timestamp keeps the second.
+     Wrapping, not truncating: "Legat- og kunstgruppen" is wider than the gap beside a name on a
+     phone, and a pill reading "Legat- og kuns..." names no group anyone recognises. min-width:0 so
+     a long name still lets the row shrink inside the card. */
+  .notice-nameline { display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: wrap; }
   .notice-meta { @apply text-sm; }
   /* The timestamp is the permalink. Undecorated so the header reads as a byline rather than a row
      of links -- the whole card is the real tap target (see .is-clickable). */

@@ -196,6 +196,26 @@ def active_period() -> tuple[int, int]:
     return today.year, today.month
 
 
+def embedsgruppe_of(resident: "Resident", period: tuple[int, int] | None = None) -> str:
+    """The Workgroup name `resident` holds in `period` (the active month by default), or "".
+
+    Read at the moment something is written, never when it is displayed: opslagstavle.models stamps
+    it onto a post and onto a comment as they are created. Embedsgrupper rotate monthly (F-010), so
+    resolving a byline against today's list would relabel every post on the board each time the
+    månedsliste is saved, and a two-year archive would spend most of its life wrong.
+
+    "" for someone with no residency that month, or one with no group — an alumnus whose posts stay
+    on the board is the ordinary case, and the template renders no pill rather than an empty one.
+    """
+    year, month = period or active_period()
+    name = (
+        Residency.objects.filter(resident=resident, year=year, month=month)
+        .values_list("workgroup__name", flat=True)
+        .first()
+    )
+    return name or ""
+
+
 def next_period(period: tuple[int, int] | None = None) -> tuple[int, int]:
     """The month after `period` (defaults to the active period), as (year, month)."""
     year, month = period or active_period()
