@@ -19,6 +19,11 @@ dependencies = [
     "nh3>=0.3", # HTML sanitization of admin-edited CMS content and resident-authored markdown
     "markdown-it-py>=4.0", # Markdown for resident-authored opslag; raw HTML off at the parser
     "pywebpush>=2.4",        # Web Push (VAPID + payload encryption) for Den Hurtige + opslagstavlen
+    # Object storage for MEDIA_ROOT (Hetzner Object Storage, S3-compatible). The [s3] extra pulls
+    # boto3. >=1.14 is required, not cosmetic: it is the release that reads per-backend OPTIONS out
+    # of STORAGES, which is the only configuration style this project uses — on 1.13 every OPTIONS
+    # key is silently ignored and the backend falls back to unauthenticated defaults.
+    "django-storages[s3]>=1.14",
 ]
 
 [dependency-groups]

@@ -948,7 +948,10 @@ def test_an_image_someone_else_uploaded_cannot_be_claimed(
 
 
 def test_deleting_a_post_deletes_its_image_and_the_file(
-    client: Client, beboer: Resident, media_tmp: Path
+    client: Client,
+    beboer: Resident,
+    media_tmp: Path,
+    django_capture_on_commit_callbacks: Callable,
 ) -> None:
     client.force_login(beboer)
     url = json.loads(client.post(BOARD + "billede", {"file": png()}).content)["url"]
@@ -957,7 +960,8 @@ def test_deleting_a_post_deletes_its_image_and_the_file(
     stored = media_tmp / NoticeImage.objects.get().file.name
     assert stored.is_file()
 
-    client.post(f"{BOARD}{notice.pk}/slet")
+    with django_capture_on_commit_callbacks(execute=True):
+        client.post(f"{BOARD}{notice.pk}/slet")
 
     assert not NoticeImage.objects.exists()
     assert not stored.exists(), "the image outlived its post"
@@ -1033,7 +1037,9 @@ def test_purge_dry_run_deletes_nothing(beboer: Resident, media_tmp: Path) -> Non
     assert NoticeImage.objects.exists()
 
 
-def test_purge_erases_the_files_of_the_posts_it_deletes(beboer: Resident, media_tmp: Path) -> None:
+def test_purge_erases_the_files_of_the_posts_it_deletes(
+    beboer: Resident, media_tmp: Path, django_capture_on_commit_callbacks: Callable
+) -> None:
     """A bulk queryset delete never calls Model.delete() but DOES fire post_delete — which is exactly
     why NoticeImage cleans up in a receiver, and why this works at all."""
     from django.core.management import call_command
@@ -1043,12 +1049,15 @@ def test_purge_erases_the_files_of_the_posts_it_deletes(beboer: Resident, media_
     stored = media_tmp / image.file.name
     assert stored.is_file()
 
-    call_command("purge_notices")
+    with django_capture_on_commit_callbacks(execute=True):
+        call_command("purge_notices")
 
     assert not stored.exists()
 
 
-def test_purge_sweeps_an_old_unclaimed_upload(beboer: Resident, media_tmp: Path) -> None:
+def test_purge_sweeps_an_old_unclaimed_upload(
+    beboer: Resident, media_tmp: Path, django_capture_on_commit_callbacks: Callable
+) -> None:
     """The abandoned-draft case: the composer was opened, pictures added, the tab closed."""
     from django.core.management import call_command
 
@@ -1056,7 +1065,8 @@ def test_purge_sweeps_an_old_unclaimed_upload(beboer: Resident, media_tmp: Path)
     NoticeImage.objects.update(uploaded_at=timezone.now() - timedelta(days=7))
     stored = media_tmp / image.file.name
 
-    call_command("purge_notices")
+    with django_capture_on_commit_callbacks(execute=True):
+        call_command("purge_notices")
 
     assert not NoticeImage.objects.exists()
     assert not stored.exists()

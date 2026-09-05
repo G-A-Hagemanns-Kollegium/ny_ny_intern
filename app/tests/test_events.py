@@ -719,7 +719,10 @@ def test_a_cancelled_event_is_kept_for_its_own_grace_period(beboer: Resident) ->
 
 
 def test_purging_takes_the_answers_and_the_image_with_it(
-    beboer: Resident, other: Resident, media_tmp: None
+    beboer: Resident,
+    other: Resident,
+    media_tmp: None,
+    django_capture_on_commit_callbacks: Callable,
 ) -> None:
     """A bulk queryset delete never calls Model.delete(), which is why the file cleanup is a
     post_delete signal. See core.files."""
@@ -733,7 +736,8 @@ def test_purging_takes_the_answers_and_the_image_with_it(
     stale = timezone.now() - RETENTION_AFTER_END - datetime.timedelta(hours=1)
     Event.objects.filter(pk=event.pk).update(starts_at=stale)
 
-    Event.objects.purge_expired()
+    with django_capture_on_commit_callbacks(execute=True):
+        Event.objects.purge_expired()
 
     assert not Rsvp.objects.exists()
     assert not stored.exists(name)

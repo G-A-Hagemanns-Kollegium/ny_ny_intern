@@ -28,6 +28,7 @@ can put on a page.
 """
 
 import re
+from urllib.parse import unquote
 
 import nh3
 from django.conf import settings
@@ -206,6 +207,18 @@ def extract_image_names(source: str) -> set[str]:
 
     Returns FileField `name` values (the MEDIA_URL prefix stripped), so callers can match with an
     indexed `file__in=` lookup instead of a `LIKE '%…%'` scan.
+
+    UNQUOTED, because a `name` is what Django stores and a URL is percent-encoded. Storage.url()
+    runs the name through `filepath_to_uri`, and `get_valid_filename` — which is what decides the
+    stored name — only replaces spaces and strips punctuation: `æøå` are Unicode word characters, so
+    they survive into the name and are then encoded in the URL. On a Danish kollegium that is not an
+    edge case, it is the default screenshot filename ("Skærmbillede 2026-09-04.png" is stored as
+    `Skærmbillede_2026-09-04.png` and serves as `Sk%C3%A6rmbillede_2026-09-04.png`).
+
+    Without the unquote the returned name matches no row, so sync_images never claims the image, the
+    row keeps `notice_id IS NULL`, and purge_notices deletes the file a day later while the post that
+    embeds it is still on the board — a broken image the author cannot fix by re-uploading, because
+    the replacement is orphaned the same way. See tests/test_markdown.py for the round trip.
     """
     prefix = settings.MEDIA_URL
-    return {src[len(prefix) :] for src in _image_srcs(source) if src.startswith(prefix)}
+    return {unquote(src[len(prefix) :]) for src in _image_srcs(source) if src.startswith(prefix)}
