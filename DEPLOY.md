@@ -96,15 +96,15 @@ or an overlapping run is harmless.
 | `python manage.py purge_applications` | `20 3 * * *` | **The one that is genuinely missing.** F-001 says applications are kept one year; nothing has ever enforced it, so applicant PII accumulates indefinitely — the exact GDPR gap 99-index.md flags in the legacy system. |
 | `python manage.py ak_monthly_assessment` | `10 4 1 * *` | Books the month's AK deduction on the 1st instead of whenever someone happens to open an internal page. |
 | `python manage.py purge_quick_posts` | `*/30 * * * *` | Drains expired Den Hurtige posts (and their images) even in a quiet week when nobody loads the feed. |
-| `python manage.py purge_notices` | `40 3 * * *` | Enforces opslagstavlen's ~2-year retention and sweeps compose-toolbar images that were uploaded to a post nobody ever saved. **Pinned opslag are exempt** — a pin is Inspektionen deciding the kollegium keeps that one. Offset from `purge_applications` (03:20) so two deletes never overlap on the same small box. |
+| `python manage.py purge_notices` | `40 3 * * *` | Sweeps compose-toolbar images uploaded to a post nobody ever saved. **It no longer deletes opslag** — the board keeps its archive (spec/features/opslagstavle.md). The name is kept so this row and the Coolify task stay valid; if it is ever renamed, both move in the same change. Offset from `purge_applications` (03:20) so two deletes never overlap on the same small box. |
 | `python manage.py archive_finished_repairs` | `50 3 * * *` | Archives (never deletes) a Reparationer ticket that has sat in Færdig for over 30 days, so the board does not fill up with old closed repairs — still searchable via the Arkiv page. Offset from `purge_notices` (03:40) so the two never overlap. |
 | `python manage.py purge_events` | `0 4 * * *` | Enforces Begivenheder's retention: an event goes a week after it ends, a cancelled one thirty days after it was cancelled (two clocks, see `events/models.py`). Offset to 04:00 so it does not overlap `purge_applications` (03:20), `purge_notices` (03:40) or `archive_finished_repairs` (03:50) on the same small box. |
 | `python manage.py remind_rsvp_deadlines` | `0 17 * * *` | Nudges the people who have not answered when a svarfrist falls inside the next 24 hours. **Once per event** — the claim is a compare-and-swap on `reminder_sent_at`, taken *before* the send, so a crash between the two loses one reminder rather than pushing the whole house twice. Runs at 17:00 rather than overnight because it is a notification people are meant to act on. |
 
 **Run `purge_applications --dry-run` by hand first.** It deletes permanently and there is no undo;
 confirm the count is what you expect before putting it on a schedule.
-The same goes for `purge_notices` — though its retention branch will delete nothing for years, so
-the number worth eyeballing on the first real run is the *unused image* count.
+`purge_notices` needs less care: it only ever removes uploads no post references, so the number to
+eyeball on the first real run is simply that unused-image count.
 
 `purge_events` and `remind_rsvp_deadlines` both have lazy backstops in the events list view, for
 the reason given below; `purge_notices` does not.
@@ -112,9 +112,9 @@ the reason given below; `purge_notices` does not.
 **`purge_notices` is the deliberate exception to the lazy-guard rule below, and should stay that
 way.** Den Hurtige purges on every feed load because its promise is "gone in 30 minutes": a message
 that should have vanished is visibly wrong to a reader within the hour, so cron failing silently has
-an immediate cost. Opslagstavlen's tolerance is *months* — if the job is dead for a week nothing is
-wrong for anybody — and putting a potentially large DELETE on every board request to insure against
-that would be a bad trade. Don't "fix" the inconsistency.
+an immediate cost. Opslagstavlen now deletes no posts at all, and its sweep affects nothing a reader
+can see — a missed night leaves a few unreferenced files in the bucket. Putting that on every board
+request would be a bad trade. Don't "fix" the inconsistency.
 
 **These do not replace the lazy guards, and the lazy guards should stay.** `ensure_active_month_applied()`
 costs two indexed single-row queries on three pages (measured), and it is the only thing that makes a

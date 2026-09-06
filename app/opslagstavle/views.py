@@ -222,10 +222,11 @@ def delete(request: HttpRequest, pk: int) -> HttpResponseRedirect:
 def toggle_pin(request: HttpRequest, pk: int) -> HttpResponseRedirect:
     """Pin or unpin. Inspektionen and administrator only.
 
-    Capped at MAX_PINNED because a pinned post is *both* permanently above everything else and
-    exempt from the retention purge: without a cap, "pin" quietly becomes "keep forever" and the top
-    of the board fills up. Enforced here rather than as a constraint — a cross-row rule would need an
-    exclusion constraint or a trigger, which is a lot of machinery for one `if`.
+    Capped at MAX_PINNED because a pinned post sits permanently above everything else: without a
+    cap the top of the board fills up and pinning stops meaning anything. (It used to also exempt a
+    post from the retention purge; there is no retention now, so pinning is purely prominence.)
+    Enforced here rather than as a constraint — a cross-row rule would need an exclusion constraint
+    or a trigger, which is a lot of machinery for one `if`.
     """
     if not can_moderate(request):
         raise PermissionDenied
