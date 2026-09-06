@@ -127,6 +127,11 @@ STATICFILES_DIRS = [BASE_DIR / "static"]  # holds the Vite-built bundle (static/
 # prefix of content stored in the database, and core.checks (core.E007-E009) refuses to start the
 # process if it or the backend's URLs ever stop matching. core/storage.py has the full argument.
 S3_BUCKET = os.environ.get("S3_BUCKET", "")
+# Acknowledges local-disk media in a DEBUG-off environment. There is exactly one honest reason to
+# set it — a prod-shaped box with no bucket of its own (staging), or rehearsing the rollback while
+# MEDIA_ROOT still has files. core.E010 refuses to start without it, because since the prod media
+# volume was emptied an unset S3_BUCKET serves nothing and writes uploads to a disk nobody backs up.
+ALLOW_LOCAL_MEDIA = os.environ.get("ALLOW_LOCAL_MEDIA", "") == "1"
 # fsn1 (Falkenstein) / nbg1 (Nuremberg) / hel1 (Helsinki). Keep this in the same location as the VM:
 # traffic inside eu-central does not count against the account's egress allowance.
 S3_LOCATION = os.environ.get("S3_LOCATION", "fsn1")

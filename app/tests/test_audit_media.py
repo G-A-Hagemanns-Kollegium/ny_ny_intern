@@ -155,3 +155,34 @@ def test_a_reference_with_no_file_is_reported_as_missing(media_tmp: Path) -> Non
 
     assert "MISSING" in report
     assert "cms/gone.jpg" in report
+
+
+def test_a_filefield_holding_an_absolute_url_is_not_reported_as_missing(media_tmp: Path) -> None:
+    """oelkaelder.Product.image is a FileField whose legacy rows hold the old site's URL outright
+    ("legacy imageurl"), ~134 of them in production. Treating those as storage names put a
+    permanent 134-line MISSING section in every report - and MISSING is the section that has to
+    stay empty to be worth reading, since it is the go/no-go gate after migrate_media_to_s3.
+    An operator used to seeing 134 there will not notice the 135th."""
+    from oelkaelder.models import Product
+
+    Product.objects.create(
+        name="Peanuts",
+        price_ore=1000,
+        image="https://gahk.dk/public/image/intern/oel/peanuts.jpg",
+    )
+
+    report = audit()
+
+    assert "MISSING" not in report
+    assert "Nothing missing" in report
+    assert "absolute URL" in report
+
+
+def test_a_real_stored_product_image_is_still_referenced(media_tmp: Path) -> None:
+    """The other half: skipping absolute URLs must not skip ordinary uploads on the same field."""
+    from oelkaelder.models import Product
+
+    name = drop_a_file(media_tmp, "oel/tuborg.jpg")
+    Product.objects.create(name="Tuborg", price_ore=1200, image=name)
+
+    assert name not in audit()
