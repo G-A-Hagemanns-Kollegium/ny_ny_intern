@@ -5,6 +5,7 @@ from collections.abc import Collection
 from django.conf import settings
 from django.http import HttpRequest
 
+from arkiv.access import roles_allowed as arkiv_allowed
 from den_hurtige.access import roles_allowed as den_hurtige_allowed
 from events.access import roles_allowed as events_allowed
 from opslagstavle.access import roles_allowed as opslagstavle_allowed
@@ -94,7 +95,12 @@ def _nav_intern(roles: Collection[str], user_pk: int) -> list[NavSection]:
     if "administrator" in roles:
         administration.append(("/admin/", "Site-admin", "gear"))
         administration.append(("/admin/roles", "Roller", "users"))
-    ressourcer: list[NavItem] = [
+    ressourcer: list[NavItem] = []
+    # Conditional on the rollout gate, like den-hurtige/opslagstavle/begivenheder above: the sidebar
+    # must never advertise a page that answers 403.
+    if arkiv_allowed(roles):
+        ressourcer.append(("/intern/arkiv/", "Arkiv", "archive"))
+    ressourcer += [
         (settings.WIKI_URL, "Wiki", "book"),
         (settings.FEEDBACK_URL, "Fejl & ønsker", "bug"),
     ]
