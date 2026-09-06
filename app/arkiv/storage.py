@@ -45,6 +45,10 @@ class ArchiveStore(Protocol):
         """`(size, content_type)` from the store itself, or None. The commit step's real check."""
         ...
 
+    def list_keys(self, prefix: str) -> set[str]:
+        """Every key under `prefix`. One listing instead of a HEAD per object."""
+        ...
+
     def download_url(self, key: str, *, filename: str, content_type: str) -> str | None:
         """A short-lived URL to redirect to, or None when the bytes must be streamed instead."""
         ...
@@ -86,6 +90,15 @@ class S3ArchiveStore:
         except ClientError:
             return None
         return int(meta["ContentLength"]), str(meta.get("ContentType", ""))
+
+    def list_keys(self, prefix: str) -> set[str]:
+        """Every key under `prefix`, paginated by boto3's collection manager.
+
+        For the Dropbox import this replaces one HEAD per file with one listing per run: at a few
+        hundred thousand objects that is the difference between hours of round trips and a couple of
+        minutes. S3 charges per request, so it is cheaper in money too.
+        """
+        return {obj.key for obj in self._bucket.objects.filter(Prefix=prefix)}
 
     def presigned_post(
         self,
@@ -160,6 +173,12 @@ class LocalArchiveStore:
             return None
         # No stored content type on disk; the caller falls back to the name-derived guess.
         return path.stat().st_size, ""
+
+    def list_keys(self, prefix: str) -> set[str]:
+        base = self._root / prefix
+        if not base.is_dir():
+            return set()
+        return {p.relative_to(self._root).as_posix() for p in base.rglob("*") if p.is_file()}
 
     def download_url(self, key: str, *, filename: str, content_type: str) -> None:
         return None

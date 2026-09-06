@@ -443,6 +443,94 @@ def test_a_deleted_folder_does_not_reserve_its_name_forever() -> None:
     assert ArchiveFolder.objects.alive().filter(parent=root, name="2026").count() == 1
 
 
+# --- the Dropbox import -----------------------------------------------------------------------------
+
+
+def build_tree(root: Path) -> None:
+    """A miniature of the shape a Dropbox export has: nesting, a duplicate, and OS litter."""
+    (root / "2026" / "Sommerfest").mkdir(parents=True)
+    (root / "2026" / "Sommerfest" / "a.jpg").write_bytes(b"aaa")
+    (root / "2026" / "Sommerfest" / "b.jpg").write_bytes(b"bbb")
+    # The same photograph, filed twice - the case content addressing exists for.
+    (root / "2026" / "kopi-af-a.jpg").write_bytes(b"aaa")
+    (root / ".DS_Store").write_bytes(b"junk")
+
+
+def test_import_builds_the_tree_and_dedupes_identical_bytes(tmp_path: Path, media_tmp: Path) -> None:
+    from django.core.management import call_command
+
+    source = tmp_path / "dropbox"
+    source.mkdir()
+    build_tree(source)
+
+    call_command("import_arkiv", str(source), "--root", "Billedarkiv", verbosity=0)
+
+    root = ArchiveFolder.objects.get(name="Billedarkiv", parent=None)
+    assert ArchiveFolder.objects.alive().filter(parent=root).values_list("name", flat=True)[0] == "2026"
+    assert ArchiveFile.objects.count() == 3, "the .DS_Store must not be imported"
+    # Three rows, two objects: a.jpg and kopi-af-a.jpg share their bytes.
+    assert ArchiveFile.objects.values("sha256").distinct().count() == 2
+
+
+def test_import_is_idempotent(tmp_path: Path, media_tmp: Path) -> None:
+    """A 2 TB import WILL be interrupted. The second run has to cost a walk, not another 2 TB."""
+    from django.core.management import call_command
+
+    source = tmp_path / "dropbox"
+    source.mkdir()
+    build_tree(source)
+
+    call_command("import_arkiv", str(source), "--root", "Billedarkiv", verbosity=0)
+    call_command("import_arkiv", str(source), "--root", "Billedarkiv", verbosity=0)
+
+    assert ArchiveFile.objects.count() == 3
+    assert ArchiveFolder.objects.alive().filter(name="Billedarkiv").count() == 1
+    assert ArchiveFolder.objects.alive().filter(name="Sommerfest").count() == 1
+
+
+def test_import_can_hand_the_root_to_an_embedsgruppe(
+    tmp_path: Path, media_tmp: Path, workgroups: tuple
+) -> None:
+    from django.core.management import call_command
+
+    regnskab, _ = workgroups
+    source = tmp_path / "bilag"
+    source.mkdir()
+    (source / "2026").mkdir()
+    (source / "2026" / "kvittering.pdf").write_bytes(b"pdf")
+
+    call_command("import_arkiv", str(source), "--root", "Regnskab", "--workgroup", regnskab.name, verbosity=0)
+
+    nested = ArchiveFolder.objects.get(name="2026")
+    assert nested.effective_workgroup_id == regnskab.pk, "ownership must reach imported subfolders"
+
+
+def test_import_dry_run_writes_nothing(tmp_path: Path, media_tmp: Path) -> None:
+    from django.core.management import call_command
+
+    source = tmp_path / "dropbox"
+    source.mkdir()
+    build_tree(source)
+
+    call_command("import_arkiv", str(source), "--root", "Billedarkiv", "--dry-run", verbosity=0)
+
+    assert not ArchiveFolder.objects.exists()
+    assert not ArchiveFile.objects.exists()
+
+
+def test_import_rejects_an_unknown_embedsgruppe(tmp_path: Path, media_tmp: Path) -> None:
+    """Naming a group that does not exist must stop, not quietly import 2 TB as world-readable."""
+    from django.core.management import call_command
+    from django.core.management.base import CommandError
+
+    source = tmp_path / "x"
+    source.mkdir()
+    (source / "a.txt").write_bytes(b"a")
+
+    with pytest.raises(CommandError):
+        call_command("import_arkiv", str(source), "--root", "R", "--workgroup", "Ikke-en-gruppe")
+
+
 # --- the root folders -------------------------------------------------------------------------------
 
 
@@ -907,6 +995,16 @@ def test_the_controls_appear_only_where_you_can_write(
 # the imported backlog, and it is the only thing here that needs Pillow - a dev-only dependency.
 
 
+def real_jpeg(width: int = 900, height: int = 600) -> bytes:
+    from io import BytesIO
+
+    from PIL import Image
+
+    buf = BytesIO()
+    Image.new("RGB", (width, height), (120, 90, 40)).save(buf, format="JPEG")
+    return buf.getvalue()
+
+
 def test_the_thumbnail_key_is_derived_from_the_originals_hash() -> None:
     """No second digest column: two rows sharing bytes share one preview, and a client never gets
     to name the key."""
@@ -1064,3 +1162,71 @@ def test_an_oversized_thumbnail_is_refused(resident_in: Callable, media_tmp: Pat
     )
 
     assert response.status_code == 400
+
+
+# --- the imported backlog (Pillow, dev-only) ------------------------------------------------------
+
+
+def test_the_backlog_command_renders_a_real_preview(media_tmp: Path) -> None:
+    from io import BytesIO
+
+    from django.core.management import call_command
+    from PIL import Image
+
+    from arkiv.storage import get_store
+
+    folder = ArchiveFolder.objects.create(name="Billeder")
+    original = real_jpeg(900, 600)
+    file = make_file(folder, name="stor.jpg", body=original)
+    ArchiveFile.objects.filter(pk=file.pk).update(content_type="image/jpeg")
+
+    call_command("make_arkiv_thumbnails", verbosity=0)
+
+    file.refresh_from_db()
+    assert file.has_thumbnail is True
+    thumb_path = get_store().path(file.thumb_key)
+    made = Image.open(BytesIO(thumb_path.read_bytes()))
+    assert max(made.size) <= 320, "the preview is not thumbnail-sized"
+    assert thumb_path.stat().st_size < len(original), "the preview is not smaller than the original"
+
+
+def test_the_backlog_command_is_idempotent(media_tmp: Path) -> None:
+    """A 2 TB backlog will be interrupted; the second run must cost a query, not a re-render."""
+    from django.core.management import call_command
+
+    folder = ArchiveFolder.objects.create(name="Billeder")
+    file = make_file(folder, name="stor.jpg", body=real_jpeg())
+    ArchiveFile.objects.filter(pk=file.pk).update(content_type="image/jpeg")
+
+    call_command("make_arkiv_thumbnails", verbosity=0)
+    first = get_store_mtime(file)
+    call_command("make_arkiv_thumbnails", verbosity=0)
+
+    assert get_store_mtime(file) == first, "the second run re-rendered"
+
+
+def get_store_mtime(file: ArchiveFile) -> float:
+    from arkiv.storage import get_store
+
+    return get_store().path(file.thumb_key).stat().st_mtime
+
+
+def test_the_backlog_command_skips_non_images_and_survives_a_bad_one(media_tmp: Path) -> None:
+    """One corrupt file must not stop two hundred thousand others."""
+    from django.core.management import call_command
+
+    folder = ArchiveFolder.objects.create(name="Billeder")
+    good = make_file(folder, name="god.jpg", body=real_jpeg())
+    ArchiveFile.objects.filter(pk=good.pk).update(content_type="image/jpeg")
+    bad = make_file(folder, name="daarlig.jpg", body=b"not actually a jpeg")
+    ArchiveFile.objects.filter(pk=bad.pk).update(content_type="image/jpeg")
+    doc = make_file(folder, name="referat.pdf", body=b"pdf")
+
+    call_command("make_arkiv_thumbnails", verbosity=0)
+
+    good.refresh_from_db()
+    bad.refresh_from_db()
+    doc.refresh_from_db()
+    assert good.has_thumbnail is True
+    assert bad.has_thumbnail is False, "a corrupt file must not be marked as having a preview"
+    assert doc.has_thumbnail is False, "a PDF is not an image"
