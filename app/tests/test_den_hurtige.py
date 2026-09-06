@@ -7,6 +7,7 @@ the VAPID checks, per-topic consent) is tested in test_push.py.
 """
 
 import json
+import re
 from collections.abc import Callable
 from datetime import timedelta
 from pathlib import Path
@@ -801,6 +802,109 @@ def test_consecutive_messages_from_one_person_are_grouped(
     request.user = author
 
     assert [p.grouped for p in posts_for(request, channels.DEFAULT)] == [False, True, False]
+
+
+def test_a_continuation_repeats_no_name_and_the_run_carries_one_avatar(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """The formatting bug this replaced: a follow-up message from the same person dropped the name
+    but kept the whole header line, so it rendered a stray "14:32 · ⏱ 45 min" attached to nobody.
+
+    Asserted through the rendered feed rather than on the flags, because the flags were already
+    right — it was the template that spent them wrongly. One name and one filled avatar per run is
+    the contract: the name introduces it, the avatar sits beside where it ends."""
+    author = make_resident(email="a@gahk.dk", first_name="Ada", last_name="Byron")
+    # Named explicitly so neither resident's initials can collide with the author's: make_resident
+    # otherwise generates names, and "count the initials" then passes or fails on the draw.
+    reader = make_resident(email="b@gahk.dk", first_name="Rasmus", last_name="Toft")
+    QuickPost.objects.create(author=author, content="Foerste")
+    QuickPost.objects.create(author=author, content="Anden")
+    client.force_login(reader)  # not the author, so nothing is right-aligned away
+
+    body = client.get(FEED_URL).content.decode()
+
+    assert body.count('class="msg-name"') == 1  # the run is introduced once, not per message
+
+    # One avatar box per message (they hold the column open), but only the run's LAST one is
+    # filled. Counted by matching the box and asking whether it has any content, rather than by
+    # searching for "AB": initials are two letters and turn up inside unrelated markup.
+    boxes = re.findall(r'<div class="msg-avatar" aria-hidden="true">(.*?)</div>', body, re.DOTALL)
+    assert len(boxes) == 2
+    assert [bool(b.strip()) for b in boxes] == [False, True]
+    assert "AB" in boxes[1]
+
+    # Both messages still carry their own clock: a run can span five minutes, and in a feed that
+    # deletes itself the per-message countdown is most of the point.
+    assert body.count('class="msg-meta msg-time"') == 2
+
+
+def test_the_feed_marks_messages_as_swipe_targets_but_not_the_thread_parent(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """frontend/src/feed.ts finds swipeable messages by [data-msg-swipe], and reaches the gesture's
+    effect through the controls rendered beside it — the "N svar" anchor and the delete form —
+    rather than by building a request of its own. This pins that contract from the template side.
+
+    The thread parent must NOT carry it: it is rendered inside the panel a right-swipe opens, so
+    swiping it would re-open the thread being read."""
+    author = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=author, content="Kaffe om fem")
+    client.force_login(author)
+
+    feed_body = client.get(FEED_URL).content.decode()
+
+    assert "data-msg-swipe" in feed_body
+    assert 'class="msg-hint msg-hint-thread"' in feed_body
+    assert 'class="msg-hint msg-hint-del"' in feed_body  # own message, so delete is reachable
+    assert 'class="msg-replies"' in feed_body
+
+    parent_body = client.get(f"{FEED_URL}{post.pk}/traad").content.decode()
+
+    assert "data-msg-swipe" not in parent_body
+    assert "msg-hint" not in parent_body
+
+
+def test_the_end_of_a_run_is_marked_for_the_avatar_and_the_tail(
+    make_resident: Callable[..., Resident],
+) -> None:
+    """`grouped` says "something of mine is above me", which is what decides the name and the top
+    corners. The avatar sits at the BOTTOM of a run and the bubble's tail hangs off its last
+    message, so both need the opposite fact — and a Django template cannot look ahead to the next
+    message to work it out. Hence group_end, set in the same pass (views.posts_for).
+
+    The last message of the feed ends its run by definition: nothing follows it to break it. That
+    case is the one worth pinning down, because getting it wrong leaves the NEWEST message — the
+    one everybody is looking at — as the only one with no avatar and no tail."""
+    author = make_resident(email="a@gahk.dk")
+    other = make_resident(email="b@gahk.dk")
+    QuickPost.objects.create(author=author, content="Foerst")
+    QuickPost.objects.create(author=author, content="Og saa")  # same run, so the first one is not the end
+    QuickPost.objects.create(author=other, content="Svar")  # breaks it, so "Og saa" was the end
+
+    request = RequestFactory().get(FEED_URL)
+    request.user = author
+
+    posts = posts_for(request, channels.DEFAULT)
+
+    assert [p.group_end for p in posts] == [False, True, True]
+    # The two flags are independent, not opposites: a lone message both starts and ends its run.
+    assert [(p.grouped, p.group_end) for p in posts][2] == (False, True)
+
+
+def test_a_single_message_ends_its_own_run(
+    make_resident: Callable[..., Resident],
+) -> None:
+    """The one-message feed, which is what a quiet channel looks like most of the week."""
+    author = make_resident(email="a@gahk.dk")
+    QuickPost.objects.create(author=author, content="Alene")
+
+    request = RequestFactory().get(FEED_URL)
+    request.user = author
+
+    (post,) = posts_for(request, channels.DEFAULT)
+
+    assert post.grouped is False
+    assert post.group_end is True
 
 
 def test_the_feed_costs_no_extra_query_per_reaction(
@@ -1951,7 +2055,101 @@ def test_a_reply_error_reaches_the_panel_instead_of_the_session(
     response = client.post(f"{FEED_URL}{post.pk}/kommentar", {"content": "  "}, HTTP_HX_REQUEST="true")
 
     assert response.status_code == 200
-    assert "Skriv en kommentar" in response.content.decode()
+    # Wording tracks what is actually required now: text OR a photo, not text alone.
+    assert "Skriv et svar, eller vedhæft et billede" in response.content.decode()
+
+
+def test_a_reply_can_be_a_photo_with_no_text(
+    client: Client,
+    make_resident: Callable[..., Resident],
+    settings: object,
+    tmp_path: Path,
+) -> None:
+    """ "Her, se" is a whole answer in a house chat, and requiring a caption for it only produced
+    replies reading "billede" and ".".
+
+    The ordering inside views.create_comment is what this pins: the upload has to be resolved BEFORE
+    the emptiness check, or a blank `content` is rejected while the photo is still sitting unread in
+    request.FILES."""
+    settings.MEDIA_ROOT = tmp_path  # type: ignore[attr-defined]
+    author = make_resident(email="a@gahk.dk")
+    helper = make_resident(email="b@gahk.dk")
+    post = QuickPost.objects.create(author=author, content="Hvilken slags pære?")
+    client.force_login(helper)
+    image = SimpleUploadedFile("paere.jpg", bytes.fromhex("ffd8ff") + b"x" * 512, content_type="image/jpeg")
+
+    response = client.post(f"{FEED_URL}{post.pk}/kommentar", {"content": "", "image": image})
+
+    assert response.status_code in (200, 302)
+    comment = QuickComment.objects.get()
+    assert comment.content == ""
+    assert comment.image.name.startswith("quick_comments/")
+
+
+def test_a_reply_with_neither_text_nor_photo_is_still_refused(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """Dropping `required` from the input moved this check to the server; it did not remove it.
+    An empty press must still produce nothing but a message."""
+    author = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=author, content="Boremaskine?")
+    client.force_login(author)
+
+    response = client.post(f"{FEED_URL}{post.pk}/kommentar", {"content": "   "}, HTTP_HX_REQUEST="true")
+
+    assert QuickComment.objects.count() == 0
+    assert "Skriv et svar, eller vedhæft et billede" in response.content.decode()
+
+
+def test_a_rejected_photo_with_no_text_reports_both_what_and_why(
+    client: Client, make_resident: Callable[..., Resident]
+) -> None:
+    """_validated_image returns None for "nothing attached" and for "attached but refused" alike, so
+    a bad photo with no caption falls through to the empty-reply branch. That is the right landing
+    place — there is genuinely nothing to save — but on its own it would explain only half of it, so
+    the upload warning has to arrive beside it or the photo silently "did not count"."""
+    author = make_resident(email="a@gahk.dk")
+    post = QuickPost.objects.create(author=author, content="Hvilken slags pære?")
+    client.force_login(author)
+    # An SVG: refused by core.uploads because it executes script when opened from our own /media/.
+    bad = SimpleUploadedFile(
+        "evil.svg", b"<svg xmlns='http://www.w3.org/2000/svg'/>", content_type="image/svg+xml"
+    )
+
+    response = client.post(
+        f"{FEED_URL}{post.pk}/kommentar", {"content": "", "image": bad}, HTTP_HX_REQUEST="true"
+    )
+    body = response.content.decode()
+
+    assert QuickComment.objects.count() == 0
+    assert "Billedet blev ikke gemt" in body  # why the photo did not count
+    assert "Skriv et svar, eller vedhæft et billede" in body  # and why the reply did not land
+
+
+def test_a_photo_only_reply_notifies_with_a_body_rather_than_a_blank(
+    client: Client,
+    make_resident: Callable[..., Resident],
+    pushes: list,
+    tmp_path: Path,
+    settings: object,
+) -> None:
+    """push.preview("") is "", and a notification with an empty body reads on a lock screen as
+    though it failed to load."""
+    settings.MEDIA_ROOT = tmp_path  # type: ignore[attr-defined]
+    author = make_resident(email="a@gahk.dk")
+    helper = make_resident(email="b@gahk.dk")
+    subscribe(author, "https://push.example/author")
+    post = QuickPost.objects.create(author=author, content="Hvilken slags pære?")
+    client.force_login(helper)
+    image = SimpleUploadedFile("paere.jpg", bytes.fromhex("ffd8ff") + b"x" * 512, content_type="image/jpeg")
+
+    client.post(f"{FEED_URL}{post.pk}/kommentar", {"content": "", "image": image})
+
+    (recipients, payload) = pushes[0]
+    assert recipients == [author.pk]
+    assert payload["body"].strip(), "a blank body reads as a failed notification"
+    assert "Billede" in payload["body"]
+    assert helper.full_name in payload["head"]
 
 
 def test_an_expired_post_gives_a_notice_to_the_panel_and_404_to_the_page(

@@ -157,8 +157,19 @@
      100dvh rather than 100%, matching .app: on iOS the dynamic viewport unit tracks the address bar
      retracting, where a percentage of the layout viewport would leave a gap at the bottom. */
   html:has(body.chat-page) { height:100dvh; overflow:hidden; overscroll-behavior:none; }
-  .chat-page { height:100dvh; overflow:hidden; overscroll-behavior:none; }
-  .chat-page .app { height:100dvh; min-height:0; }
+  /* body is the flex column, and .app TAKES THE REMAINDER rather than claiming a viewport of its
+     own. It used to be `height:100dvh` on both, which is only correct while .app is the sole thing
+     in the body -- and it is not. base.html renders the preview banner and the dev-clock banner as
+     SIBLINGS above it, so with either one showing, .app started at the banner's height and ran that
+     far past the bottom of the screen. body is overflow:hidden, so the overhang was not scrollable,
+     merely gone: the composer lost its lower edge, by exactly the height of the banner (measured:
+     a 57px banner clipped 57px off the composer).
+     Flex fixes it for any banner, of any height, without either box needing to know about the
+     other. min-height:0 for the usual reason -- a flex item will not shrink below its content
+     otherwise, and .app is a grid full of it. */
+  .chat-page { height:100dvh; overflow:hidden; overscroll-behavior:none;
+    display:flex; flex-direction:column; }
+  .chat-page .app { flex:1; min-height:0; height:auto; }
   .chat-page .main { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
   /* No vertical padding: the header and composer bring their own and bleed to the gutters, so
      inherited padding would leave both floating away from the edges they are meant to sit on. */
@@ -265,43 +276,232 @@
      in this element's layer and the composer painted over them. It has been a no-op since iOS 13
      (momentum scrolling is the default for overflow:auto) and is gone from the spec, so it bought
      nothing. See the .pop block below. */
+  /* --sunken, not --paper, and it bleeds to the gutters the way the header and composer do. A white
+     bubble on the --paper ground is 1.09:1 -- no visible edge whatever, so an incoming message was
+     legible only where its text happened to be. Dropping the CONVERSATION a tone is the move every
+     chat client makes, because the bubble cannot go the other way: --surface is already #FFFFFF,
+     so there is no lighter it can get. Now the header and composer read as the chrome they are and
+     the feed reads as the surface the messages sit on. */
+  /* The negative margin plus matching padding is the same bleed .chat-head uses: the BOX runs to
+     the gutters so the tone reaches the edge of the screen, while the messages inside keep the
+     same inset they had. Without the bleed the sunken ground stops short and reads as a floating
+     card rather than the surface the conversation sits on. */
   #js-feed { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain;
-    padding:6px 0 14px; }
+    background:var(--sunken); margin:0 -30px; padding:6px 30px 14px; }
   .feed-empty { text-align:center; color:var(--muted); padding:40px 20px; }
 
-  .msg { display:grid; grid-template-columns:34px 1fr; gap:10px; padding:6px 10px; border-radius:var(--radius);
-    margin-top:6px; }
-  /* Continuation of the same sender: no repeated avatar/name, tighter spacing. */
-  .msg-grouped { margin-top:1px; }
-  .msg-own { background:var(--green-050); }
-  .msg-avatar { width:34px; height:34px; border-radius:50%; background:var(--brass); color:#fff;
-    display:grid; place-items:center; font-weight:700; font-size:12.5px; }
-  /* The empty slot on a grouped message keeps the text aligned without drawing a second circle. */
-  .msg-grouped .msg-avatar { background:none; }
-  .msg-body { min-width:0; }
-  .msg-head { display:flex; align-items:baseline; gap:8px; flex-wrap:nowrap; }
-  /* min-width:0 because a flex item defaults to min-width:auto and refuses to shrink below its
-     own content — without it the name pushes the row wide instead of ellipsising. */
-  .msg-name { font-weight:650; font-size:14px; min-width:0;
+  /* --- Message bubbles -----------------------------------------------------------------------
+     Messenger's shape rather than a forum's: one bubble per message, a run by one sender bound
+     into a single shape by squaring the corners where its bubbles meet, the name on the run's
+     first bubble and the avatar and tail on its last. den_hurtige/_message.html carries the
+     reasoning and the markup contract; what follows is only how it is drawn.
+
+     This replaced a flat grid whose header line (name · time · expiry) sat above every message.
+     Two things about that were wrong on a phone, and both were worst on the commonest case in a
+     chat -- the same person writing twice. A continuation dropped the NAME but kept the header, so
+     it carried a stray "14:32 · ⏱ 45 min" line attached to nobody; and .msg-own painted a
+     background on the whole grid, so two of your own messages 1px apart drew two rounded boxes
+     that read as one torn box. The meta is now in the action row (which every message already
+     had, so it costs no height) and a run closes up into one shape.
+
+     touch-action:pan-y hands the browser the vertical axis and keeps the horizontal one for the
+     swipe handler in feed.ts. Without it #js-feed's scroller claims both and a horizontal drag
+     either scrolled the list or did nothing at all. With it a vertical flick still scrolls
+     natively -- and fires pointercancel, which is how the handler learns to let go. It overrides
+     the page-wide `touch-action:manipulation` from .no-zoom for this element only, so double-tap
+     zoom stays suppressed everywhere it was.
+
+     position:relative is for the swipe hints, and is as far as this element may go: .msg is an
+     ancestor of the `.pop` pickers in its own action row, and a `.pop` breaks the moment any
+     ancestor creates a stacking context (see the .pop block above). position:relative alone
+     creates none. The swipe DOES put a translate here, which does -- for the length of one drag,
+     never at rest, and never while a picker is open. feed.ts enforces both halves of that. */
+  .msg { position:relative; margin-top:10px; padding:0 10px; touch-action:pan-y; }
+  /* Continuation of the same sender: the run reads as one block, so the gap all but closes. */
+  .msg-grouped { margin-top:2px; }
+
+  /* Avatar and bubble on one line. align-items:flex-end is the whole reason this element exists:
+     it drops the avatar to the bubble's BOTTOM edge, beside where the run ends. Aligning against
+     .msg instead would measure to the bottom of the action row and leave the avatar sitting next
+     to the reaction pills, a row too low. */
+  .msg-line { display:flex; align-items:flex-end; gap:10px; }
+  .msg-own .msg-line { flex-direction:row-reverse; }
+  .msg-avatar { flex:none; width:34px; height:34px; border-radius:50%; background:var(--brass);
+    color:#fff; display:grid; place-items:center; font-weight:700; font-size:12.5px; }
+  /* Mid-run the box only holds the column open -- an empty brass circle would read as a second
+     person. Keyed on .msg-tail (the run's LAST message) because that is where the avatar goes. */
+  .msg:not(.msg-tail) .msg-avatar { background:none; }
+  /* Own messages need no avatar at all: which side of the screen it is on already says who wrote
+     it, and this is 42px of width back on a phone. */
+  .msg-own .msg-avatar { display:none; }
+
+  /* Sizes to its text, capped so a long message cannot span the full column: past roughly 80% the
+     eye loses the left edge on the return sweep and the shape stops reading as a bubble.
+     min-width:0 lets it shrink below its content so .msg-text's overflow-wrap can break a long URL
+     instead of forcing the line wide.
+     position:relative anchors the tail; like .msg it must not go further than that. */
+  .msg-bubble { position:relative; min-width:0; max-width:80%; padding:6px 11px 7px;
+    border-radius:16px; background:var(--surface);
+    filter:drop-shadow(0 1px 1.5px rgba(24, 40, 30, .14)); }
+  /* Own messages in the house green, at full strength, with the text reversed out of it. It is the
+     same --green as the channel pill and the primary buttons, so the feed reads as part of intern
+     rather than a grey chat that happens to live there -- and at 8.1:1 against white it is the
+     highest-contrast thing on the page, which is what makes a conversation scannable: you find
+     your own messages by colour, never by reading them. */
+  .msg-own .msg-bubble { background:var(--green); color:#fff; }
+  /* The clock rides INSIDE the bubble (see .msg-clock below), so on green it cannot stay --faint,
+     which is a warm grey chosen against paper and all but vanishes here. White at .78 lands at
+     5.4:1 on --green -- above AA for the 11.5px it is set at. */
+  .msg-own .msg-meta { color:rgba(255, 255, 255, .78); }
+
+  /* NO BORDER, and the shadow is a FILTER rather than box-shadow. Both follow from the tail being
+     a pseudo-element (below): a border cannot be mitred around a separate box, and box-shadow
+     traces the border-box, so either one drew a seam across every tail. drop-shadow traces the
+     rendered ALPHA of the element and its pseudo-elements together, so it wraps the bubble and its
+     tail as one silhouette.
+
+     The shadow is load-bearing, not decoration. An earlier revision left the bubbles borderless on
+     the argument that #FFFFFF was "already distinct" against the --paper ground; it is not. Those
+     two are 1.09:1 apart, which is no visible edge at all -- a bubble was legible only where its
+     text was, and a run of empty space read as nothing. This is what gives it an edge.
+
+     filter makes a stacking context, which almost everything in this file is forbidden from doing.
+     It is safe HERE and nowhere near here: .msg-actions holds the `.pop` pickers and is a sibling
+     of .msg-bubble, not a child, so nothing that must escape to the viewport is inside this
+     element. Do not move the action row back into the bubble. */
+
+  /* Corners where a run meets itself are squared off, which is what makes consecutive bubbles read
+     as one shape instead of a stack of cards. `msg-grouped` means something of mine is directly
+     above; `msg-tail` means nothing of mine is below (views.posts_for computes both -- a template
+     cannot look ahead to the next message). The bottom inner corner is always small: either the
+     run continues through it, or the tail hangs off it. */
+  .msg:not(.msg-own) .msg-bubble { border-bottom-left-radius:4px; }
+  .msg-own .msg-bubble { border-bottom-right-radius:4px; }
+  .msg-grouped:not(.msg-own) .msg-bubble { border-top-left-radius:4px; }
+  .msg-own.msg-grouped .msg-bubble { border-top-right-radius:4px; }
+
+  /* The tail, on the last bubble of a run only. `background:inherit` rather than a named colour so
+     one rule serves both bubble colours and neither can drift from the shape hanging off it.
+     A clip-path triangle rather than the border-width trick: that needs a fixed colour per side
+     and would have to be restated for own messages.
+
+     IT HAS TO FIT INSIDE .msg-line's GAP. The tail reaches 7px out of the bubble, and being a
+     positioned pseudo-element it paints ABOVE the in-flow avatar next to it — so with the gap at
+     8px (and 6px on a phone) it laid a sliver of bubble colour across the avatar's edge, on
+     precisely the message that has a visible avatar, since tail and avatar are both on the run's
+     last bubble. The gap is now 10px/9px against a 7px reach. Change one and check the other. */
+  .msg-tail .msg-bubble::after { content:""; position:absolute; bottom:0; width:8px; height:11px;
+    background:inherit; }
+  .msg-tail:not(.msg-own) .msg-bubble::after { left:-7px; clip-path:polygon(100% 0, 100% 100%, 0 100%); }
+  .msg-tail.msg-own .msg-bubble::after { right:-7px; clip-path:polygon(0 0, 100% 100%, 0 100%); }
+
+  /* Inside the bubble the name is a label above the text, so it is a block rather than a flex item
+     -- there is no header row left for it to sit in. Hidden on own messages: Messenger does not
+     tell you your own name either, and it is a whole line back. */
+  .msg-name { display:block; font-weight:650; font-size:12.5px; color:var(--green-700);
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .msg-own .msg-name { display:none; }
+  /* Text and clock share the bubble's last line, WhatsApp-style. .msg-text is inline HERE ONLY: it
+     stays a block everywhere else, because _replies.html and opslagstavlen's comments use the same
+     class and both want it on a line of its own. `nowrap` on the clock stops
+     "15:59 · ⏱ 2 timer" breaking across two lines.
+
+     FLOATED, not merely inline. Inline was the first attempt and it is subtly wrong: when the text
+     leaves no room on the last line, an inline clock wraps and then sits LEFT-aligned under the
+     text -- measured at 143px from the bubble's right edge on a 390px phone, which reads as a
+     stray fragment rather than the message's timestamp. A right float lands flush against the
+     bubble's padding whether it shares the last line or takes one of its own (measured: 11px,
+     i.e. the padding, in every case, with no overlap onto the text's glyphs).
+
+     display:flow-root on the wrapper is what makes that safe: a float needs a block formatting
+     context or the bubble's height ignores it and the clock hangs out of the bottom. flow-root
+     rather than `overflow:hidden` because it establishes the BFC without clipping anything -- and
+     rather than a clearfix because there is nothing else in here to clear. Note it creates no
+     stacking context either way, but that costs nothing to preserve: the `.pop` pickers live in
+     .msg-actions, outside this subtree entirely. */
+  .msg-text { white-space:pre-wrap; overflow-wrap:anywhere; font-size:15px; line-height:1.45; }
+  .msg-line-text { display:flow-root; }
+  .msg-bubble .msg-text { display:inline; }
+  .msg-bubble .msg-clock { float:right; white-space:nowrap; margin:2px 0 0 8px; }
+  .msg-image img { max-width:min(100%, 320px); height:auto; border-radius:10px; margin-top:6px; display:block; }
+
+  /* --- What a swipe reveals ------------------------------------------------------------------
+     Pinned to the edges of .msg and stretched its full height so `place-items:center` puts the
+     glyph on the bubble's midline whatever the message's height. Opacity is driven inline by
+     feed.ts as the drag progresses; at rest it is 0 and the bubble covers them anyway.
+     pointer-events:none so neither can ever take a tap meant for the message. */
+  .msg-hint { position:absolute; top:0; bottom:0; width:32px; display:grid; place-items:center;
+    opacity:0; pointer-events:none; font-size:17px; line-height:1; }
+  .msg-hint-thread { left:6px; color:var(--green-700); }
+  .msg-hint-del { right:6px; color:var(--neg); }
+  /* Same reason as .channel-picker .ni: <use> clones the symbol into a shadow tree that inherits
+     from THIS svg, so without these the icon renders as a filled black blob. */
+  .msg-hint .ni { width:21px; height:21px; stroke:currentColor; fill:none; }
+  /* Spring back after a drag that did not cross the threshold. The class is added for the length of
+     the animation and removed with the inline translate, so nothing is left holding a stacking
+     context on .msg -- the same discipline as the .thread-panel animation further down. */
+  .msg-releasing { transition:translate .18s cubic-bezier(.22, .61, .36, 1); }
+  @media (prefers-reduced-motion:reduce) { .msg-releasing { transition:none; } }
+
+  /* Reactions, the "N svar" link and the message's clock share one line. Indented past the avatar
+     so the row lines up with the bubble rather than with the circle beside it. */
+  .msg-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:4px;
+    padding-left:44px; }
+  /* Own messages have no avatar, so there is nothing to clear -- and the row belongs under the
+     right-hand edge the bubble sits on. */
+  .msg-own .msg-actions { padding-left:0; justify-content:flex-end; }
   .msg-meta { color:var(--faint); font-size:11.5px; }
-  .msg-time, .msg-expiry { flex:none; }
   /* Separator lives on the expiry, so hiding the expiry takes its dot with it. */
   .msg-expiry::before { content:"· "; }
-  .msg-text { white-space:pre-wrap; overflow-wrap:anywhere; font-size:15px; line-height:1.45; margin-top:1px; }
-  .msg-image img { max-width:min(100%, 320px); height:auto; border-radius:10px; margin-top:8px; display:block; }
-  /* Delete stays out of the way until the row is touched/hovered; always visible on coarse pointers. */
-  .msg-del { margin-left:auto; flex:none; }
+
+  /* MID-RUN MESSAGES CARRY ONLY THE REACTIONS THEY ALREADY HAVE. The picker, the "N svar" link and
+     the clock all move to the run's last message.
+
+     This is not tidying, it is the other half of the grouping. The action row is rendered per
+     message and costs about 22px, so a run of three drew bubble, row, bubble, row, bubble -- the
+     rows sat BETWEEN the bubbles and pulled apart the exact group the squared corners had just
+     joined up. Collapsing them is what makes a burst from one person read as one block.
+
+     Nothing becomes unreachable, which is the condition for doing this at all:
+       * The "N svar" anchor is HIDDEN, not removed, so a right-swipe on a mid-run message still
+         clicks it (see fireSwipe in feed.ts) and opens that message's own thread.
+       * The thread panel renders its message with a full reaction row (`bare` keeps it -- see
+         _message.html), so reacting to one message of a burst lives there.
+       * Only .emoji-picker is hidden, NEVER .who-picker. The who-reacted panels belong to the
+         pills that are still visible, and hiding a <details> stops its panel from opening at all --
+         holding a pill would silently do nothing.
+       * The delete control is not in this row any more (see below), so hiding the row does not
+         take it with it. */
+  .msg:not(.msg-tail) .msg-actions { margin-top:0; }
+  /* `.has-replies` is on the anchor whenever the message actually has replies. A bare "Svar" is
+     only an affordance and the swipe covers it, but "3 svar" is the single piece of evidence that
+     a conversation exists at all -- hiding that would bury threads on mid-run messages. */
+  .msg:not(.msg-tail) .msg-replies:not(.has-replies),
+  .msg:not(.msg-tail) .emoji-picker { display:none; }
+  /* Only when there is actually something in it -- `.is-empty` is the server's flag for "no
+     reactions", so this puts the gap back for pills without reintroducing it for the empty row. */
+  .msg:not(.msg-tail) .reactions:not(.is-empty) { margin-top:3px; }
+
+  /* Delete sits in .msg-line beside the bubble, not in the action row below it (see _message.html
+     for where it lives in the markup and why). Out of the row, a mid-run message's row can collapse
+     to nothing -- a button at opacity:0 still occupies its line, which held every row in a run
+     open -- and a destructive control stops being a tab-stop in the middle of a strip of reaction
+     pills. As a flex item it tracks the bubble's width for free, which absolute positioning against
+     .msg could not: that parked it at the far edge of the feed, ~290px from the bubble it deletes.
+     align-self:flex-end lines it up with the bubble's bottom edge, like the avatar opposite it.
+     It stays out of the way until the message is hovered. On touch it goes entirely, replaced by
+     the swipe -- but ONLY once feed.ts has confirmed it is listening (body.swipe-ready), so a phone
+     with the bundle blocked, cached broken or served by a stale service worker keeps a way to
+     delete a message at all. */
+  .msg-del { flex:none; align-self:flex-end; margin-bottom:3px; }
   .msg-del button { background:none; border:0; color:var(--faint); font-size:17px; line-height:1;
     padding:0 4px; cursor:pointer; opacity:0; }
   .msg:hover .msg-del button, .msg-del button:focus-visible { opacity:1; }
   .msg-del button:hover { color:var(--neg); }
-  @media (hover:none) { .msg-del button { opacity:.55; } }
-
-  /* Reactions and the "N svar" link share one line. Nothing here expands any more -- the thread
-     opens in the side panel rather than unfolding into the message -- so this row is now just a
-     wrapping strip of pills. (It carried a duplicated copy of itself for a while; both are gone.) */
-  .msg-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:5px; }
+  @media (hover:none) {
+    .msg-del button { opacity:.55; }
+    body.swipe-ready .msg-del { display:none; }
+  }
   .reactions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
   /* The three selection properties are what make HOLDING a pill work on a phone. Without them iOS
      treats a touch-and-hold as the start of a text selection and opens its copy/define callout,
@@ -455,9 +655,27 @@
   .thread-back { display:none; }
   .thread-body { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:8px 0; }
   /* The message the thread hangs off. Rendered by the same partial as the feed's messages, with
-     `bare` set, so it never drifts from them. */
+     `bare` set, so it never drifts from them -- but it is NOT a chat bubble. It is the subject of
+     the panel, the one thing every reply below it refers to, so it reads as a heading: full width,
+     flat, left-aligned, and left-aligned even when it is your own message. A right-floating green
+     bubble at the top of a panel titled "Tråd" pointed at nothing.
+     Undoing the bubble takes all of these: the partial cannot know it is being rendered here. */
   .msg-parent { padding:0 0 8px; margin:0; border-radius:0;
     border-bottom:1px solid var(--border); background:none; }
+  /* flex-direction back to `row` because .msg-own reverses it, and `bare` does not suppress
+     .msg-own -- the parent of your own thread still carries the class. */
+  .msg-parent .msg-line { align-items:flex-start; flex-direction:row; }
+  .msg-parent .msg-avatar { display:grid; background:var(--brass); }
+  /* `color` and `filter` are undone alongside the background, and they have to be: `bare` does not
+     suppress .msg-own, so the parent of a thread on YOUR OWN message still carries it. Drop only
+     the green and the text stays white on the panel's paper -- an invisible heading. Both of these
+     rules come after .msg-own's in the file, which is what lets them win at equal specificity. */
+  .msg-parent .msg-bubble { max-width:none; padding:0; border-radius:0; background:none;
+    color:var(--ink); filter:none; }
+  .msg-parent .msg-meta { color:var(--faint); }
+  .msg-parent .msg-bubble::after { display:none; }
+  .msg-parent .msg-name { display:block; font-size:13.5px; }
+  .msg-parent .msg-actions { padding-left:44px; justify-content:flex-start; }
   .thread-replies { display:flex; flex-direction:column; }
   /* Pinned under the scroller rather than trailing the last reply. The base .reply-form rules
      below are shared with opslagstavlen's inline comment forms, which still want the indent, so
@@ -480,6 +698,14 @@
   @keyframes thread-in { from { translate: var(--thread-from, 24px) 0; opacity:0; } }
   .thread-panel { animation:thread-in .16s ease-out; }
   @media (prefers-reduced-motion: reduce) { .thread-panel { animation:none; } }
+  /* Swipe right to go back, the gesture the full-screen phone view otherwise lacks -- the ← button
+     was the only way out, and it is in the top-left corner of a screen held one-handed. Same
+     bargain as .msg: pan-y leaves the reply list scrolling natively and gives feed.ts the
+     horizontal axis, and the translate it sets lives only for the length of the drag. A resting
+     transform here would be the exact bug the block above warns about. */
+  .thread-panel { touch-action:pan-y; }
+  .thread-releasing { transition:translate .2s cubic-bezier(.22, .61, .36, 1); }
+  @media (prefers-reduced-motion:reduce) { .thread-releasing { transition:none; } }
   /* Widen the shell so two columns fit; .chat-shell is the components-layer replacement for the
      max-w-3xl utility feed.html used to set (a utility would out-specify this rule). */
   .chat-page .chat-shell { max-width:48rem; }
@@ -506,6 +732,13 @@
   .reply-notify { display:inline-flex; align-items:center; gap:5px; margin:0; font-weight:500;
     font-size:12.5px; color:var(--muted); }
   .reply-notify input { width:auto; }
+  /* The attached filename, on its own row under the reply box (flex-basis:100% in a wrapping flex
+     row). Matches .composer-file, which does the same job for the channel composer. Only rendered
+     by den_hurtige/_thread.html, so opslagstavlen's comment forms — which share .reply-form — are
+     untouched. [hidden] needs saying because .reply-form's children are flex items, and display
+     from the flex context beats the UA sheet's display:none. */
+  .reply-file { flex-basis:100%; font-size:12px; color:var(--muted); padding:4px 0 0 28px; }
+  .reply-file[hidden] { display:none; }
 
   /* Grid rather than a flex row so the duration can move to its own line on a narrow screen —
      inline, its "30 minutter" select was eating ~40% of the width and squeezing the message box
@@ -514,8 +747,13 @@
     display:grid; grid-template-columns:auto 1fr auto auto; align-items:end; gap:8px;
     grid-template-areas:"attach main duration send";
     background:var(--paper); border-top:1px solid var(--border); margin:0 -30px; padding:10px 30px;
-    /* Clears the iPhone home indicator in the installed PWA (needs viewport-fit=cover). */
-    padding-bottom:calc(10px + env(safe-area-inset-bottom)); }
+    /* Clears the iPhone home indicator in the installed PWA (needs viewport-fit=cover), and the
+       Android navigation bar via --chat-system-bar where the inset is reported as 0 (frontend/src/
+       feed.ts sets it; the phone breakpoint below raises the default floor to 10px). Declared here
+       as well as there because the bar is a property of the DEVICE, not of the window width -- an
+       Android tablet PWA in landscape is over the 960px breakpoint and still has one. */
+    padding-bottom:calc(10px + max(env(safe-area-inset-bottom, 0px),
+                                   var(--chat-system-bar, 0px))); }
   .composer-attach { grid-area:attach; }
   .composer-main { grid-area:main; }
   .composer-duration { grid-area:duration; }
@@ -545,12 +783,20 @@
     .channel-picker > summary, .channel-single { font-size:16px; }
     .channel-menu { min-width:210px; }
     .push-bar button, .chat-mute button { padding:3px 10px; font-size:12px; }
-    /* Tighter message boxes: smaller avatar, less padding, tighter leading. */
-    .msg { grid-template-columns:26px 1fr; gap:8px; padding:4px 8px; margin-top:4px; }
+    /* Tighter bubbles: smaller avatar, less padding, tighter leading. The bubble cap goes UP, not
+       down -- 80% of a 360px column is 288px, and the narrower the screen the more a low cap costs
+       in wrapped lines for no gain in readability. */
+    .msg { padding:0 8px; margin-top:8px; }
+    .msg-grouped { margin-top:2px; }
+    .msg-line { gap:9px; }
     .msg-avatar { width:26px; height:26px; font-size:11px; }
-    .msg-name { font-size:13.5px; }
+    .msg-bubble { max-width:86%; padding:5px 10px 6px; }
+    .msg-name { font-size:12px; }
     .msg-text { font-size:14.5px; line-height:1.35; }
-    .msg-actions { gap:8px; margin-top:4px; }
+    /* Tracks the avatar and gap above, so the row stays flush with the bubble. */
+    .msg-actions { gap:8px; margin-top:3px; padding-left:35px; }
+    .msg-own .msg-actions { padding-left:0; }
+    .msg-parent .msg-actions { padding-left:35px; }
     .reaction, .reaction-add { padding:3px 8px; font-size:12.5px; }
     /* Bottom sheet on a phone: easier to reach one-handed than a centred box, and anchoring to the
        bottom keeps it out of the way of the emoji keyboard the free-text field opens. */
@@ -584,9 +830,14 @@
     /* Back arrow instead of the ×: this is a whole screen, so it reads as "back to the messages". */
     .thread-back { display:block; }
     .thread-x { display:none; }
-    /* Same floor as the composer -- the reply box is now the bottom-most control on the screen. */
-    .thread-panel .reply-form { padding-bottom:calc(10px + max(env(safe-area-inset-bottom, 0px), 10px)); }
-    #js-feed { padding:2px 0 8px; }
+    /* Same floor as the composer -- inside a full-screen thread the reply box is the bottom-most
+       control on the screen, so it sits over the same system bar. */
+    .thread-panel .reply-form { padding-bottom:calc(10px + max(env(safe-area-inset-bottom, 0px),
+                                                               var(--chat-system-bar, 10px))); }
+    /* Gutters are 18px at this breakpoint, not 30 (see .chat-head above), so the bleed and the
+       padding that puts it back both have to track that or the sunken ground stops short of the
+       screen edge on a phone -- the one place it matters most. */
+    #js-feed { margin:0 -18px; padding:2px 18px 8px; }
     /* Duration keeps its own row so the message box gets the full width — but ABOVE the input,
        not below it. Underneath, it was the bottom-most element of a shell that is height-locked at
        100dvh with overflow:hidden, which put it directly behind the Android system navigation bar
@@ -610,8 +861,16 @@
                           "attach main send"; }
     .composer-duration { justify-self:start; }
     /* Belt and braces on top of the reorder: a floor under the inset, so nothing lands flush
-       against a bar even where env() reports nothing. */
-    .composer { padding-bottom:calc(10px + max(env(safe-area-inset-bottom, 0px), 10px)); }
+       against a bar even where env() reports nothing.
+
+       --chat-system-bar is normally ABSENT, and then this is the 10px floor it has always been.
+       frontend/src/feed.ts sets it to a navigation bar's height on exactly one configuration --
+       an installed Android PWA that paints a system bar over the page while reporting its inset as
+       0 -- which is the case residents reported the composer clipped on. Where env() answers
+       honestly (every iPhone, and Android when it behaves) it is larger than the floor, max() picks
+       it, and nothing here changes. */
+    .composer { padding-bottom:calc(10px + max(env(safe-area-inset-bottom, 0px),
+                                               var(--chat-system-bar, 10px))); }
   }
 
   /* --- banners (preview / dev clock) --- */

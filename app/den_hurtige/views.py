@@ -105,13 +105,26 @@ def posts_for(request: HttpRequest, channel: Channel) -> list[QuickPost]:
     previous: QuickPost | None = None
     for post in posts:
         post.reaction_rows = reactions_for(post, user_id)  # type: ignore[attr-defined]
-        # Same author, close in time → render as a continuation (no repeated avatar/name).
+        # Same author, close in time → render as a continuation (no repeated name).
         post.grouped = bool(  # type: ignore[attr-defined]
             previous
             and previous.author_id == post.author_id
             and post.created_at - previous.created_at < GROUPING_WINDOW
         )
+        # `grouped` alone cannot draw a bubble. It says "something of mine is above me", which is
+        # enough to decide the NAME and the top corners, and nothing else: the avatar sits at the
+        # bottom of a run and the tail hangs off its last bubble, so both need "nothing of mine is
+        # below me" — a fact about the NEXT message, which a Django template cannot look ahead to.
+        #
+        # Set on the previous post from inside the same pass rather than in a second loop: the
+        # answer for post N-1 is exactly `not posts[N].grouped`, which has just been computed.
+        if previous is not None:
+            previous.group_end = not post.grouped  # type: ignore[attr-defined]
         previous = post
+    # The last message of the list ends its run by definition — there is no next message to break
+    # it. Without this the newest message on the feed is the one with no avatar and no tail.
+    if previous is not None:
+        previous.group_end = True  # type: ignore[attr-defined]
     return posts
 
 
@@ -446,18 +459,29 @@ def create_comment(request: HttpRequest, pk: int) -> HttpResponse:
     # post already knows where it lives, so there is no hidden field to disagree with.
     back = _channel_of(post)
     content = (request.POST.get("content") or "").strip()
-    if not content:
-        messages.error(request, "Skriv en kommentar.")
-        return _comment_response(request, post, back)
     if len(content) > MAX_CONTENT_CHARS:
         messages.error(request, f"Kommentaren må højst fylde {MAX_CONTENT_CHARS} tegn.")
+        return _comment_response(request, post, back)
+
+    # The image is resolved BEFORE the emptiness check, and that ordering is the feature: a reply
+    # may be a photo on its own, so "is there anything here?" cannot be answered from the text
+    # alone. It used to reject blank content outright and only then look for a file, which made a
+    # photo-only reply impossible however it was sent.
+    #
+    # _validated_image returns None both when nothing was attached and when what was attached was
+    # rejected, having queued its own warning. Collapsing those two is right here: either way there
+    # is no image to save, so a reply with no text and no usable image is empty and says so — and
+    # the warning explaining WHY the photo did not count is already on its way to the same panel.
+    image = _validated_image(request)
+    if not content and image is None:
+        messages.error(request, "Skriv et svar, eller vedhæft et billede.")
         return _comment_response(request, post, back)
 
     comment = QuickComment.objects.create(
         post=post,
         author=author,
         content=content,
-        image=_validated_image(request) or "",
+        image=image or "",
         notify_everyone=request.POST.get("notify") == "alle",
     )
     services.notify_new_comment(comment)
