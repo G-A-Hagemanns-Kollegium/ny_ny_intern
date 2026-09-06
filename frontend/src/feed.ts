@@ -20,6 +20,12 @@
 // polls itself (see _thread.html). They are separate because the panel must NOT live inside the
 // morphed region -- and merging them into one request with an out-of-band swap would put every
 // reply back into the 5s payload, which is exactly what moving replies into the panel removed.
+//
+// Blocks, in order: morph configuration, scroll-following, the iOS zoom lockdown, picker dismissal,
+// the thread panel's close/focus/history handling, the who-reacted gestures, the touch swipes, and
+// the composer. Every one of them is delegated from `document` rather than bound to an element,
+// because the feed is morphed every five seconds and anything bound directly would have to be
+// re-armed after each poll.
 
 import { Idiomorph } from "idiomorph/htmx";
 
@@ -51,8 +57,16 @@ function toBottom(el: HTMLElement): void {
 const CLIENT_OWNED_ATTRS = new Set(["open"]);
 
 Idiomorph.defaults.ignoreActiveValue = true; // never rewrite the field being typed into
-Idiomorph.defaults.callbacks.beforeAttributeUpdated = (name: string): boolean =>
-  !CLIENT_OWNED_ATTRS.has(name);
+Idiomorph.defaults.callbacks.beforeAttributeUpdated = (name: string, node: Element): boolean => {
+  if (CLIENT_OWNED_ATTRS.has(name)) return false;
+  // `style` is normally the server's to set — the avatar <img> carries one — but for the length of
+  // a swipe the inline translate on the dragged message is ours, and a poll landing mid-gesture
+  // would strip it out from under the thumb. Scoped to the element being dragged and its subtree
+  // (the hint icons' opacity is set the same way) rather than blanket-listed above, so every other
+  // message on the page keeps taking style updates normally.
+  if (name === "style" && drag?.el.contains(node)) return false;
+  return true;
+};
 
 // Subtrees the client owns OUTRIGHT: morphing must not enter them at all.
 //
@@ -423,6 +437,280 @@ document.addEventListener("keydown", (event: KeyboardEvent) => {
   openWhoPanel(pill);
 });
 
+// ---- Android system navigation bar (installed PWA) --------------------------------------------
+// Residents on Android reported the composer clipped along its bottom edge -- always, not only with
+// the keyboard up -- and only from the home-screen app. iPhones were fine.
+//
+// The cause is that the shell is exactly 100dvh with html and body overflow:hidden (see .chat-page
+// in styles.css), and in an installed standalone window Android draws the page EDGE TO EDGE: the
+// viewport runs underneath the system navigation bar, so 100dvh includes a strip that the gesture
+// pill or the three buttons sit on top of. The composer is the last flex child of that shell, so it
+// is the thing under the bar.
+//
+// `viewport-fit=cover` plus env(safe-area-inset-bottom) is the supported answer to this, and it is
+// already in place -- it is what clears the home indicator on iOS. The problem is that some Android
+// configurations report the inset as 0 while still painting the bar, which is the same thing that
+// drove the duration picker above the input once already (see the .composer rules in styles.css).
+// A 10px floor was the guard, and a navigation bar is 24dp for the gesture pill or 48dp for three
+// buttons, so the floor was never going to be enough.
+//
+// WHY THIS IS MEASURED RATHER THAN JUST WIDENED. Raising the floor for every phone would push the
+// composer up by that much on every device whose inset ALREADY works -- including iPhones, where
+// env() correctly reports the home indicator and the layout is right today. So the floor is raised
+// only where all three of these hold, which is exactly the broken configuration and nothing else:
+//
+//   * the window is a standalone PWA          -- a browser tab is inset by Chrome's own UI
+//   * the platform is Android                 -- iOS reports its insets correctly; a 0 there is an
+//                                                honest "this device has no home indicator"
+//   * env(safe-area-inset-bottom) reads 0     -- if the platform gives a number, it is the truth
+//                                                and is used as-is, gesture pill or buttons alike
+//
+// Read once at startup, which is enough: the manifest pins orientation to portrait-primary, so the
+// inset cannot change underneath us.
+const ANDROID_NAV_BAR_FALLBACK = 48; // dp of a three-button bar; the pill is 24 and fits inside it
+
+// env() is only readable through a real element, so borrow one for a frame. Sized rather than
+// positioned so the fallback in env(..., 0px) covers browsers that do not know the variable at all.
+function safeAreaBottom(): number {
+  const probe = document.createElement("div");
+  probe.style.cssText =
+    "position:fixed;bottom:0;left:-9999px;width:0;height:env(safe-area-inset-bottom, 0px);";
+  document.body.appendChild(probe);
+  const inset = probe.getBoundingClientRect().height;
+  probe.remove();
+  return inset;
+}
+
+if (document.body.classList.contains("chat-page")) {
+  const standalone = window.matchMedia("(display-mode: standalone)").matches;
+  // A deliberate platform check, not feature detection dressed up as one: this is a workaround for
+  // one platform's reporting, so keying it to that platform is the honest way to scope it.
+  const android = /Android/.test(navigator.userAgent);
+  if (standalone && android && safeAreaBottom() === 0) {
+    document.documentElement.style.setProperty(
+      "--chat-system-bar",
+      `${ANDROID_NAV_BAR_FALLBACK}px`,
+    );
+  }
+}
+
+// ---- swipe gestures (touch only) --------------------------------------------------------------
+// Three gestures, all of them shortcuts to controls that already exist rather than new powers:
+//
+//   message, swipe right      -> open its thread (clicks the "N svar" link)
+//   own message, swipe left   -> delete it (submits the .msg-del form, confirm() and all)
+//   thread panel, swipe right -> back to the feed (the ← button's closeThread)
+//
+// Firing the existing control rather than issuing a request is the whole trick. The thread gesture
+// goes through the anchor, so the htmx swap, the pushed history entry and the Android back handling
+// are reached by exactly one path and cannot drift from the tap; the delete gesture goes through
+// the form, so the confirm() still stands between a stray drag and a permanently deleted message.
+//
+// TOUCH ONLY, deliberately. A mouse drag across a message is how you select its text, and a
+// trackpad's horizontal scroll would be indistinguishable from a swipe. Desktop keeps the buttons.
+//
+// THE TRANSFORM IS TEMPORARY, AND THAT IS LOAD-BEARING. `translate` makes a stacking context, and
+// neither .msg nor .thread-panel may hold one at rest: both are ancestors of the `.pop` pickers,
+// which break the moment they are trapped in an ancestor's layer (see the .pop block in
+// styles.css, and the note on @keyframes thread-in for the same rule applied to the panel's
+// entrance animation). Two things enforce it. A drag never STARTS while a picker is open, and
+// settle() strips the inline translate once the spring-back has finished, so nothing is left
+// behind. The same reasoning as "a finished animation leaves nothing behind", one gesture later.
+//
+// Axis handling is CSS's job, not this file's: `touch-action:pan-y` on both elements leaves the
+// vertical axis to the browser (so the feed still scrolls with its native momentum) and hands us
+// the horizontal one. A flick that the browser claims as a scroll arrives here as pointercancel.
+const SWIPE_SLOP = 12; // px of travel before the axis is called
+const SWIPE_TRIGGER = 68; // px that commits the gesture
+const SWIPE_MAX = 96; // px the element will actually move, however far the thumb goes
+const SWIPE_HINT_FROM = 16; // px before the icon behind the bubble starts fading in
+// Vertical wins a tie, and then some: this is a scrolling list first and a gesture surface second.
+// Reading a long message must never be made harder by the shortcut for opening its thread.
+const SWIPE_X_BIAS = 1.3;
+
+type SwipeAction = "thread" | "delete" | "close";
+
+interface Drag {
+  pointerId: number;
+  el: HTMLElement;
+  startX: number;
+  startY: number;
+  decided: boolean;
+  action: SwipeAction | null;
+  armed: boolean; // past the trigger, so the buzz fires once rather than every pointermove
+}
+
+let drag: Drag | null = null;
+
+// A picker or channel menu is open, so its backdrop owns the screen and a transform on an ancestor
+// would trap the panel. Same selector the dismissal handler uses, for the same reason.
+function overlayOpen(): boolean {
+  return document.querySelector(DISMISSABLE) !== null;
+}
+
+function actionFor(el: HTMLElement, dx: number): SwipeAction | null {
+  if (el.classList.contains("thread-panel")) return dx > 0 ? "close" : null;
+  if (dx > 0) return el.querySelector(".msg-replies") ? "thread" : null;
+  // Left is delete, and only where the delete control exists — which is the server's answer to
+  // "may this resident delete this message", not one this file should try to reproduce.
+  return el.querySelector(".msg-del") ? "delete" : null;
+}
+
+function hintFor(el: HTMLElement, action: SwipeAction): HTMLElement | null {
+  const cls = action === "thread" ? ".msg-hint-thread" : ".msg-hint-del";
+  return action === "close" ? null : el.querySelector<HTMLElement>(cls);
+}
+
+function clearHints(el: HTMLElement): void {
+  for (const hint of el.querySelectorAll<HTMLElement>(".msg-hint")) {
+    hint.style.opacity = "";
+    hint.style.scale = "";
+  }
+}
+
+// Spring back to rest, then remove every trace. The class carries the transition only while it is
+// needed: left on, it would also animate the next drag's first pointermove.
+function settle(el: HTMLElement, cls: string): void {
+  el.classList.add(cls);
+  el.style.translate = "";
+  const done = (): void => {
+    el.classList.remove(cls);
+    el.removeEventListener("transitionend", done);
+  };
+  el.addEventListener("transitionend", done);
+  // transitionend does not fire when there was nothing to animate — a drag that never moved, or
+  // prefers-reduced-motion, which turns the transition off entirely. Without this fallback the
+  // class would stay on the element for good.
+  window.setTimeout(done, 260);
+}
+
+function fireSwipe(el: HTMLElement, action: SwipeAction): void {
+  if (action === "close") {
+    closeThread();
+  } else if (action === "thread") {
+    // Clicking the anchor rather than calling htmx directly: the click handler above records it as
+    // threadOpener on the way past, which is what focus returns to when the thread is closed.
+    el.querySelector<HTMLElement>(".msg-replies")?.click();
+  } else {
+    el.querySelector<HTMLFormElement>(".msg-del")?.requestSubmit();
+  }
+}
+
+function endDrag(commit: boolean): void {
+  const active = drag;
+  drag = null;
+  if (!active) return;
+  const { el, action } = active;
+  clearHints(el);
+  settle(el, el.classList.contains("thread-panel") ? "thread-releasing" : "msg-releasing");
+  // Act AFTER handing the element back its resting position, so the inline translate is already on
+  // its way out when the thread swap or the confirm() dialog arrives.
+  if (commit && action) fireSwipe(el, action);
+}
+
+if (feed) {
+  // Tells the stylesheet the gestures are live, which is what lets the delete ✕ hide itself on
+  // touch (see .msg-del in styles.css). Set from here rather than assumed in CSS so a phone that
+  // never ran this bundle — blocked, cached broken, an old service worker — keeps the button it
+  // needs to delete a message at all.
+  document.body.classList.add("swipe-ready");
+
+  document.addEventListener("pointerdown", (event: PointerEvent) => {
+    if (event.pointerType !== "touch" || drag || overlayOpen()) return;
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    // Anything that already answers a touch keeps it. `.reaction` is named on top of the element
+    // list because a pill IS a button, and losing that gesture would take the who-reacted panel
+    // with it — the hold timer above starts on the same pointerdown.
+    if (target.closest("a, button, input, textarea, select, label, .reaction")) return;
+    const el = target.closest<HTMLElement>("[data-msg-swipe], .thread-panel");
+    if (!el) return;
+    drag = {
+      pointerId: event.pointerId,
+      el,
+      startX: event.clientX,
+      startY: event.clientY,
+      decided: false,
+      action: null,
+      armed: false,
+    };
+  });
+
+  document.addEventListener("pointermove", (event: PointerEvent) => {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+
+    if (!drag.decided) {
+      if (Math.abs(dx) < SWIPE_SLOP && Math.abs(dy) < SWIPE_SLOP) return;
+      if (Math.abs(dx) <= Math.abs(dy) * SWIPE_X_BIAS) {
+        drag = null; // a scroll, and the browser is already handling it
+        return;
+      }
+      const action = actionFor(drag.el, dx);
+      if (!action) {
+        drag = null; // nothing lives in that direction, so the bubble must not budge
+        return;
+      }
+      drag.decided = true;
+      drag.action = action;
+      // Keep receiving moves even if the finger leaves the element — a swipe that starts near the
+      // bottom of a short bubble is otherwise lost the moment it drifts out of it.
+      drag.el.setPointerCapture?.(event.pointerId);
+    }
+
+    // Narrowed once here rather than read off `drag` at each use. The field is nullable only for
+    // the span between pointerdown and the axis being called, and by this line that span is over —
+    // either it was decided on an earlier move or on this one, and both paths set it.
+    const action = drag.action;
+    if (!action) return;
+
+    // Only movement in the committed direction counts. Reversing mid-drag winds the bubble back to
+    // rest rather than re-deciding, which would let one gesture turn into the other under the thumb.
+    const dir = action === "delete" ? -1 : 1;
+    const along = Math.max(0, dx * dir);
+    // Past the trigger the bubble keeps moving, but at a quarter speed. That resistance is the
+    // feedback: it says the gesture has caught without needing the element to stop dead.
+    const eased =
+      along <= SWIPE_TRIGGER ? along : SWIPE_TRIGGER + (along - SWIPE_TRIGGER) * 0.25;
+    drag.el.style.translate = `${Math.min(eased, SWIPE_MAX) * dir}px 0`;
+
+    const hint = hintFor(drag.el, action);
+    if (hint) {
+      // Held at 0 until the bubble has cleared the icon's own width, so the two never overlap:
+      // the hints are painted OVER the bubble, not behind it (see _message.html for why there is
+      // no z-index to put them underneath).
+      const progress = Math.min(
+        1,
+        Math.max(0, (along - SWIPE_HINT_FROM) / (SWIPE_TRIGGER - SWIPE_HINT_FROM)),
+      );
+      hint.style.opacity = String(progress);
+      hint.style.scale = String(0.7 + progress * 0.3);
+    }
+
+    const past = along >= SWIPE_TRIGGER;
+    if (past && !drag.armed) {
+      drag.armed = true;
+      // Android only — iOS has no Vibration API and ignores it. Optional either way, so it is
+      // called through a guard rather than assumed.
+      navigator.vibrate?.(8);
+    } else if (!past) {
+      drag.armed = false;
+    }
+  });
+
+  document.addEventListener("pointerup", (event: PointerEvent) => {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    endDrag(drag.armed);
+  });
+
+  // The browser took the gesture over as a scroll, or the system interrupted it. Never commits.
+  document.addEventListener("pointercancel", (event: PointerEvent) => {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    endDrag(false);
+  });
+}
+
 // ---- composer --------------------------------------------------------------------------------
 const composer = document.getElementById("js-composer");
 if (composer instanceof HTMLFormElement) {
@@ -457,3 +745,36 @@ if (composer instanceof HTMLFormElement) {
     });
   }
 }
+
+// ---- reply attachments ------------------------------------------------------------------------
+// The same confirmation for the thread panel's reply box, which never had one. It could get away
+// without while a reply also required text — you could see you had typed something — but a reply
+// may now be a PHOTO ON ITS OWN (see _thread.html and views.create_comment), and then the filename
+// is the only evidence on screen that there is anything to send.
+//
+// Delegated from `document` rather than bound to the input, because the panel does not exist when
+// this module runs and is replaced wholesale every time a different thread is opened. `change` does
+// not bubble on all legacy engines but does in every browser this PWA supports, and the reply form
+// carries data-morph-skip so the panel's own 5s poll cannot wipe the note back out.
+document.addEventListener("change", (event) => {
+  const input = event.target;
+  if (!(input instanceof HTMLInputElement) || input.type !== "file") return;
+  const form = input.closest("form.reply-form");
+  const note = form?.querySelector<HTMLElement>("[data-reply-file]");
+  if (!note) return;
+  const name = input.files?.[0]?.name;
+  note.textContent = name ? `📎 ${name}` : "";
+  note.hidden = !name;
+});
+
+// The form resets itself on a successful post (hx-on::after-request in _thread.html), but a reset
+// clears only the FIELDS — this note is an ordinary element, so it would keep displaying the
+// filename of a photo that has already been sent, and the next reply would look pre-loaded.
+document.addEventListener("reset", (event) => {
+  const form = event.target;
+  if (!(form instanceof HTMLFormElement)) return;
+  const note = form.querySelector<HTMLElement>("[data-reply-file]");
+  if (!note) return;
+  note.textContent = "";
+  note.hidden = true;
+});

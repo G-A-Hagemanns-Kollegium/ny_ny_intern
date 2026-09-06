@@ -63,6 +63,8 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args: object, **opts: object) -> None:
+        # Rows pointing at an absolute URL rather than a stored file; counted, never chased.
+        self.external = 0
         referenced = self._referenced()
         present = self._present()
 
@@ -73,6 +75,11 @@ class Command(BaseCommand):
 
         self.stdout.write(f"Referenced by the database: {len(referenced)}")
         self.stdout.write(f"Present in storage:         {len(present)}")
+        if self.external:
+            self.stdout.write(
+                f"Rows pointing at an absolute URL, not at storage: {self.external} "
+                "(legacy oelkaelder product images; nothing to migrate, and nothing missing)"
+            )
 
         # Missing first: a referenced file that is gone is a visible bug on somebody's page, while
         # an orphan costs a fraction of a cent a year.
@@ -108,12 +115,25 @@ class Command(BaseCommand):
 
         # 1. Every FileField on every model, discovered rather than listed, so a new one added to
         #    any app is covered without editing this command.
+        #
+        #    ABSOLUTE URLS ARE NOT STORAGE NAMES. oelkaelder.Product.image is a FileField whose
+        #    legacy rows hold the old site's URL outright ("legacy imageurl", models.py) — around
+        #    134 of them in production. Counting those as references made every one of them a
+        #    permanent entry in the MISSING list, which is the section that has to stay empty to be
+        #    worth reading: an operator who is used to seeing 134 there will not notice the 135th.
+        #    relocate_media.legacy_image_segments skips them for the same reason.
         for model in self._concrete_models():
             fields = [f for f in model._meta.get_fields() if isinstance(f, models.FileField)]
             if not fields:
                 continue
             for row in model._default_manager.values_list(*[f.name for f in fields]):
-                names.update(value for value in row if value)
+                for value in row:
+                    if not value:
+                        continue
+                    if value.startswith(("http://", "https://")):
+                        self.external += 1
+                        continue
+                    names.add(value)
 
         # 2. The two CharFields holding a URL rather than a name.
         for value in [

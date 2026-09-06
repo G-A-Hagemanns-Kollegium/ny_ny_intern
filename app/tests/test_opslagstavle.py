@@ -2,7 +2,7 @@
 
 The renderer itself is tested in test_markdown.py (pure, no DB) and the shared push transport in
 test_push.py. What is here is the feature: who may do what, how the list orders and paginates, the
-image claim/release lifecycle, retention, and the notification *policy*.
+image claim/release lifecycle, the orphan-upload sweep, and the notification *policy*.
 
 Several tests assert the **absence** of things Den Hurtige does — the 20-second poll, the zoom
 lockdown, a purge on page load. Those look like omissions and are decisions; without a test they get
@@ -25,7 +25,6 @@ from den_hurtige import access as den_hurtige_access
 from opslagstavle import access
 from opslagstavle.models import (
     MAX_PINNED,
-    RETENTION_DAYS,
     Category,
     Notice,
     NoticeComment,
@@ -981,7 +980,7 @@ def test_an_image_in_a_code_fence_is_not_claimed(client: Client, beboer: Residen
     assert NoticeImage.objects.get().notice_id is None
 
 
-# --- retention ------------------------------------------------------------------------------------
+# --- no retention, and the orphan-upload sweep ------------------------------------------------------------------------------------
 
 
 def _age(notice: Notice, days: int) -> Notice:
@@ -991,43 +990,29 @@ def _age(notice: Notice, days: int) -> Notice:
     return notice
 
 
-def test_purge_deletes_posts_past_the_retention_window(beboer: Resident) -> None:
+def test_purge_never_deletes_a_post_however_old(beboer: Resident) -> None:
+    """THE POLICY, and the regression test for it: opslagstavlen keeps its archive.
+
+    There used to be a two-year window here (five before user testing shortened it). The board is
+    the kollegium's record of værelsesrunden results, practical notices and who announced what, and
+    a window quietly threw that half away — which was the half worth having when it replaced a
+    Facebook group. Nothing but the author or a moderator removes a post now.
+    """
     from django.core.management import call_command
 
-    _age(make_notice(beboer, body="Gammelt"), RETENTION_DAYS + 1)
+    _age(make_notice(beboer, body="Fra dengang"), 365 * 12)
+    _age(make_notice(beboer, body="Sidste år"), 400)
     make_notice(beboer, body="Nyt")
 
     call_command("purge_notices")
 
-    assert [n.body for n in Notice.objects.all()] == ["Nyt"]
-
-
-def test_purge_keeps_a_pinned_post_however_old(beboer: Resident, inspektion: Resident) -> None:
-    """A pin is Inspektionen saying the kollegium keeps this, which makes it the retention override."""
-    from django.core.management import call_command
-
-    old = _age(make_notice(beboer, body="Fastgjort og gammelt"), RETENTION_DAYS * 2)
-    Notice.objects.filter(pk=old.pk).update(pinned_at=timezone.now(), pinned_by=inspektion)
-
-    call_command("purge_notices")
-
-    assert Notice.objects.filter(pk=old.pk).exists()
-
-
-def test_purge_keeps_a_post_one_day_short_of_the_window(beboer: Resident) -> None:
-    from django.core.management import call_command
-
-    _age(make_notice(beboer), RETENTION_DAYS - 1)
-
-    call_command("purge_notices")
-
-    assert Notice.objects.exists()
+    assert Notice.objects.count() == 3
 
 
 def test_purge_dry_run_deletes_nothing(beboer: Resident, media_tmp: Path) -> None:
     from django.core.management import call_command
 
-    _age(make_notice(beboer), RETENTION_DAYS + 1)
+    _age(make_notice(beboer), 365 * 5)
     NoticeImage.objects.create(file=png(), uploaded_by=beboer)
     NoticeImage.objects.update(uploaded_at=timezone.now() - timedelta(days=7))
 
@@ -1037,28 +1022,36 @@ def test_purge_dry_run_deletes_nothing(beboer: Resident, media_tmp: Path) -> Non
     assert NoticeImage.objects.exists()
 
 
-def test_purge_erases_the_files_of_the_posts_it_deletes(
+def test_a_bulk_delete_still_erases_the_image_files(
     beboer: Resident, media_tmp: Path, django_capture_on_commit_callbacks: Callable
 ) -> None:
     """A bulk queryset delete never calls Model.delete() but DOES fire post_delete — which is exactly
-    why NoticeImage cleans up in a receiver, and why this works at all."""
+    why NoticeImage cleans up in a receiver.
+
+    The retention purge used to be the caller that proved this, and it is gone; the property is not.
+    Any bulk removal (a moderator clearing a spam run, a future feature, a shell) must still take the
+    files with it, and against object storage a leaked file is one nothing on any page can reach.
+    """
     from django.core.management import call_command
 
-    notice = _age(make_notice(beboer), RETENTION_DAYS + 1)
+    notice = make_notice(beboer)
     image = NoticeImage.objects.create(notice=notice, file=png(), uploaded_by=beboer)
     stored = media_tmp / image.file.name
     assert stored.is_file()
 
     with django_capture_on_commit_callbacks(execute=True):
-        call_command("purge_notices")
+        Notice.objects.filter(pk=notice.pk).delete()
 
     assert not stored.exists()
+    call_command("purge_notices")  # and the sweep finds nothing left to do
 
 
 def test_purge_sweeps_an_old_unclaimed_upload(
     beboer: Resident, media_tmp: Path, django_capture_on_commit_callbacks: Callable
 ) -> None:
-    """The abandoned-draft case: the composer was opened, pictures added, the tab closed."""
+    """The abandoned-draft case, and now the command's ONLY job: the composer was opened, pictures
+    added, the tab closed. Without this every abandoned draft leaves a file in the bucket forever,
+    unreachable from any page and noticed by nobody."""
     from django.core.management import call_command
 
     image = NoticeImage.objects.create(file=png(), uploaded_by=beboer)
@@ -1083,22 +1076,36 @@ def test_purge_keeps_a_freshly_uploaded_unclaimed_image(beboer: Resident, media_
     assert NoticeImage.objects.exists()
 
 
+def test_purge_keeps_an_image_its_post_still_uses(beboer: Resident, media_tmp: Path) -> None:
+    """Claimed images are not orphans, however old the post gets — which is the whole board now."""
+    from django.core.management import call_command
+
+    notice = _age(make_notice(beboer), 365 * 6)
+    NoticeImage.objects.create(notice=notice, file=png(), uploaded_by=beboer)
+    NoticeImage.objects.update(uploaded_at=timezone.now() - timedelta(days=365 * 6))
+
+    call_command("purge_notices")
+
+    assert NoticeImage.objects.exists()
+
+
 def test_purge_is_idempotent(beboer: Resident) -> None:
     from django.core.management import call_command
 
-    _age(make_notice(beboer), RETENTION_DAYS + 1)
+    NoticeImage.objects.create(file=png(), uploaded_by=beboer)
+    NoticeImage.objects.update(uploaded_at=timezone.now() - timedelta(days=7))
 
     call_command("purge_notices")
     call_command("purge_notices")
 
-    assert not Notice.objects.exists()
+    assert not NoticeImage.objects.exists()
 
 
-def test_opening_the_board_purges_nothing(client: Client, beboer: Resident) -> None:
+def test_opening_the_board_deletes_nothing(client: Client, beboer: Resident) -> None:
     """Deliberately unlike Den Hurtige, which purges on every feed load. Its promise is "gone in 30
-    minutes", so a missed cron is visibly wrong within the hour; here the tolerance is months, and a
-    DELETE on every request would run for years finding nothing."""
-    old = _age(make_notice(beboer), RETENTION_DAYS + 1)
+    minutes", so a missed cron is visibly wrong within the hour; here nothing a reader can see is
+    affected at all, and the posts are now kept regardless."""
+    old = _age(make_notice(beboer), 365 * 4)
     client.force_login(beboer)
 
     client.get(BOARD)

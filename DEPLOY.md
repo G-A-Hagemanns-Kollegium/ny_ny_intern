@@ -96,15 +96,15 @@ or an overlapping run is harmless.
 | `python manage.py purge_applications` | `20 3 * * *` | **The one that is genuinely missing.** F-001 says applications are kept one year; nothing has ever enforced it, so applicant PII accumulates indefinitely — the exact GDPR gap 99-index.md flags in the legacy system. |
 | `python manage.py ak_monthly_assessment` | `10 4 1 * *` | Books the month's AK deduction on the 1st instead of whenever someone happens to open an internal page. |
 | `python manage.py purge_quick_posts` | `*/30 * * * *` | Drains expired Den Hurtige posts (and their images) even in a quiet week when nobody loads the feed. |
-| `python manage.py purge_notices` | `40 3 * * *` | Enforces opslagstavlen's ~2-year retention and sweeps compose-toolbar images that were uploaded to a post nobody ever saved. **Pinned opslag are exempt** — a pin is Inspektionen deciding the kollegium keeps that one. Offset from `purge_applications` (03:20) so two deletes never overlap on the same small box. |
+| `python manage.py purge_notices` | `40 3 * * *` | Sweeps compose-toolbar images uploaded to a post nobody ever saved. **It no longer deletes opslag** — the board keeps its archive (spec/features/opslagstavle.md). The name is kept so this row and the Coolify task stay valid; if it is ever renamed, both move in the same change. Offset from `purge_applications` (03:20) so two deletes never overlap on the same small box. |
 | `python manage.py archive_finished_repairs` | `50 3 * * *` | Archives (never deletes) a Reparationer ticket that has sat in Færdig for over 30 days, so the board does not fill up with old closed repairs — still searchable via the Arkiv page. Offset from `purge_notices` (03:40) so the two never overlap. |
 | `python manage.py purge_events` | `0 4 * * *` | Enforces Begivenheder's retention: an event goes a week after it ends, a cancelled one thirty days after it was cancelled (two clocks, see `events/models.py`). Offset to 04:00 so it does not overlap `purge_applications` (03:20), `purge_notices` (03:40) or `archive_finished_repairs` (03:50) on the same small box. |
 | `python manage.py remind_rsvp_deadlines` | `0 17 * * *` | Nudges the people who have not answered when a svarfrist falls inside the next 24 hours. **Once per event** — the claim is a compare-and-swap on `reminder_sent_at`, taken *before* the send, so a crash between the two loses one reminder rather than pushing the whole house twice. Runs at 17:00 rather than overnight because it is a notification people are meant to act on. |
 
 **Run `purge_applications --dry-run` by hand first.** It deletes permanently and there is no undo;
 confirm the count is what you expect before putting it on a schedule.
-The same goes for `purge_notices` — though its retention branch will delete nothing for years, so
-the number worth eyeballing on the first real run is the *unused image* count.
+`purge_notices` needs less care: it only ever removes uploads no post references, so the number to
+eyeball on the first real run is simply that unused-image count.
 
 `purge_events` and `remind_rsvp_deadlines` both have lazy backstops in the events list view, for
 the reason given below; `purge_notices` does not.
@@ -112,9 +112,9 @@ the reason given below; `purge_notices` does not.
 **`purge_notices` is the deliberate exception to the lazy-guard rule below, and should stay that
 way.** Den Hurtige purges on every feed load because its promise is "gone in 30 minutes": a message
 that should have vanished is visibly wrong to a reader within the hour, so cron failing silently has
-an immediate cost. Opslagstavlen's tolerance is *months* — if the job is dead for a week nothing is
-wrong for anybody — and putting a potentially large DELETE on every board request to insure against
-that would be a bad trade. Don't "fix" the inconsistency.
+an immediate cost. Opslagstavlen now deletes no posts at all, and its sweep affects nothing a reader
+can see — a missed night leaves a few unreferenced files in the bucket. Putting that on every board
+request would be a bad trade. Don't "fix" the inconsistency.
 
 **These do not replace the lazy guards, and the lazy guards should stay.** `ensure_active_month_applied()`
 costs two indexed single-row queries on three pages (measured), and it is the only thing that makes a
@@ -135,69 +135,201 @@ decision for them, not a technical one.
 
 ### 4c. Media on object storage (Hetzner Object Storage)
 
-Uploads can live in an S3-compatible bucket instead of the `media` volume. **`S3_BUCKET` is the
-whole switch**: unset, everything writes to `MEDIA_ROOT` exactly as before, which is what dev and CI
-run. There is no second flag and no half-enabled state.
+Uploads live in an S3-compatible bucket rather than the `media` volume. **`S3_BUCKET` is the whole
+switch** — there is no second flag and no half-enabled state.
 
 **`MEDIA_URL` stays `/media/`, permanently.** It is a prefix of content stored in the *database*:
 `cms.Page.background_image` is a CharField holding the URL string outright, the CMS toolbar writes
 `<img src="/media/…">` into page bodies, and opslag bodies embed the same in Markdown. Repointing it
 at the bucket host makes those images vanish (the sanitiser drops a src it does not recognise) and
 makes the next edit of an existing opslag release its images for `purge_notices` to delete a day
-later — silently, both of them. **The live exposure is the CMS**, which the legacy ETL populated;
-opslagstavlen is still behind its rollout gate, so its share grows when that opens.
-`core/storage.py` carries the argument; `core.checks` (**core.E007–E009**) refuses to start the
-process if it is ever broken. Instead, `core.media.serve_media` answers `/media/<path>` with a 302
-to a short-lived presigned URL.
+later — silently, both. `core/storage.py` carries the argument; `core.checks` (**core.E007-E010**)
+refuses to start the process if it is broken. `core.media.serve_media` answers `/media/<path>` with a
+302 to a short-lived presigned URL instead.
 
-Setup, in order:
+#### The migration, in the order it must happen
 
-1. Create the bucket in the **same location as the VM** (`fsn1`) — traffic inside eu-central does
-   not count against the egress allowance. The name becomes a DNS label, so lowercase and
-   **no dots**, or TLS fails against Hetzner's wildcard certificate.
-2. Set the six variables from §2 in Coolify. **The two `AWS_*_CHECKSUM_*` ones are not optional**:
-   botocore ≥ 1.36 sends `x-amz-checksum-crc32` with `aws-chunked` framing on every PUT, which
-   Hetzner mis-stores or rejects. The failure is nasty — a 200 whose stored object contains the
-   chunk framing, or `XAmzContentSHA256Mismatch`. Confirm with one real upload before trusting it.
-3. `python manage.py migrate_media_to_s3 --dry-run`, and check the count against
-   `find app/media -type f | wc -l` before running it for real. It is idempotent and never deletes,
-   so re-run it after the cutover to catch anything uploaded in between.
-4. `python manage.py audit_media` — **zero missing** is the thing to confirm. A referenced file that
-   is not in storage renders as a broken image on a page that still returns 200, so nothing else
-   will tell you. Expect *orphans* to be non-zero and harmless: `relocate_media` copies in legacy
-   images whose rows the ETL may not have created, and a freshly uploaded opslag image is
-   unreferenced on purpose until its post is saved.
-5. **Keep the `media` volume mounted** for at least one release. Unsetting `S3_BUCKET` is the
-   rollback, and it only works while the files are still there.
+The hazard is **`S3_BUCKET` being set when the code first deploys**. The app then boots straight onto
+an empty bucket and every existing image 404s at once — the files are still on the volume, but
+nothing serves them. Deploy first, migrate second, flip third:
 
-Two settings are load-bearing rather than tuning, and both are commented in `config/settings.py`:
-`file_overwrite=False` (django-storages defaults it to *True*, and `Resident.profile_picture`
-uploads to a flat prefix with no uniquifier — so the second resident to upload an `IMG_1234.jpg`
-would silently replace the first one's photo), and `location="media"` (with no prefix,
-`safe_join` collapses `..` instead of raising, and `/media/../backups/…` would hand out a presigned
-URL for a database dump).
+**Stage 0.** Leave `S3_BUCKET` unset in Coolify. The other five variables are inert without it.
 
-`audit_media` is **report-only, and must stay that way.** A media reference can live in six places,
-only one of which is a FileField — see the command's docstring and `tests/test_audit_media.py`,
-which has one test per source. Miss one and an automatic sweep deletes live content with no undo.
+**Stage 1 — deploy, still on disk.** The app behaves exactly as before, so this stage validates the
+two things that *did* change behaviour, with zero storage risk:
+```
+docker exec <web> python manage.py check                      # core.E007-E010 silent
+docker exec <web> sh -c 'find /app/media -type f | wc -l'     # baseline count
+docker exec <web> python manage.py audit_media --limit 5      # baseline, and note "Present"
+```
+Then, logged **out**: a public CMS page still shows its images, and `/media/profile_pictures/<real>`
+redirects to the login page. Logged **in**: that same URL returns the image. A missing front-page
+image here is the auth gate's prefix list, not storage.
 
-**`/media/` is no longer public.** It used to be, as the legacy `/public/` images were — so anyone
-who guessed `/media/profile_pictures/IMG_1234.jpg` (a real name: no date, no random suffix) could
-read a resident's photograph. Now only `core.media.PUBLIC_PREFIXES` — just `cms/` — is anonymous,
-and every other prefix redirects to the login page.
+**Stage 2 — migrate, app still serving from disk.** Inject the bucket for the single command:
+```
+docker exec -e S3_BUCKET=<bucket> <web> python manage.py migrate_media_to_s3 --dry-run
+docker exec -e S3_BUCKET=<bucket> <web> python manage.py migrate_media_to_s3
+docker exec -e S3_BUCKET=<bucket> <web> python manage.py audit_media --limit 5
+```
+The upload count must match the baseline. **This is where the botocore checksum flags get their
+first real test** — and the right place for it, because a failure here is harmless: the live site is
+still serving from the volume.
+
+Then re-run `migrate_media_to_s3`. `0 file(s) uploaded, N already present and identical` is the
+verification that matters: `_already_there` compares size **and** MD5 against each object's ETag, so
+"identical" for every file means the bodies round-tripped intact and the checksum flags are right. A
+mass re-upload means they are not.
+
+**Stage 3 — flip.** Set `S3_BUCKET` permanently and **restart** (an env change does not reach a
+running container, and Coolify then gives you a container with a *new name*). Confirm:
+```
+docker exec <web> python manage.py shell -c "from django.core.files.storage import storages; print(type(storages['default']).__name__)"
+```
+→ `MediaS3Storage`. Run `migrate_media_to_s3` once more to sweep up anything uploaded during the
+window, then check images in a browser, logged out and logged in, and upload one new image.
+
+**Rollback** is unsetting `S3_BUCKET` — **but only while the `media` volume still has the files.**
+Once it is emptied (below) that path is gone, which is what `core.E010` exists to enforce.
+
+#### Emptying the volume
+
+Only after the bucket has versioning **and** a lifecycle rule (§4d), and the backups are green:
+```
+docker exec <web> python manage.py migrate_media_to_s3      # expect 0 uploaded
+docker exec <web> python manage.py audit_media --limit 5    # MISSING only https://gahk.dk/... rows
+docker exec <web> sh -c 'find /app/media -mindepth 1 -delete'
+```
+Leave the mount in `docker-compose.prod.yml`; an empty volume costs nothing.
+
+#### Settings that are load-bearing, not tuning
+
+Both are commented in `config/settings.py`:
+- **`file_overwrite=False`** — django-storages defaults it to *True*, which skips Django's
+  name-suffixing. `Resident.profile_picture` uploads to a flat prefix with no uniquifier, so the
+  second resident to upload an `IMG_1234.jpg` would silently replace the first one's photo.
+- **`location="media"`** — with no prefix, `safe_join` collapses `..` instead of raising, and
+  `/media/../backups/…` would hand out a presigned URL for a database dump. The prefix is what makes
+  one bucket safe to share with §4d.
+
+**The two `AWS_*_CHECKSUM_*` variables are not credentials.** They are botocore behaviour flags whose
+value is the literal string `when_required`; there is nothing to obtain. Without them botocore ≥1.36
+sends `x-amz-checksum-crc32` with `aws-chunked` framing on every PUT, which Hetzner mis-stores or
+rejects — and the upload still returns 200.
+
+`audit_media` is **report-only and must stay that way.** A media reference can live in six places,
+only one of which is a FileField; `tests/test_audit_media.py` has one test per source. A permanent
+~134-row MISSING section is expected and is *not* missing files: `oelkaelder.Product.image` is a
+FileField whose legacy rows hold the old site's absolute URL ("legacy imageurl"). Those images are
+broken on the live site today, independently of any of this, and are a separate fix.
+
+#### `/media/` is no longer public
+
+It used to be, as the legacy `/public/` images were — so anyone who guessed
+`/media/profile_pictures/IMG_1234.jpg` (a real name: no date, no random suffix) could read a
+resident's photograph. Now only `core.media.PUBLIC_PREFIXES` — just `cms/` — is anonymous.
 
 `cms/` is the exception because `cms.CmsImage` uploads are embedded in `Page.body`, `NewsItem.body`
 and `Event.description`, which the logged-out front page renders; `body_media` rewrites only the
 *legacy* `/public/…` paths to `/static/legacy/`, so it never moves these off `/media/`. Every other
 prefix was checked individually and is reachable only from `/intern/` — including `oel/` and
-`public/`, which look public-ish and are not (ølkælder lives under `/intern/oelkaelder/`, and
+`public/`, which look public and are not (ølkælder lives under `/intern/oelkaelder/`, and
 `relocate_media` copies only ølkælder and værelsestjek legacy images into `media/public/`).
 
-**If a front-page image ever goes missing, this list is the first thing to check** — add a prefix
-only after tracing it the same way. The gate is a blanket `login_required` per prefix, not
-per-object: any logged-in resident can fetch any non-`cms/` file, so a *private* begivenhed's poster
-is protected from the public but not from other residents. Closing that would mean resolving each
-path back to its owning row and applying `events.access.visible_to`; deliberately not done.
+**If a front-page image ever goes missing, this list is the first thing to check.** The gate is a
+blanket `login_required` per prefix, not per-object: any logged-in resident can fetch any non-`cms/`
+file, so a *private* begivenhed's poster is protected from the public but not from other residents.
+Closing that would mean resolving each path back to its owning row and applying
+`events.access.visible_to`; deliberately not done.
+
+### 4d. Backups, versioning and restore
+
+Configured on the **Coolify database resources**, not as management commands: Coolify runs `pg_dump`
+inside the database container, where the client version always matches the server. A
+`manage.py backup_db` would need `postgresql-client` added to a `python:3.13-slim` image and pinned
+in lockstep with the managed Postgres major forever — a mismatched `pg_dump` refuses to run.
+
+| What | Schedule (UTC) | Retention | Why |
+| --- | --- | --- | --- |
+| **Postgres** (gahk) | `0 2 * * *` | 30 days | Residents, AK ledger, ølkælder balances, opslag |
+| **MariaDB** (MediaWiki) | `20 2 * * *` | 30 days | Its own app and its own DB — easy to forget |
+| **Coolify instance** | `40 2 * * *` | 14 days | Its DB holds the app definitions and every env var in §2 |
+
+Destination is the same bucket as media, under `backups/`. That is safe because Django's storage is
+pinned to `location="media"` (§4c), so `/media/../backups/…` raises rather than resolving, and
+`audit_media` is prefix-scoped to `media/` and never reports a backup as an orphan.
+
+Offsets matter: §4b already runs tasks at 03:20, 03:40, 03:50 and 04:00, so backups sit in the
+02:00-02:40 window and never overlap a purge on this small box. Coolify evaluates cron on the **host
+clock (UTC)** while Django's `TIME_ZONE` is `Europe/Copenhagen`.
+
+#### Versioning and lifecycle — both, or neither is worth much
+
+Versioning is the undo for a bad purge; `core/files.py` is otherwise the sole executioner of the sole
+copy. **It is off by default on a new Hetzner bucket** — check rather than assume, and note that a
+bucket without it returns no `Status` key at all:
+```
+docker exec <web> python manage.py shell -c "
+from django.core.files.storage import storages
+s = storages['default']; c = s.connection.meta.client
+print(c.get_bucket_versioning(Bucket=s.bucket_name).get('Status'))"
+```
+
+**Versioning without a lifecycle rule would be actively wrong here.** Den Hurtige hard-deletes its
+images after 30 minutes to 24 hours and `purge_notices` sweeps opslag images nightly; every one of
+those deletions leaves a retained noncurrent version *forever*. You would pay to store precisely the
+images the features promise to destroy, and quietly break a deletion promise made to residents. So:
+```
+c.put_bucket_lifecycle_configuration(Bucket=s.bucket_name, LifecycleConfiguration={'Rules':[
+  {'ID':'expire-noncurrent-versions','Filter':{'Prefix':'media/'},'Status':'Enabled',
+   'NoncurrentVersionExpiration':{'NoncurrentDays':30}},
+  {'ID':'abort-incomplete-uploads','Filter':{'Prefix':''},'Status':'Enabled',
+   'AbortIncompleteMultipartUpload':{'DaysAfterInitiation':7}},
+]})
+```
+Thirty days is the undo window: long enough to notice a bad purge, short enough that the deletion
+promise holds in substance. The media rule is scoped to `media/` on purpose — `backups/` wants its
+own retention, not this one.
+
+#### One copy must live off Hetzner
+
+Same provider, same project, same credentials: an unpaid invoice, a suspension or a leaked token
+takes the primary *and* the backups. A weekly `rclone` pull to a Hetzner Storage Box (different
+product, different credentials) or a documented quarterly manual download both count; nothing does
+not. **The Coolify instance backup contains the S3 credentials for the bucket it is written into**,
+so keep those keys somewhere outside Hetzner or you can read that backup only by already having what
+is in it.
+
+Note also that a 30-day backup retention means applicant data deleted by `purge_applications`
+survives up to 30 days longer than F-001's one-year policy implies. Normal and defensible; written
+down here so it is a decision rather than a discovery.
+
+#### Verifying a backup, and rehearsing a restore
+
+A backup nobody has restored is not a backup. What landed in the bucket:
+```
+docker exec <web> python manage.py shell -c "
+from django.core.files.storage import storages
+for o in storages['default'].bucket.objects.filter(Prefix='backups/'):
+    print(o.last_modified, f'{o.size/1e6:.1f} MB', o.key)"
+```
+A zero-byte or implausibly small dump is the classic silent failure. **Confirm an *unattended* run
+appears** — a manually triggered one proves the credentials, not the schedule.
+
+The rehearsal, against the dev Postgres container (`task db:up`), never touching the dev database:
+```
+docker cp <dump>.dmp ny_ny_intern-postgres-1:/tmp/d.dmp
+docker exec ny_ny_intern-postgres-1 pg_restore --list /tmp/d.dmp | head        # readable? right dbname?
+docker exec ny_ny_intern-postgres-1 psql -U gahk -d postgres -c "CREATE DATABASE gahk_restore_test;"
+docker exec ny_ny_intern-postgres-1 pg_restore -U gahk -d gahk_restore_test --no-owner --no-privileges /tmp/d.dmp
+docker exec ny_ny_intern-postgres-1 psql -U gahk -d gahk_restore_test -c   "SELECT relname, n_live_tup FROM pg_stat_user_tables WHERE n_live_tup>0 ORDER BY 2 DESC LIMIT 20;"
+docker exec ny_ny_intern-postgres-1 psql -U gahk -d postgres -c "DROP DATABASE gahk_restore_test;"
+```
+Exit 0 with no errors, and row counts in the right order of magnitude. A healthy dump is ~4 MB for
+roughly 390k rows across 63 tables, dominated by the ølkælder ledger; ~124 residents. The database
+holds no binary data now that media is in the bucket. Cross-check the applied migrations against the
+branch — every project migration should be present (Django's own built-ins add ~18 beyond the files
+under `app/*/migrations/`).
 
 ## 5. Data migration to prod
 ```
@@ -229,10 +361,11 @@ Encoding: connection charset is utf8mb3 — check per-table charsets, watch lati
 - [ ] Fresh GitHub repo, CI green, Dependabot on.
 - [ ] Hetzner + Coolify up; `.env.prod` secrets set (all rotated).
 - [ ] Postgres + MariaDB provisioned; `media` volume mounted.
-- [ ] **If moving media to the bucket (§4c):** bucket created in `fsn1` with a dot-free name; all six
-      env vars set *including* both `AWS_*_CHECKSUM_*`; one real upload verified; then
-      `migrate_media_to_s3 --dry-run` reviewed, run for real, and `audit_media` reporting **zero
-      missing**. Keep the `media` volume — unsetting `S3_BUCKET` is the rollback.
+- [ ] **Media on the bucket (§4c):** bucket in `fsn1` with a dot-free name; `S3_BUCKET` left UNSET
+      for the first deploy; stages 1-3 followed in order; the re-run of `migrate_media_to_s3`
+      reporting `0 uploaded, N already present and identical` (the checksum proof).
+- [ ] **Before emptying the `media` volume:** bucket versioning `Enabled` **and** the lifecycle rules
+      in place (§4d), backups green, and one copy off Hetzner. Until then the volume is the rollback.
 - [ ] After the bucket is live, confirm images still render on a **public CMS page** while logged
       OUT — that is the live, ETL-populated content, the only prefix the gate leaves anonymous, and
       the one that actually has something to lose. Then log in and check opslagstavlen and
@@ -242,6 +375,8 @@ Encoding: connection charset is utf8mb3 — check per-table charsets, watch lati
 - [ ] `sendtestemail` green for **both** sender addresses (§2); one real "glemt kodeord" round-trip.
 - [ ] Scheduled tasks created in Coolify (§4b); `purge_applications --dry-run` reviewed before the
       daily job is enabled, and each task run once by hand so its log is known-good.
+- [ ] Backups configured on all three Coolify resources (§4d); an **unattended** run confirmed in
+      the bucket, and one restore rehearsed end-to-end with row counts checked.
 - [ ] Interim hardening done on the *old* box until DNS flips (scope §8: lock KCFinder, gate mass-mailers,
       delete `phpinfo.php`, pull & archive access logs).
 - [ ] MediaWiki migrated + upgraded to 1.43, reachable behind the proxy.

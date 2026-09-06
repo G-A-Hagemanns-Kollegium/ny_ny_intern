@@ -7,23 +7,29 @@ from residents.models import Resident, RoleAssignment, active_period
 
 
 @pytest.fixture(autouse=True)
-def _never_touch_the_real_bucket(settings: object) -> None:
-    """Force local filesystem storage for every test, whatever the environment says.
+def _isolate_from_dotenv(settings: object) -> None:
+    """Neutralise the developer's app/.env for the whole suite.
 
-    config/settings.py picks STORAGES["default"] from the S3_BUCKET environment variable, and that
-    module calls `load_dotenv(BASE_DIR / ".env")` — so the moment a developer puts real credentials
-    in app/.env to try the bucket out, `task test` would run the whole suite against production
-    object storage. Several tests upload files and several assert that deleting a row deletes the
-    file, so that is not a read-only accident: it writes and then deletes real objects.
+    config/settings.py calls `load_dotenv(BASE_DIR / ".env")`, so anything a developer puts there to
+    exercise a real integration also reaches `task test`. That has already caused two different
+    kinds of confusion, and neither announced itself as an environment problem:
 
-    Autouse and unconditional, because the failure is silent and irreversible and no individual test
-    should have to remember. The many tests that redirect MEDIA_ROOT at a tmp_path depend on this
-    too — pointing MEDIA_ROOT somewhere safe does nothing if the backend is not the filesystem.
+      * S3_BUCKET — several tests upload files and several assert that deleting a row deletes the
+        file, so the suite would write to and then delete objects in the PRODUCTION bucket.
+      * TURNSTILE_SECRET_KEY — with a secret set, admissions._verify_turnstile stops short-circuiting
+        and looks for a `cf-turnstile-response` token that no test posts, so every application form
+        is silently rejected. That surfaces as `assert 0 == 1` on an Application count: it reads like
+        a broken view, and three tests failed this way for some time while CI stayed green.
+
+    Autouse and unconditional, because in both cases the symptom points somewhere other than the
+    cause, and no individual test should have to remember. Anything else added to .env that changes
+    behaviour rather than merely configuring an address belongs here too.
     """
     settings.STORAGES = {  # type: ignore[attr-defined]
         **settings.STORAGES,  # type: ignore[attr-defined]
         "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     }
+    settings.TURNSTILE_SECRET_KEY = ""  # type: ignore[attr-defined]
 
 
 @pytest.fixture

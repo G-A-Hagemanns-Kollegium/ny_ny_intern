@@ -93,10 +93,24 @@
         <span class="sr-only">Vedhæft billede til svar</span>
         <input type="file" id="id_reply_image_{{ post.pk }}" name="image" accept="image/*">
       </label>
+      {% comment %}
+        NOT `required`. A reply may be a photo on its own — "her, se" is a whole answer — and the
+        attribute made the browser refuse to submit before the server ever saw the attachment.
+        Emptiness is checked server-side instead, where the upload is in hand and the two can be
+        weighed together (views.create_comment); the no-JS path therefore keeps working too.
+      {% endcomment %}
       <label class="sr-only" for="id_comment_{{ post.pk }}">Svar</label>
-      <input type="text" id="id_comment_{{ post.pk }}" name="content" required
+      <input type="text" id="id_comment_{{ post.pk }}" name="content"
              maxlength="{{ max_content_chars }}" placeholder="Svar…" enterkeyhint="send">
       <button type="submit" class="composer-send" title="Send" aria-label="Send">&uarr;</button>
+      {% comment %}
+        Confirms the photo actually attached. The composer has had this since the paperclip
+        replaced a visible file input (#js-composer-file); the reply form never did, which did not
+        matter while a reply also needed text — you could see you had typed something. Sending a
+        photo ALONE, the filename is the only evidence there is anything to send at all.
+        data-reply-file rather than an id: the panel renders one of these per thread.
+      {% endcomment %}
+      <div class="reply-file" data-reply-file hidden></div>
       {% comment %}
         One checkbox instead of the old radio pair. Unchecked still means "only the author",
         which is the same default as before — see QuickComment.notify_everyone.

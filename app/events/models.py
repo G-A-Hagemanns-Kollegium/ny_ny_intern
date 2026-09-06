@@ -13,8 +13,8 @@ some readers is a noticeboard nobody can reason about any more.
 So the three features divide like this, and each docstring says so on purpose:
 
   * **Den Hurtige** — minutes to hours. "Kaffe om ti minutter." Hard-deleted on expiry.
-  * **Opslagstavlen** — weeks to years. An announcement *about* something, with comments and
-    reactions. ~2-year retention.
+  * **Opslagstavlen** — weeks to forever. An announcement *about* something, with comments and
+    reactions. No retention: the board is the kollegium's archive.
   * **Begivenheder** — this. A thing with a time, that you answer yes or no to. Gone a week after
     it is held (see EventQuerySet.expired).
 
